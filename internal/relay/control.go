@@ -76,7 +76,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages), false)
+	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, nil), false)
 	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()

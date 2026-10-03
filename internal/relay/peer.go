@@ -38,8 +38,8 @@ func (p *peer) fail(c closeMsg) {
 }
 
 func (p *peer) exit() {
+	p.q.finish(closeMsg{websocket.CloseGoingAway, "peer disconnected"}, true)
 	close(p.dead)
-	p.s.forget(p.ws)
 }
 
 func (p *peer) ping() bool {
@@ -51,6 +51,8 @@ func (p *peer) ping() bool {
 }
 
 func (p *peer) writeLoop() {
+	defer p.q.finish(closeMsg{websocket.CloseGoingAway, "writer stopped"}, true)
+	defer p.s.forget(p.ws)
 	cfg := p.s.cfg
 	ticker := time.NewTicker(cfg.Heartbeat)
 	defer ticker.Stop()
@@ -58,11 +60,12 @@ func (p *peer) writeLoop() {
 		f, final, ok := p.q.next()
 		if ok {
 			_ = p.ws.SetWriteDeadline(time.Now().Add(cfg.WriteTimeout))
-			if err := p.ws.WriteMessage(f.typ, f.data); err != nil {
+			err := p.ws.WriteMessage(f.typ, f.data)
+			p.q.release(f)
+			if err != nil {
 				p.fail(closeMsg{websocket.CloseTryAgainLater, "peer write timeout"})
 				return
 			}
-			p.q.release(len(f.data))
 			if p.data {
 				p.s.forwardedMessages.Add(1)
 				p.s.forwardedBytes.Add(int64(len(f.data)))
@@ -106,16 +109,29 @@ func (p *peer) readControl() {
 func (p *peer) readData(pr *pair, out *queue) {
 	defer p.exit()
 	for {
-		typ, data, err := p.ws.ReadMessage()
+		typ, reader, err := p.ws.NextReader()
+		var f frame
+		if err == nil {
+			f, err = p.s.budget.read(reader, p.s.cfg.MaxMessageBytes)
+		}
+		if errors.Is(err, errIngressCapacity) {
+			pr.close(closeMsg{websocket.CloseTryAgainLater, "ingress capacity exceeded"}, nil, true)
+			return
+		}
 		if err != nil {
 			pr.close(p.closeCause(err), p, false)
 			return
 		}
 		p.extend()
-		if !out.push(frame{typ, data}) {
-			c := closeMsg{websocket.CloseTryAgainLater, "queue limit exceeded"}
-			out.finish(c, true)
-			pr.close(c, nil, true)
+		f.typ = typ
+		result := out.pushResult(f)
+		if !result.accepted() {
+			reason := "queue limit exceeded"
+			if result == pushBudgetLimit {
+				reason = "ingress capacity exceeded"
+			}
+			pr.close(closeMsg{websocket.CloseTryAgainLater, reason}, nil, true)
+			return
 		}
 	}
 }

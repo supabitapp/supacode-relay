@@ -21,6 +21,7 @@ type Server struct {
 	http     *http.Server
 	upgrader websocket.Upgrader
 	limiter  *ipLimiter
+	budget   *byteBudget
 	draining atomic.Bool
 
 	forwardedMessages   atomic.Int64
@@ -45,6 +46,7 @@ func New(cfg Config) *Server {
 			CheckOrigin:     func(*http.Request) bool { return true },
 		},
 		limiter: newIPLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
+		budget:  newByteBudget(int64(cfg.IngressBudgetBytes), int64(cfg.IngressWeight)),
 		hosts:   map[string]*host{},
 		conns:   map[*websocket.Conn]struct{}{},
 	}
@@ -86,6 +88,10 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m["rateLimiterEntries"] = s.limiter.size()
 	m["goroutines"] = runtime.NumGoroutine()
 	m["draining"] = s.draining.Load()
+	m["ingressReservedBytes"] = s.budget.bytes.Load()
+	m["ingressReservedWeightedBytes"] = s.budget.used.Load()
+	m["ingressBudgetBytes"] = s.cfg.IngressBudgetBytes
+	m["ingressWeight"] = s.cfg.IngressWeight
 	writeJSON(w, http.StatusOK, m)
 }
 
@@ -145,7 +151,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func textFrame(v any) frame {
 	b, _ := json.Marshal(v)
-	return frame{websocket.TextMessage, b}
+	return frame{typ: websocket.TextMessage, data: b}
 }
 
 func randomB64(n int) string {

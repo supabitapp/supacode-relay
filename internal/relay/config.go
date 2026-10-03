@@ -10,20 +10,22 @@ import (
 )
 
 type Config struct {
-	Addr              string
-	MaxMessageBytes   int
-	MaxQueueBytes     int
-	MaxQueueMessages  int
-	MaxClients        int
-	MaxClientsPerHost int
-	MaxPendingPerHost int
-	MaxHosts          int
-	AuthTimeout       time.Duration
-	PairTimeout       time.Duration
-	WriteTimeout      time.Duration
-	Heartbeat         time.Duration
-	AdmissionRate     float64
-	TrustedProxies    []netip.Prefix
+	Addr               string
+	MaxMessageBytes    int
+	IngressBudgetBytes int
+	IngressWeight      int
+	MaxQueueBytes      int
+	MaxQueueMessages   int
+	MaxClients         int
+	MaxClientsPerHost  int
+	MaxPendingPerHost  int
+	MaxHosts           int
+	AuthTimeout        time.Duration
+	PairTimeout        time.Duration
+	WriteTimeout       time.Duration
+	Heartbeat          time.Duration
+	AdmissionRate      float64
+	TrustedProxies     []netip.Prefix
 }
 
 func (c Config) pongTimeout() time.Duration {
@@ -50,13 +52,15 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		def  int
 		dst  *int
 	}{
-		{"RELAY_MAX_MESSAGE_BYTES", 1 << 20, &c.MaxMessageBytes},
-		{"RELAY_MAX_QUEUE_BYTES", 4 << 20, &c.MaxQueueBytes},
+		{"RELAY_MAX_MESSAGE_BYTES", (32 << 20) - 14, &c.MaxMessageBytes},
+		{"RELAY_MAX_QUEUE_BYTES", 64 << 20, &c.MaxQueueBytes},
 		{"RELAY_MAX_QUEUE_MESSAGES", 256, &c.MaxQueueMessages},
-		{"RELAY_MAX_CLIENTS", 1024, &c.MaxClients},
-		{"RELAY_MAX_CLIENTS_PER_HOST", 128, &c.MaxClientsPerHost},
-		{"RELAY_MAX_PENDING_PER_HOST", 32, &c.MaxPendingPerHost},
-		{"RELAY_MAX_HOSTS", 1024, &c.MaxHosts},
+		{"RELAY_MAX_CLIENTS", 20000, &c.MaxClients},
+		{"RELAY_MAX_CLIENTS_PER_HOST", 20000, &c.MaxClientsPerHost},
+		{"RELAY_MAX_PENDING_PER_HOST", 20000, &c.MaxPendingPerHost},
+		{"RELAY_MAX_HOSTS", 20000, &c.MaxHosts},
+		{"RELAY_INGRESS_BUDGET_BYTES", 512 << 20, &c.IngressBudgetBytes},
+		{"RELAY_INGRESS_WEIGHT", 4, &c.IngressWeight},
 	}
 	for _, f := range ints {
 		n, err := positiveInt(getenv, f.name, f.def)
@@ -102,6 +106,9 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		}
 	}
 
+	if c.MaxMessageBytes > c.IngressBudgetBytes/c.IngressWeight {
+		return c, fmt.Errorf("RELAY_INGRESS_BUDGET_BYTES must admit RELAY_MAX_MESSAGE_BYTES at RELAY_INGRESS_WEIGHT")
+	}
 	if c.MaxMessageBytes > c.MaxQueueBytes {
 		return c, fmt.Errorf("RELAY_MAX_MESSAGE_BYTES (%d) must not exceed RELAY_MAX_QUEUE_BYTES (%d)", c.MaxMessageBytes, c.MaxQueueBytes)
 	}

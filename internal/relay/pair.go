@@ -54,8 +54,8 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		id:       randomB64(16),
 		token:    randomB64(32),
 		host:     h,
-		toHost:   newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages),
-		toClient: newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages),
+		toHost:   newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget),
+		toClient: newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget),
 	}
 	h.pairs[p.id] = p
 	h.pending++
@@ -164,12 +164,9 @@ func (p *pair) close(c closeMsg, origin *peer, discard bool) {
 	if p.announced {
 		h.notify(map[string]string{"type": "closed", "connectionId": p.id})
 	}
-	peers := []*peer{p.client, p.hostPeer}
+	client, hostPeer := p.client, p.hostPeer
 	s.mu.Unlock()
 	p.timer.Stop()
-	for _, x := range peers {
-		if x != nil && x != origin {
-			x.q.finish(c, discard)
-		}
-	}
+	p.toClient.finish(c, discard || client == nil || client == origin)
+	p.toHost.finish(c, discard || hostPeer == nil || hostPeer == origin)
 }

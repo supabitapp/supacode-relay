@@ -136,6 +136,22 @@ func TestSlowReaderIsolation(t *testing.T) {
 	expectMessage(t, healthyHost, m)
 }
 
+func TestIngressBudgetLimit(t *testing.T) {
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=4096", "RELAY_MAX_QUEUE_BYTES=65536", "RELAY_INGRESS_BUDGET_BYTES=4096", "RELAY_INGRESS_WEIGHT=1")
+	h := register(t, r)
+	client, ev := connect(t, r, h)
+	send(t, client, message{websocket.BinaryMessage, randomBytes(4096)})
+	send(t, client, message{websocket.BinaryMessage, []byte("next")})
+	ce := expectClose(t, client, websocket.CloseTryAgainLater)
+	if ce.Text != "ingress capacity exceeded" {
+		t.Fatalf("unexpected close reason %q", ce.Text)
+	}
+	if closed := nextEvent(t, h, "closed"); closed.ConnectionID != ev.ConnectionID {
+		t.Fatalf("closed event for wrong pair %+v", closed)
+	}
+	r.waitMetrics("ingress budget release", func(m map[string]float64) bool { return m["ingressReservedBytes"] == 0 })
+}
+
 func TestConnectionLimits(t *testing.T) {
 	r := startRelay(t, "RELAY_MAX_CLIENTS=3", "RELAY_MAX_CLIENTS_PER_HOST=2", "RELAY_MAX_PENDING_PER_HOST=1", "RELAY_MAX_HOSTS=2")
 	h1, h2 := register(t, r), register(t, r)

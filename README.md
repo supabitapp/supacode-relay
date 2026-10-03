@@ -45,24 +45,26 @@ The host signs `"supacode-relay-v1\n" + endpointId + "\n" + nonce`. A bad signat
 | 1008 | Authentication failed or unexpected control message |
 | 1009 | Message larger than `RELAY_MAX_MESSAGE_BYTES` |
 | 1011 | Upgrade failed |
-| 1013 | Queue full, pair timeout, or write timeout |
+| 1013 | Queue full, ingress capacity exceeded, pair timeout, or write timeout |
 
 ### HTTP
 
-`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters.
+`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations.
 
 ## Configuration
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `RELAY_ADDR` | `127.0.0.1:8080` | Listen address |
-| `RELAY_MAX_MESSAGE_BYTES` | `1048576` | Largest single message |
-| `RELAY_MAX_QUEUE_BYTES` | `4194304` | Bytes buffered per direction of a pair |
+| `RELAY_MAX_MESSAGE_BYTES` | `33554418` | Largest single message |
+| `RELAY_MAX_QUEUE_BYTES` | `67108864` | Bytes buffered per direction of a pair |
 | `RELAY_MAX_QUEUE_MESSAGES` | `256` | Messages buffered per direction of a pair |
-| `RELAY_MAX_CLIENTS` | `1024` | Pairs across the relay |
-| `RELAY_MAX_CLIENTS_PER_HOST` | `128` | Pairs per host |
-| `RELAY_MAX_PENDING_PER_HOST` | `32` | Pairs per host waiting to be accepted |
-| `RELAY_MAX_HOSTS` | `1024` | Connected hosts |
+| `RELAY_MAX_CLIENTS` | `20000` | Pairs across the relay |
+| `RELAY_MAX_CLIENTS_PER_HOST` | `20000` | Pairs per host |
+| `RELAY_MAX_PENDING_PER_HOST` | `20000` | Pairs per host waiting to be accepted |
+| `RELAY_MAX_HOSTS` | `20000` | Connected hosts |
+| `RELAY_INGRESS_BUDGET_BYTES` | `536870912` | Weighted global payload budget |
+| `RELAY_INGRESS_WEIGHT` | `4` | Multiplier applied while each payload is read, queued, or written |
 | `RELAY_AUTH_TIMEOUT_MS` | `5000` | Time to answer the challenge |
 | `RELAY_PAIR_TIMEOUT_MS` | `5000` | Time for the host to accept a client |
 | `RELAY_WRITE_TIMEOUT_MS` | `5000` | Deadline for each socket write |
