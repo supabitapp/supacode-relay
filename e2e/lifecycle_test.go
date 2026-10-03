@@ -1,0 +1,314 @@
+package e2e
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"strings"
+	"syscall"
+	"testing"
+	"time"
+
+	"github.com/gorilla/websocket"
+
+	"github.com/supabitapp/supacode-relay/internal/endpoint"
+)
+
+func TestAdmissionRateLimit(t *testing.T) {
+	r := startRelay(t, "RELAY_ADMISSION_RATE=5")
+	unknown := endpoint.EndpointID(randomBytes(32))
+	var codes []int
+	for range 20 {
+		_, resp, err := endpoint.Connect(r.base, unknown)
+		if err == nil || resp == nil {
+			t.Fatalf("unexpected connect result %v", err)
+		}
+		codes = append(codes, resp.StatusCode)
+	}
+	if codes[0] != 404 || codes[len(codes)-1] != 429 {
+		t.Fatalf("unexpected status sequence %v", codes)
+	}
+	if code, _ := r.get("/healthz"); code != 200 {
+		t.Fatalf("healthz rate limited: %d", code)
+	}
+}
+
+func TestHeartbeatCleanup(t *testing.T) {
+	r := startRelay(t, "RELAY_HEARTBEAT_MS=100")
+	h := register(t, r)
+
+	healthyClient, healthyHost, _ := pairUp(t, r, h)
+	pings := make(chan struct{}, 64)
+	healthyClient.SetPingHandler(func(data string) error {
+		select {
+		case pings <- struct{}{}:
+		default:
+		}
+		return healthyClient.WriteControl(websocket.PongMessage, []byte(data), time.Now().Add(time.Second))
+	})
+	echoed := make(chan message, 1)
+	go func() {
+		for {
+			typ, data, err := healthyClient.ReadMessage()
+			if err != nil {
+				return
+			}
+			echoed <- message{typ, data}
+		}
+	}()
+	go func() {
+		for {
+			typ, data, err := healthyHost.ReadMessage()
+			if err != nil || healthyHost.WriteMessage(typ, data) != nil {
+				return
+			}
+		}
+	}()
+
+	_, deadHost, deadID := pairUp(t, r, h)
+	ce := expectClose(t, deadHost, websocket.CloseGoingAway)
+	if ce.Text != "peer timeout" {
+		t.Fatalf("unexpected reason %q", ce.Text)
+	}
+	if ev := nextEvent(t, h, "closed"); ev.ConnectionID != deadID {
+		t.Fatalf("closed event mismatch %+v", ev)
+	}
+
+	for range 6 {
+		select {
+		case <-pings:
+		case <-time.After(deadline):
+			t.Fatal("no relay ping")
+		}
+	}
+	want := []byte("alive after heartbeats")
+	send(t, healthyClient, message{websocket.TextMessage, want})
+	select {
+	case got := <-echoed:
+		if string(got.data) != string(want) {
+			t.Fatalf("echo mismatch %q", got.data)
+		}
+	case <-time.After(deadline):
+		t.Fatal("healthy pair stopped forwarding")
+	}
+	if m := r.metrics(); m["activePairs"] != 1 || m["activeHosts"] != 1 {
+		t.Fatalf("unexpected metrics %v", m)
+	}
+}
+
+func TestAbruptDisconnects(t *testing.T) {
+	r := startRelay(t)
+	h := register(t, r)
+
+	client, host, id := pairUp(t, r, h)
+	client.UnderlyingConn().Close()
+	ce := expectClose(t, host, websocket.CloseGoingAway)
+	if ce.Text != "peer disconnected" {
+		t.Fatalf("unexpected reason %q", ce.Text)
+	}
+	if ev := nextEvent(t, h, "closed"); ev.ConnectionID != id {
+		t.Fatalf("closed mismatch %+v", ev)
+	}
+
+	client2, host2, id2 := pairUp(t, r, h)
+	host2.UnderlyingConn().Close()
+	expectClose(t, client2, websocket.CloseGoingAway)
+	if ev := nextEvent(t, h, "closed"); ev.ConnectionID != id2 {
+		t.Fatalf("closed mismatch %+v", ev)
+	}
+
+	_, ev3 := connect(t, r, h)
+	if ev3.ConnectionID == id || ev3.ConnectionID == id2 {
+		t.Fatal("connection id reused")
+	}
+	r.waitMetrics("pairs released", func(m map[string]float64) bool { return m["activePairs"] == 0 && m["pendingPairs"] == 1 })
+}
+
+func TestCloseCodesPreserved(t *testing.T) {
+	r := startRelay(t)
+	h := register(t, r)
+	cases := []struct {
+		fromClient bool
+		frame      []byte
+		code       int
+		reason     string
+	}{
+		{true, websocket.FormatCloseMessage(4001, "bye now"), 4001, "bye now"},
+		{false, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "done"), websocket.CloseNormalClosure, "done"},
+		{true, websocket.FormatCloseMessage(websocket.CloseGoingAway, "tab closed"), websocket.CloseGoingAway, "tab closed"},
+		{false, websocket.FormatCloseMessage(3000, ""), 3000, ""},
+		{true, []byte{}, websocket.CloseNormalClosure, ""},
+	}
+	for _, c := range cases {
+		client, host, _ := pairUp(t, r, h)
+		from, to := client, host
+		if !c.fromClient {
+			from, to = host, client
+		}
+		if err := from.WriteControl(websocket.CloseMessage, c.frame, time.Now().Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		ce := expectClose(t, to, c.code)
+		if ce.Text != c.reason {
+			t.Fatalf("reason %q, want %q", ce.Text, c.reason)
+		}
+		nextEvent(t, h, "closed")
+	}
+}
+
+func TestControlCloseClosesAllPairs(t *testing.T) {
+	r := startRelay(t)
+	h := register(t, r)
+	c1, s1, _ := pairUp(t, r, h)
+	c2, s2, _ := pairUp(t, r, h)
+	c3, _ := connect(t, r, h)
+	if err := h.Control.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	for _, ws := range []*websocket.Conn{c1, s1, c2, s2, c3} {
+		ce := expectClose(t, ws, websocket.CloseGoingAway)
+		if ce.Text != "host offline" {
+			t.Fatalf("unexpected reason %q", ce.Text)
+		}
+	}
+	r.waitMetrics("all released", func(m map[string]float64) bool {
+		return m["activeHosts"] == 0 && m["activePairs"] == 0 && m["pendingPairs"] == 0 && m["openSockets"] == 0
+	})
+}
+
+func TestGracefulShutdownWaitsForActivePairs(t *testing.T) {
+	r := startRelay(t)
+	h := register(t, r)
+	client, host, _ := pairUp(t, r, h)
+
+	r.signal(syscall.SIGTERM)
+	waitHealth(t, r, 503)
+	_, resp, err := endpoint.Connect(r.base, h.ID)
+	expectStatus(t, resp, err, 503)
+	_, _, resp, err = endpoint.DialControl(r.base, endpoint.B64(randomBytes(32)))
+	expectStatus(t, resp, err, 503)
+
+	for i := range 10 {
+		m := message{websocket.BinaryMessage, []byte{byte(i)}}
+		send(t, client, m)
+		expectMessage(t, host, m)
+		send(t, host, m)
+		expectMessage(t, client, m)
+	}
+	start := time.Now()
+	if err := client.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "finished"), time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	expectClose(t, host, websocket.CloseNormalClosure)
+	if err := r.waitExit(deadline); err != nil {
+		t.Fatalf("relay exit: %v\n%s", err, r.stderr)
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("relay waited %s after last pair finished", elapsed)
+	}
+}
+
+func TestGracefulShutdownExitsWithinBudget(t *testing.T) {
+	r := startRelay(t, "RELAY_PAIR_TIMEOUT_MS=60000")
+	h := register(t, r)
+	var readers []*websocket.Conn
+	for range 3 {
+		client, host, _ := pairUp(t, r, h)
+		readers = append(readers, client, host)
+	}
+	pairUp(t, r, h)
+	pending, _ := connect(t, r, h)
+	readers = append(readers, pending)
+	r.waitMetrics("pairs established", func(m map[string]float64) bool { return m["activePairs"] == 4 && m["pendingPairs"] == 1 })
+
+	results := make(chan error, len(readers)+1)
+	for _, ws := range readers {
+		go func() {
+			ce, err := readClose(ws)
+			if err == nil && ce.Code != websocket.CloseGoingAway {
+				err = fmt.Errorf("close %d %q", ce.Code, ce.Text)
+			}
+			results <- err
+		}()
+	}
+	go func() {
+		<-h.Done
+		var ce *websocket.CloseError
+		if !errors.As(h.Err, &ce) || ce.Code != websocket.CloseGoingAway {
+			results <- fmt.Errorf("control: %v", h.Err)
+			return
+		}
+		results <- nil
+	}()
+
+	start := time.Now()
+	r.signal(syscall.SIGTERM)
+	if err := r.waitExit(8 * time.Second); err != nil {
+		t.Fatalf("relay exit: %v\n%s", err, r.stderr)
+	}
+	elapsed := time.Since(start)
+	if elapsed < 4*time.Second || elapsed > 5*time.Second+250*time.Millisecond {
+		t.Fatalf("shutdown took %s, want within the 5s budget\n%s", elapsed, r.stderr)
+	}
+	for range len(readers) + 1 {
+		if err := <-results; err != nil && !errors.Is(err, io.EOF) && !strings.Contains(err.Error(), "connection reset") {
+			t.Fatalf("socket not closed cleanly: %v", err)
+		}
+	}
+	if !strings.Contains(r.stderr.String(), "5 pairs force-closed") {
+		t.Fatalf("unexpected drain log:\n%s", r.stderr)
+	}
+	t.Logf("shutdown with 4 active pairs, 1 pending pair, and a non-reading peer took %s", elapsed.Round(time.Millisecond))
+}
+
+func waitHealth(t *testing.T, r *relay, want int) {
+	t.Helper()
+	end := time.Now().Add(deadline)
+	for time.Now().Before(end) {
+		resp, err := http.Get("http://" + r.addr + "/healthz")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == want {
+				return
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("healthz never returned %d", want)
+}
+
+func TestConfigValidation(t *testing.T) {
+	cases := map[string]string{
+		"RELAY_ADDR":                 "nonsense",
+		"RELAY_MAX_MESSAGE_BYTES":    "abc",
+		"RELAY_MAX_QUEUE_BYTES":      "0",
+		"RELAY_MAX_QUEUE_MESSAGES":   "-1",
+		"RELAY_MAX_CLIENTS":          "1.5",
+		"RELAY_MAX_CLIENTS_PER_HOST": "",
+		"RELAY_MAX_PENDING_PER_HOST": "999999",
+		"RELAY_AUTH_TIMEOUT_MS":      "0",
+		"RELAY_PAIR_TIMEOUT_MS":      "soon",
+		"RELAY_WRITE_TIMEOUT_MS":     "-5",
+		"RELAY_HEARTBEAT_MS":         "1e3",
+		"RELAY_ADMISSION_RATE":       "0",
+		"RELAY_TRUSTED_PROXIES":      "10.0.0.0/99",
+	}
+	cases["RELAY_MAX_CLIENTS_PER_HOST"] = "x"
+	for name, value := range cases {
+		cmd := exec.Command(relayBin)
+		cmd.Env = append(os.Environ(), "RELAY_ADDR=127.0.0.1:0", name+"="+value)
+		out, err := cmd.CombinedOutput()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), name) {
+			t.Fatalf("%s=%q: expected config error, got %v: %s", name, value, err, out)
+		}
+	}
+	cmd := exec.Command(relayBin)
+	cmd.Env = append(os.Environ(), "RELAY_ADDR=127.0.0.1:0", "RELAY_MAX_MESSAGE_BYTES=9000000")
+	if out, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "RELAY_MAX_QUEUE_BYTES") {
+		t.Fatalf("message larger than queue accepted: %s", out)
+	}
+}
