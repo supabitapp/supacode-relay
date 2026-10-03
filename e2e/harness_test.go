@@ -28,27 +28,23 @@ const deadline = 5 * time.Second
 var relayBin string
 
 func TestMain(m *testing.M) {
-	relayBin = os.Getenv("RELAY_BIN")
-	if relayBin == "" {
-		dir, err := os.MkdirTemp("", "supacode-relay-e2e")
-		if err != nil {
-			panic(err)
-		}
-		relayBin = filepath.Join(dir, "relay")
-		args := []string{"build", "-o", relayBin}
-		if raceEnabled {
-			args = append(args, "-race")
-		}
-		cmd := exec.Command("go", append(args, "..")...)
-		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
-		if err := cmd.Run(); err != nil {
-			panic(err)
-		}
-		code := m.Run()
-		os.RemoveAll(dir)
-		os.Exit(code)
+	dir, err := os.MkdirTemp("", "supacode-relay-e2e")
+	if err != nil {
+		panic(err)
 	}
-	os.Exit(m.Run())
+	relayBin = filepath.Join(dir, "relay")
+	args := []string{"build", "-o", relayBin}
+	if raceEnabled {
+		args = append(args, "-race")
+	}
+	cmd := exec.Command("go", append(args, "../cmd/relay")...)
+	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+	if err := cmd.Run(); err != nil {
+		panic(err)
+	}
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
 }
 
 type lockedBuffer struct {

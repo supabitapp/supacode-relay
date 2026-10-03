@@ -83,7 +83,7 @@ func Register(base string, priv ed25519.PrivateKey) (*Host, error) {
 		return nil, fmt.Errorf("unexpected registration reply %q", reg.Type)
 	}
 	_ = ws.SetReadDeadline(time.Time{})
-	h := &Host{Base: base, ID: id, Control: ws, Events: make(chan Event, 8192), Done: make(chan struct{})}
+	h := &Host{Base: base, ID: id, Control: ws, Events: make(chan Event, 1024), Done: make(chan struct{})}
 	go h.read()
 	return h, nil
 }

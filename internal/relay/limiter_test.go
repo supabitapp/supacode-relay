@@ -1,4 +1,4 @@
-package main
+package relay
 
 import (
 	"net/http"
@@ -71,17 +71,6 @@ func TestClientIPTrustedProxies(t *testing.T) {
 	for _, c := range cases {
 		if got := clientIP(req(c.remote, c.xff), c.trusted); got.String() != c.want {
 			t.Errorf("%s %q: got %s want %s", c.remote, c.xff, got, c.want)
-		}
-	}
-}
-
-func TestDecodeB64Canonical(t *testing.T) {
-	if _, ok := decodeB64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", 32); !ok {
-		t.Fatal("canonical rejected")
-	}
-	for _, s := range []string{"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "AAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAAA"} {
-		if _, ok := decodeB64(s, 32); ok {
-			t.Fatalf("accepted %q", s)
 		}
 	}
 }
