@@ -4,6 +4,12 @@ A small WebSocket relay that connects clients to hosts that aren't reachable dir
 
 The relay never looks inside the data it forwards. Encryption, pairing, and authorization between client and host belong to the endpoints.
 
+## Public relay
+
+A hosted instance runs at `wss://supacode-relay.exe.xyz`. Point hosts and clients at that base URL, for example `wss://supacode-relay.exe.xyz/v1/connect?endpointId=HEX`. Its health is at <https://supacode-relay.exe.xyz/healthz>.
+
+Every push to `main` that passes the tests is deployed there automatically. Deploys restart the relay, so connected hosts and clients have to reconnect.
+
 ## Quick start
 
 Requires Go 1.25 or later.
@@ -105,6 +111,12 @@ On SIGTERM or SIGINT the relay stops accepting new hosts and clients and reports
 
 All state lives in memory. After a restart, hosts register again with the same key and keep the same endpoint ID, and clients open new pairs. Reconnecting is up to the endpoints, so run the relay under a process supervisor.
 
+### Hosted instance
+
+The public relay runs on the exe.dev VM `supacode-relay.exe.xyz`. The exe.dev proxy terminates TLS and forwards to the relay on `127.0.0.1:8080`. On the VM, the relay runs as the systemd service in `deploy/supacode-relay.service`.
+
+`.github/workflows/deploy.yml` runs `make test`, builds a linux/amd64 binary, and installs it with `deploy/install.sh`. The install script restarts the service and waits for `/healthz` to report ok. The workflow connects with an SSH key stored as the `EXE_SSH_KEY` secret in the `production` environment, which only `main` can deploy to. That key is registered on exe.dev for VMs tagged `supacode-relay-deploy`, so it can't reach any other VM. To deploy by hand, run the workflow from the Actions tab.
+
 ## Design
 
 - Every socket has one reader and one writer goroutine, and each direction of a pair has its own bounded queue. When a queue fills up, the relay closes that pair with 1013 instead of blocking, so a slow peer can't stall other pairs.
@@ -118,6 +130,7 @@ cmd/relay          entry point: config, listener, signal handling
 internal/relay     server, host registration, pairing, forwarding, rate limiting
 internal/endpoint  host and client helpers used by the tests
 e2e                end-to-end tests that drive the built binary over real sockets
+deploy             systemd unit and install script for the hosted instance
 ```
 
 ## License
