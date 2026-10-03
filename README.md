@@ -70,10 +70,6 @@ The host signs `"supacode-relay-v1\n" + endpointId + "\n" + nonce`. A bad signat
 | `RELAY_ADMISSION_RATE` | `100` | Connection attempts per second per IP |
 | `RELAY_TRUSTED_PROXIES` | | CIDRs whose `X-Forwarded-For` is trusted |
 
-## Deployment
-
-Run the relay behind a reverse proxy that terminates TLS, and set `RELAY_TRUSTED_PROXIES` to the proxy's address. Keys and tokens travel in the query string, so don't let the proxy log URLs. On SIGTERM the relay stops accepting connections, gives active pairs a few seconds to finish, and exits within 5 seconds.
-
 ## License
 
 [MIT](LICENSE)
