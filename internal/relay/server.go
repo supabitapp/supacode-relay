@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/supabitapp/supacode-relay/internal/admission"
+	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 const closeGrace = time.Second
@@ -19,21 +22,27 @@ const closeGrace = time.Second
 type Server struct {
 	cfg      Config
 	http     *http.Server
+	private  *http.Server
 	upgrader websocket.Upgrader
-	limiter  *ipLimiter
+	limiter  *admission.Limiter
 	budget   *byteBudget
 	draining atomic.Bool
+	clock    directory.Clock
 
 	forwardedMessages   atomic.Int64
 	forwardedBytes      atomic.Int64
 	rejectedConnections atomic.Int64
+	superseded          atomic.Int64
+	evicted             atomic.Int64
 
-	mu       sync.Mutex
-	hosts    map[string]*host
-	controls int
-	pending  int
-	active   int
-	conns    map[*websocket.Conn]struct{}
+	mu         sync.Mutex
+	hosts      map[string]*host
+	pairs      map[string]*pair
+	controls   int
+	pending    int
+	active     int
+	conns      map[*websocket.Conn]struct{}
+	dirStreams map[*dirStream]struct{}
 }
 
 func New(cfg Config) *Server {
@@ -45,23 +54,35 @@ func New(cfg Config) *Server {
 			WriteBufferPool: &sync.Pool{},
 			CheckOrigin:     func(*http.Request) bool { return true },
 		},
-		limiter: newIPLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
-		budget:  newByteBudget(int64(cfg.IngressBudgetBytes), int64(cfg.IngressWeight)),
-		hosts:   map[string]*host{},
-		conns:   map[*websocket.Conn]struct{}{},
+		limiter:    admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
+		budget:     newByteBudget(int64(cfg.IngressBudgetBytes), int64(cfg.IngressWeight)),
+		hosts:      map[string]*host{},
+		pairs:      map[string]*pair{},
+		conns:      map[*websocket.Conn]struct{}{},
+		dirStreams: map[*dirStream]struct{}{},
 	}
+	admin := http.NewServeMux()
+	admin.HandleFunc("GET /healthz", s.handleHealth)
+	admin.HandleFunc("GET /metrics", s.handleMetrics)
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", s.handleHealth)
-	mux.HandleFunc("GET /metrics", s.handleMetrics)
+	if cfg.PrivateAddr == "" {
+		mux.Handle("GET /healthz", admin)
+		mux.Handle("GET /metrics", admin)
+	}
 	mux.HandleFunc("GET /v1/control", s.handleControl)
 	mux.HandleFunc("GET /v1/connect", s.handleConnect)
 	mux.HandleFunc("GET /v1/accept", s.handleAccept)
 	s.http = &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	s.private = &http.Server{Handler: admin, ReadHeaderTimeout: 5 * time.Second}
 	return s
 }
 
 func (s *Server) Serve(ln net.Listener) error {
-	return s.http.Serve(ln)
+	return s.http.Serve(admission.FilterListener(ln, s.cfg.AllowedPeers))
+}
+
+func (s *Server) ServePrivate(ln net.Listener) error {
+	return s.private.Serve(admission.FilterListener(ln, s.cfg.PrivatePeers))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -80,12 +101,16 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 		"pendingPairs":       s.pending,
 		"controlConnections": s.controls,
 		"openSockets":        len(s.conns),
+		"directoryStreams":   len(s.dirStreams),
 	}
 	s.mu.Unlock()
+	m["nodeId"] = s.cfg.NodeID
+	m["supersededRegistrations"] = s.superseded.Load()
+	m["evictedRegistrations"] = s.evicted.Load()
 	m["forwardedMessages"] = s.forwardedMessages.Load()
 	m["forwardedBytes"] = s.forwardedBytes.Load()
 	m["rejectedConnections"] = s.rejectedConnections.Load()
-	m["rateLimiterEntries"] = s.limiter.size()
+	m["rateLimiterEntries"] = s.limiter.Size()
 	m["goroutines"] = runtime.NumGoroutine()
 	m["draining"] = s.draining.Load()
 	m["ingressReservedBytes"] = s.budget.bytes.Load()
@@ -105,7 +130,7 @@ func (s *Server) admit(w http.ResponseWriter, r *http.Request, duringDrain bool)
 		s.reject(w, http.StatusServiceUnavailable, "draining")
 		return false
 	}
-	if !s.limiter.allow(clientIP(r, s.cfg.TrustedProxies), time.Now()) {
+	if !s.limiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
 		s.reject(w, http.StatusTooManyRequests, "rate limited")
 		return false
 	}

@@ -25,23 +25,28 @@ import (
 
 const deadline = 5 * time.Second
 
-var relayBin string
+var relayBin, routerBin string
 
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "supacode-relay-e2e")
 	if err != nil {
 		panic(err)
 	}
-	relayBin = filepath.Join(dir, "relay")
-	args := []string{"build", "-o", relayBin}
-	if raceEnabled {
-		args = append(args, "-race")
+	build := func(name, pkg string) string {
+		out := filepath.Join(dir, name)
+		args := []string{"build", "-o", out}
+		if raceEnabled {
+			args = append(args, "-race")
+		}
+		cmd := exec.Command("go", append(args, pkg)...)
+		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+		if err := cmd.Run(); err != nil {
+			panic(err)
+		}
+		return out
 	}
-	cmd := exec.Command("go", append(args, "../cmd/relay")...)
-	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
-	if err := cmd.Run(); err != nil {
-		panic(err)
-	}
+	relayBin = build("relay", "../cmd/relay")
+	routerBin = build("router", "../cmd/router")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
@@ -65,25 +70,35 @@ func (b *lockedBuffer) String() string {
 }
 
 type relay struct {
-	t       *testing.T
-	cmd     *exec.Cmd
-	addr    string
-	base    string
-	stderr  *lockedBuffer
-	exited  chan struct{}
-	exitErr error
+	t        *testing.T
+	cmd      *exec.Cmd
+	addr     string
+	privAddr string
+	base     string
+	stderr   *lockedBuffer
+	exited   chan struct{}
+	exitErr  error
 }
 
 func startRelay(t *testing.T, env ...string) *relay {
 	t.Helper()
-	cmd := exec.Command(relayBin)
+	return startBinary(t, relayBin, append([]string{"RELAY_ADDR=127.0.0.1:0", "RELAY_ADMISSION_RATE=100000"}, env...))
+}
+
+func startBinary(t *testing.T, bin string, env []string) *relay {
+	t.Helper()
+	cmd := exec.Command(bin)
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "RELAY_") {
+		if !strings.HasPrefix(kv, "RELAY_") && !strings.HasPrefix(kv, "ROUTER_") {
 			cmd.Env = append(cmd.Env, kv)
 		}
 	}
-	cmd.Env = append(cmd.Env, "RELAY_ADDR=127.0.0.1:0", "RELAY_ADMISSION_RATE=100000", "GORACE=atexit_sleep_ms=0")
+	cmd.Env = append(cmd.Env, "GORACE=atexit_sleep_ms=0")
 	cmd.Env = append(cmd.Env, env...)
+	wantPrivate := bin == routerBin
+	for _, kv := range env {
+		wantPrivate = wantPrivate || strings.HasPrefix(kv, "RELAY_PRIVATE_ADDR=")
+	}
 	r := &relay{t: t, cmd: cmd, stderr: &lockedBuffer{}, exited: make(chan struct{})}
 	cmd.Stderr = r.stderr
 	stdout, err := cmd.StdoutPipe()
@@ -93,7 +108,7 @@ func startRelay(t *testing.T, env ...string) *relay {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	lines := make(chan string, 1)
+	lines := make(chan string, 4)
 	go func() {
 		sc := bufio.NewScanner(stdout)
 		for sc.Scan() {
@@ -108,20 +123,34 @@ func startRelay(t *testing.T, env ...string) *relay {
 		close(r.exited)
 	}()
 	t.Cleanup(r.stop)
-	select {
-	case line := <-lines:
-		var ev struct{ Event, Address string }
-		if err := json.Unmarshal([]byte(line), &ev); err != nil || ev.Event != "listening" {
-			t.Fatalf("unexpected startup line %q", line)
+	timeout := time.After(10 * time.Second)
+	for r.addr == "" || (wantPrivate && r.privAddr == "") {
+		select {
+		case line := <-lines:
+			var ev struct{ Event, Address, Listener string }
+			if err := json.Unmarshal([]byte(line), &ev); err != nil || ev.Event != "listening" {
+				t.Fatalf("unexpected startup line %q", line)
+			}
+			if ev.Listener == "private" {
+				r.privAddr = ev.Address
+			} else {
+				r.addr = ev.Address
+				r.base = "ws://" + ev.Address
+			}
+		case <-r.exited:
+			t.Fatalf("%s exited during startup: %v\n%s", filepath.Base(bin), r.exitErr, r.stderr)
+		case <-timeout:
+			t.Fatalf("%s did not report listening", filepath.Base(bin))
 		}
-		r.addr = ev.Address
-		r.base = "ws://" + ev.Address
-	case <-r.exited:
-		t.Fatalf("relay exited during startup: %v\n%s", r.exitErr, r.stderr)
-	case <-time.After(10 * time.Second):
-		t.Fatal("relay did not report listening")
 	}
 	return r
+}
+
+func (r *relay) adminAddr() string {
+	if r.privAddr != "" {
+		return r.privAddr
+	}
+	return r.addr
 }
 
 func (r *relay) signal(sig syscall.Signal) {
@@ -156,7 +185,7 @@ func (r *relay) stop() {
 
 func (r *relay) get(path string) (int, []byte) {
 	r.t.Helper()
-	resp, err := http.Get("http://" + r.addr + path)
+	resp, err := http.Get("http://" + r.adminAddr() + path)
 	if err != nil {
 		r.t.Fatal(err)
 	}

@@ -268,7 +268,7 @@ func waitHealth(t *testing.T, r *relay, want int) {
 	t.Helper()
 	end := time.Now().Add(deadline)
 	for time.Now().Before(end) {
-		resp, err := http.Get("http://" + r.addr + "/healthz")
+		resp, err := http.Get("http://" + r.adminAddr() + "/healthz")
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == want {

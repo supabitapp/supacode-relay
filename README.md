@@ -2,16 +2,19 @@
 
 A WebSocket relay that connects clients to hosts that aren't reachable directly. Hosts authenticate with an Ed25519 key, and the relay forwards frames between each client and its host without looking at them. Encryption and authorization are up to the endpoints.
 
-The public relay runs at `wss://supacode-relay.exe.xyz`.
+The public relay runs at `wss://supacode-relay.exe.xyz`. It's a router in front of three relay nodes. See [docs/multi-node.md](docs/multi-node.md).
 
 ## Development
 
 Requires Go 1.25 or later.
 
 ```bash
-make build   # bin/relay
-make run     # listen on 127.0.0.1:8080
-make test    # gofmt, go vet, and all tests with -race
+make build         # bin/relay and bin/relay-router
+make run           # listen on 127.0.0.1:8080
+make test          # gofmt, go vet, and all tests with -race
+make e2e-docker    # Docker Compose suite: one router, three nodes
+make bench-paths   # direct node vs router-to-node on loopback
+make bench-docker  # the same comparison inside Docker
 ```
 
 ## Protocol
@@ -34,22 +37,25 @@ host  → relay {"type":"authenticate","signature":"B64"}
 relay → host  {"type":"registered","endpointId":"HEX"}
 ```
 
-The host signs `"supacode-relay-v1\n" + endpointId + "\n" + nonce`. A bad signature, a timeout, or registering an endpoint that's already online closes the socket with 1008. After registering, the host must not send anything on the control socket, or the relay closes it.
+The host signs `"supacode-relay-v1\n" + endpointId + "\n" + nonce`. A bad signature or a timeout closes the socket with 1008. If the same endpoint registers again and authenticates, the newer registration wins and the older control socket closes with 4001. A host that gets 4001 shouldn't reconnect automatically, because something else holding its key took over. After registering, the host must not send anything on the control socket, or the relay closes it.
+
+Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 
 ### Close codes
 
 | Code | Reason |
 | --- | --- |
 | peer's code | Forwarded from the other side |
-| 1001 | Peer disconnected or timed out, host went offline, or relay is shutting down |
+| 1001 | Peer disconnected or timed out, host went offline, relay is shutting down, or relay is draining (reconnect to land on another node) |
 | 1008 | Authentication failed or unexpected control message |
 | 1009 | Message larger than `RELAY_MAX_MESSAGE_BYTES` |
 | 1011 | Upgrade failed |
 | 1013 | Queue full, ingress capacity exceeded, pair timeout, or write timeout |
+| 4001 | Registration superseded by a newer one for the same endpoint |
 
 ### HTTP
 
-`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations.
+`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
 
 ## Configuration
 
@@ -71,6 +77,18 @@ The host signs `"supacode-relay-v1\n" + endpointId + "\n" + nonce`. A bad signat
 | `RELAY_HEARTBEAT_MS` | `15000` | Ping interval |
 | `RELAY_ADMISSION_RATE` | `100` | Connection attempts per second per IP |
 | `RELAY_TRUSTED_PROXIES` | | CIDRs whose `X-Forwarded-For` is trusted |
+| `RELAY_CLIENT_IP_HEADER` | | Header carrying the client IP from a trusted proxy, such as `X-Relay-Client-Ip` from a router |
+| `RELAY_PRIVATE_ADDR` | | Separate listener for `/healthz` and `/metrics` |
+| `RELAY_ALLOWED_PEERS` | | CIDRs allowed to connect at all. Other peers are closed before any HTTP is read |
+| `RELAY_PRIVATE_ALLOWED_PEERS` | | The same filter for the private listener |
+| `RELAY_NODE_ID` | | Node id, used as the `connectionId` prefix |
+| `RELAY_ROUTERS` | | Router directory URLs. Setting this turns on multi-node mode |
+| `RELAY_DIRECTORY_TOKEN` | | Directory secret, or `RELAY_DIRECTORY_TOKEN_FILE` |
+| `RELAY_ADVERTISE_URL` | listen address | Origin routers use to reach this node |
+| `RELAY_DIRECTORY_HEARTBEAT_MS` | `1000` | Directory stream ping interval |
+| `RELAY_DIRECTORY_RETRY_MAX_MS` | `2000` | Directory reconnect backoff cap |
+
+The router (`cmd/router`) has its own `ROUTER_*` settings, listed in [docs/multi-node.md](docs/multi-node.md).
 
 ## License
 

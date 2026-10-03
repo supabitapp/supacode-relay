@@ -1,0 +1,145 @@
+name: ${E2E_PROJECT:-supacode-relay-e2e}
+
+x-node: &node
+  image: supacode-relay:e2e
+  build:
+    context: ../..
+    target: relay
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  stop_grace_period: 10s
+  restart: "no"
+  depends_on:
+    router:
+      condition: service_started
+  healthcheck:
+    test: ["CMD", "/relay", "healthcheck"]
+    interval: 1s
+    timeout: 2s
+    retries: 10
+    start_period: 2s
+
+x-node-env: &node-env
+  RELAY_ROUTERS: http://10.231.1.10:9090
+  RELAY_DIRECTORY_TOKEN: ${E2E_DIRECTORY_TOKEN:-compose-e2e-directory-token-change-me}
+  RELAY_TRUSTED_PROXIES: 10.231.1.10/32
+  RELAY_ALLOWED_PEERS: ${E2E_NODE_ALLOWED_PEERS:-10.231.1.10/32}
+  RELAY_PRIVATE_ALLOWED_PEERS: 127.0.0.1/32,::1/128
+  RELAY_ADMISSION_RATE: ${E2E_NODE_RATE:-100000}
+  RELAY_HEARTBEAT_MS: ${E2E_RELAY_HEARTBEAT_MS:-2000}
+  RELAY_DIRECTORY_HEARTBEAT_MS: "500"
+  RELAY_DIRECTORY_RETRY_MAX_MS: "1000"
+  RELAY_PAIR_TIMEOUT_MS: "10000"
+  RELAY_MAX_CLIENTS_PER_HOST: "256"
+  RELAY_MAX_PENDING_PER_HOST: "128"
+  RELAY_MAX_CLIENTS: "8192"
+
+services:
+  router:
+    image: supacode-relay-router:e2e
+    build:
+      context: ../..
+      target: router
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 10s
+    restart: "no"
+    ports:
+      - "127.0.0.1:${E2E_ROUTER_PORT:-18480}:8080"
+    networks:
+      public:
+        ipv4_address: 10.231.2.10
+      private:
+        ipv4_address: 10.231.1.10
+    environment:
+      ROUTER_ADDR: 0.0.0.0:8080
+      ROUTER_PRIVATE_ADDR: 10.231.1.10:9090
+      ROUTER_PRIVATE_ALLOWED_PEERS: 10.231.1.8/29
+      ROUTER_DIRECTORY_TOKEN: ${E2E_DIRECTORY_TOKEN:-compose-e2e-directory-token-change-me}
+      ROUTER_ADMISSION_RATE: ${E2E_ROUTER_RATE:-100000}
+      ROUTER_MAX_CONNS_PER_IP: ${E2E_ROUTER_MAX_CONNS_PER_IP:-8192}
+      ROUTER_DIRECTORY_HEARTBEAT_MS: "500"
+      ROUTER_DRAIN_TIMEOUT_MS: ${E2E_ROUTER_DRAIN_MS:-5000}
+    healthcheck:
+      test: ["CMD", "/relay-router", "healthcheck"]
+      interval: 1s
+      timeout: 2s
+      retries: 10
+      start_period: 2s
+
+  node-a:
+    <<: *node
+    networks:
+      private:
+        ipv4_address: 10.231.1.11
+    environment:
+      <<: *node-env
+      RELAY_NODE_ID: node-a
+      RELAY_ADVERTISE_URL: http://node-a:8080
+
+  node-b:
+    <<: *node
+    networks:
+      private:
+        ipv4_address: 10.231.1.12
+    environment:
+      <<: *node-env
+      RELAY_NODE_ID: node-b
+      RELAY_ADVERTISE_URL: http://node-b:8080
+
+  node-c:
+    <<: *node
+    networks:
+      private:
+        ipv4_address: 10.231.1.13
+    environment:
+      <<: *node-env
+      RELAY_NODE_ID: node-c
+      RELAY_ADVERTISE_URL: http://node-c:8080
+
+  node-d:
+    <<: *node
+    profiles: [extra]
+    networks:
+      private:
+        ipv4_address: 10.231.1.14
+    environment:
+      <<: *node-env
+      RELAY_NODE_ID: node-d
+      RELAY_ADVERTISE_URL: http://node-d:8080
+
+  probe:
+    image: supacode-relay-tools:e2e
+    build:
+      context: ../..
+      target: tools
+    profiles: [tools]
+    read_only: true
+    cap_drop: [ALL]
+    networks:
+      public:
+        ipv4_address: 10.231.2.50
+
+  bench:
+    image: supacode-relay-tools:e2e
+    profiles: [bench]
+    read_only: true
+    cap_drop: [ALL]
+    entrypoint: ["/relay-pathbench"]
+    networks:
+      public: {}
+      private:
+        ipv4_address: 10.231.1.60
+
+networks:
+  public:
+    ipam:
+      config:
+        - subnet: 10.231.2.0/24
+  private:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.231.1.0/24

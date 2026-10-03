@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 const (
@@ -18,11 +20,14 @@ const (
 )
 
 type host struct {
-	id      string
-	ctrl    *peer
-	pairs   map[string]*pair
-	pending int
-	gone    bool
+	id       string
+	regID    string
+	version  uint64
+	ctrl     *peer
+	pairs    map[string]*pair
+	pending  int
+	gone     bool
+	detached bool
 }
 
 func (h *host) notify(v any) {
@@ -77,17 +82,22 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, nil), false)
-	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}}
+	h := &host{id: id, regID: randomB64(16), version: s.clock.Next(), ctrl: ctrl, pairs: map[string]*pair{}}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()
-	if s.hosts[id] != nil {
+	if s.cfg.Clustered() && s.draining.Load() {
 		s.mu.Unlock()
-		s.rejectedConnections.Add(1)
-		s.closeNow(ws, closeMsg{websocket.ClosePolicyViolation, "endpoint already registered"})
+		s.closeNow(ws, closeMsg{websocket.CloseGoingAway, "relay draining"})
 		return
 	}
+	old := s.hosts[id]
 	s.hosts[id] = h
+	s.publishLocked(directory.Message{Type: directory.TypePut, Registration: s.registration(h)})
 	s.mu.Unlock()
+	if old != nil {
+		s.superseded.Add(1)
+		old.ctrl.q.finish(closeMsg{directory.CloseSuperseded, directory.SupersededText}, true)
+	}
 
 	go ctrl.writeLoop()
 	ctrl.readControl()
@@ -110,12 +120,21 @@ func verifyAuth(ws *websocket.Conn, pub ed25519.PublicKey, msg []byte) bool {
 	return ok && ed25519.Verify(pub, msg, sig)
 }
 
+func (s *Server) registration(h *host) *directory.Registration {
+	return &directory.Registration{EndpointID: h.id, NodeID: s.cfg.NodeID, RegistrationID: h.regID, Version: h.version}
+}
+
 func (s *Server) removeHost(h *host) {
 	s.mu.Lock()
 	if s.hosts[h.id] == h {
 		delete(s.hosts, h.id)
+		s.publishLocked(directory.Message{Type: directory.TypeDel, Registration: s.registration(h)})
 	}
 	h.gone = true
+	if h.detached {
+		s.mu.Unlock()
+		return
+	}
 	pairs := make([]*pair, 0, len(h.pairs))
 	for _, p := range h.pairs {
 		pairs = append(pairs, p)

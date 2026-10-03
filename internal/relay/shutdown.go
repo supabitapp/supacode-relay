@@ -17,7 +17,7 @@ func (s *Server) Shutdown() {
 	start := time.Now()
 	hardStop := start.Add(drainTimeout - hardStopReserve)
 	closeAt := hardStop.Add(-closeReserve)
-	s.draining.Store(true)
+	s.beginDrain()
 	log.Println("relay: draining")
 	s.http.SetKeepAlivesEnabled(false)
 
@@ -45,6 +45,7 @@ func (s *Server) Shutdown() {
 		_ = ws.Close()
 	}
 	_ = s.http.Close()
+	_ = s.private.Close()
 	log.Printf("relay: stopped after %s with %d pairs force-closed", time.Since(start).Round(time.Millisecond), remaining)
 }
 

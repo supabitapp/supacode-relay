@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"strings"
 	"testing"
@@ -160,25 +161,47 @@ func TestStolenEndpointClaim(t *testing.T) {
 	}
 	expectClose(t, ws, websocket.ClosePolicyViolation)
 
-	dup, ch, _, err := endpoint.DialControl(r.base, pub)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := dup.WriteJSON(map[string]string{"type": "authenticate", "signature": endpoint.SignChallenge(victim, h.ID, ch.Nonce)}); err != nil {
-		t.Fatal(err)
-	}
-	ce := expectClose(t, dup, websocket.ClosePolicyViolation)
-	if ce.Text != "endpoint already registered" {
-		t.Fatalf("unexpected reason %q", ce.Text)
-	}
-
 	client, host, _ := pairUp(t, r, h)
 	msg := message{websocket.TextMessage, []byte("still mine")}
 	send(t, client, msg)
 	expectMessage(t, host, msg)
-	if m := r.metrics(); m["activeHosts"] != 1 {
+	if m := r.metrics(); m["activeHosts"] != 1 || m["supersededRegistrations"] != 0 {
 		t.Fatalf("unexpected metrics %v", m)
 	}
+}
+
+func TestDuplicateRegistrationNewestWins(t *testing.T) {
+	r := startRelay(t)
+	priv := newKey(t)
+	old := registerKey(t, r, priv)
+	oldClient, oldHost, _ := pairUp(t, r, old)
+	pendingClient, pendingEv := connect(t, r, old)
+
+	fresh := registerKey(t, r, priv)
+	<-old.Done
+	var ce *websocket.CloseError
+	if !errors.As(old.Err, &ce) || ce.Code != 4001 || ce.Text != "registration superseded" {
+		t.Fatalf("old control closed with %v, want 4001 registration superseded", old.Err)
+	}
+	for _, ws := range []*websocket.Conn{oldClient, oldHost, pendingClient} {
+		if ce := expectClose(t, ws, websocket.CloseGoingAway); ce.Text != "host offline" {
+			t.Fatalf("unexpected reason %q", ce.Text)
+		}
+	}
+	_, resp, err := fresh.Accept(pendingEv)
+	expectStatus(t, resp, err, 404)
+
+	client, host, id := pairUp(t, r, fresh)
+	msg := message{websocket.BinaryMessage, []byte("newest registration")}
+	send(t, client, msg)
+	expectMessage(t, host, msg)
+	client.Close()
+	if ev := nextEvent(t, fresh, "closed"); ev.ConnectionID != id {
+		t.Fatalf("fresh host received a stale event %+v", ev)
+	}
+	r.waitMetrics("one host, one supersede", func(m map[string]float64) bool {
+		return m["activeHosts"] == 1 && m["supersededRegistrations"] == 1 && m["activePairs"] == 0 && m["pendingPairs"] == 0
+	})
 }
 
 func TestChallengeReplayAndReconnect(t *testing.T) {

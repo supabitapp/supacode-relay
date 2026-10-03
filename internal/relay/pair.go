@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 type pairState int
@@ -51,13 +53,14 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	p := &pair{
 		s:        s,
-		id:       randomB64(16),
+		id:       directory.ConnectionID(s.cfg.NodeID, randomB64(16)),
 		token:    randomB64(32),
 		host:     h,
 		toHost:   newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget),
 		toClient: newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget),
 	}
 	h.pairs[p.id] = p
+	s.pairs[p.id] = p
 	h.pending++
 	s.pending++
 	p.timer = time.AfterFunc(s.cfg.PairTimeout, p.expire)
@@ -91,9 +94,9 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	s.mu.Lock()
-	var p *pair
-	if h := s.hosts[q.Get("endpointId")]; h != nil {
-		p = h.pairs[q.Get("connectionId")]
+	p := s.pairs[q.Get("connectionId")]
+	if p != nil && p.host.id != q.Get("endpointId") {
+		p = nil
 	}
 	if p == nil {
 		s.mu.Unlock()
@@ -155,6 +158,7 @@ func (p *pair) close(c closeMsg, origin *peer, discard bool) {
 	p.cause = c
 	h := p.host
 	delete(h.pairs, p.id)
+	delete(s.pairs, p.id)
 	if prev == active {
 		s.active--
 	} else {

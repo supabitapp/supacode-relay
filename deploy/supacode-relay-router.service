@@ -1,0 +1,27 @@
+[Unit]
+Description=Supacode WebSocket relay router
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/supacode-relay-router
+Environment=ROUTER_ADDR=127.0.0.1:8080
+Environment=ROUTER_PRIVATE_ADDR=127.0.0.1:9090
+Environment=ROUTER_PRIVATE_ALLOWED_PEERS=127.0.0.1/32
+Environment=ROUTER_TRUSTED_PROXIES=127.0.0.1/32
+Environment=ROUTER_MAX_CONNS=40000
+Environment=ROUTER_MAX_CONNS_PER_IP=20000
+Environment=ROUTER_DIRECTORY_TOKEN_FILE=%d/directory-token
+LoadCredential=directory-token:/etc/supacode-relay/directory-token
+Restart=always
+RestartSec=2
+TimeoutStopSec=15
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+LimitNOFILE=131072
+
+[Install]
+WantedBy=multi-user.target
