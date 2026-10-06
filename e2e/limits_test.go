@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"crypto/ed25519"
+	"encoding/binary"
 	"fmt"
 	"testing"
 	"time"
@@ -33,28 +34,30 @@ func TestPendingBufferDrainsInOrder(t *testing.T) {
 	expectMessage(t, host, late)
 }
 
-func TestPendingBufferLimits(t *testing.T) {
+func TestPendingBufferPausesSender(t *testing.T) {
 	r := startRelay(t, "RELAY_MAX_QUEUE_MESSAGES=8", "RELAY_MAX_QUEUE_BYTES=4096", "RELAY_MAX_MESSAGE_BYTES=4096")
 	h := register(t, r)
 
 	client, ev := connect(t, r, h)
+	var sent []message
 	for i := range 9 {
-		send(t, client, message{websocket.TextMessage, []byte(fmt.Sprint(i))})
+		sent = append(sent, message{websocket.TextMessage, []byte(fmt.Sprint(i))})
 	}
-	expectClose(t, client, websocket.CloseTryAgainLater, websocket.CloseMessageTooBig)
-	if closed := nextEvent(t, h, "closed"); closed.ConnectionID != ev.ConnectionID {
-		t.Fatalf("closed event for wrong pair %+v", closed)
+	for range 3 {
+		sent = append(sent, message{websocket.BinaryMessage, randomBytes(2000)})
+	}
+	for _, m := range sent {
+		send(t, client, m)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if m := r.metrics(); m["pendingPairs"] != 1 {
+		t.Fatalf("pending pair over its buffer was closed instead of paused: %v", m)
 	}
 
-	client2, ev2 := connect(t, r, h)
-	for range 3 {
-		send(t, client2, message{websocket.BinaryMessage, randomBytes(2000)})
+	host := accept(t, h, ev)
+	for _, m := range sent {
+		expectMessage(t, host, m)
 	}
-	expectClose(t, client2, websocket.CloseTryAgainLater, websocket.CloseMessageTooBig)
-	nextEvent(t, h, "closed")
-	_, resp, err := h.Accept(ev2)
-	expectStatus(t, resp, err, 404)
-	r.waitIdle()
 }
 
 func TestPairTimeoutReleasesState(t *testing.T) {
@@ -93,7 +96,7 @@ func TestOversizeMessages(t *testing.T) {
 }
 
 func TestSlowReaderIsolation(t *testing.T) {
-	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=262144", "RELAY_MAX_QUEUE_MESSAGES=64", "RELAY_WRITE_TIMEOUT_MS=1000")
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=262144", "RELAY_MAX_QUEUE_MESSAGES=64", "RELAY_DELIVERY_TIMEOUT_MS=1000")
 	h := register(t, r)
 	stalledClient, stalledHost, _ := pairUp(t, r, h)
 	healthyClient, healthyHost, _ := pairUp(t, r, h)
@@ -134,6 +137,68 @@ func TestSlowReaderIsolation(t *testing.T) {
 	m := message{websocket.BinaryMessage, []byte("after")}
 	send(t, healthyClient, m)
 	expectMessage(t, healthyHost, m)
+}
+
+func TestSlowReaderPausesSender(t *testing.T) {
+	const chunk = 64 << 10
+	const queue = 4 * chunk
+	r := startRelay(t, fmt.Sprintf("RELAY_MAX_MESSAGE_BYTES=%d", chunk), fmt.Sprintf("RELAY_MAX_QUEUE_BYTES=%d", queue), "RELAY_MAX_QUEUE_MESSAGES=64")
+	client, host, _ := pairUp(t, r, register(t, r))
+
+	stop := make(chan struct{})
+	total := make(chan uint64, 1)
+	go func() {
+		payload := randomBytes(chunk)
+		var n uint64
+		defer func() { total <- n }()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			binary.BigEndian.PutUint64(payload, n)
+			_ = client.SetWriteDeadline(time.Now().Add(4 * deadline))
+			if err := client.WriteMessage(websocket.BinaryMessage, payload); err != nil {
+				return
+			}
+			n++
+		}
+	}()
+
+	if reserved := settledIngress(r); reserved == 0 || reserved > queue+chunk {
+		t.Fatalf("relay buffered %v bytes for a stalled reader, want between 1 and %d", reserved, queue+chunk)
+	}
+	time.Sleep(time.Second)
+	if m := r.metrics(); m["activePairs"] != 1 {
+		t.Fatalf("stalled pair was closed instead of paused: %v", m)
+	}
+
+	received := make(chan uint64, 1)
+	go func() {
+		var next uint64
+		defer func() { received <- next }()
+		for {
+			_ = host.SetReadDeadline(time.Now().Add(deadline))
+			_, data, err := host.ReadMessage()
+			if err != nil {
+				return
+			}
+			if got := binary.BigEndian.Uint64(data); got != next {
+				t.Errorf("message %d arrived as %d", next, got)
+				return
+			}
+			next++
+		}
+	}()
+	time.Sleep(200 * time.Millisecond)
+	close(stop)
+	sent := <-total
+	r.waitMetrics("paused queue drained", func(m map[string]float64) bool { return m["ingressReservedBytes"] == 0 })
+	host.Close()
+	if got := <-received; got != sent {
+		t.Fatalf("host received %d of %d messages", got, sent)
+	}
 }
 
 func TestIngressBudgetLimit(t *testing.T) {

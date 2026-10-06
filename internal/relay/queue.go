@@ -42,6 +42,7 @@ type queue struct {
 	held     atomic.Int64
 	final    *closeMsg
 	wake     chan struct{}
+	space    *sync.Cond
 }
 
 func newQueue(maxBytes, maxMsgs int, budgets ...*byteBudget) *queue {
@@ -49,7 +50,9 @@ func newQueue(maxBytes, maxMsgs int, budgets ...*byteBudget) *queue {
 	if len(budgets) != 0 {
 		budget = budgets[0]
 	}
-	return &queue{maxBytes: maxBytes, maxMsgs: maxMsgs, budget: budget, wake: make(chan struct{}, 1)}
+	q := &queue{maxBytes: maxBytes, maxMsgs: maxMsgs, budget: budget, wake: make(chan struct{}, 1)}
+	q.space = sync.NewCond(&q.mu)
+	return q
 }
 
 func (q *queue) push(f frame) bool {
@@ -59,13 +62,30 @@ func (q *queue) push(f frame) bool {
 func (q *queue) pushResult(f frame) pushResult {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+	if q.final == nil && q.full(len(f.data)) {
+		q.releaseReserved(f.reserved)
+		return pushQueueLimit
+	}
+	return q.appendLocked(f)
+}
+
+func (q *queue) pushWait(f frame) pushResult {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for q.final == nil && q.full(len(f.data)) {
+		q.space.Wait()
+	}
+	return q.appendLocked(f)
+}
+
+func (q *queue) full(n int) bool {
+	return len(q.items) >= q.maxMsgs || (q.bytes > 0 && n > q.maxBytes-q.bytes)
+}
+
+func (q *queue) appendLocked(f frame) pushResult {
 	if q.final != nil {
 		q.releaseReserved(f.reserved)
 		return pushFinal
-	}
-	if len(q.items) >= q.maxMsgs || len(f.data) > q.maxBytes-q.bytes {
-		q.releaseReserved(f.reserved)
-		return pushQueueLimit
 	}
 	if q.budget != nil && f.reserved == 0 && cap(f.data) != 0 {
 		if !q.take(cap(f.data)) {
@@ -92,6 +112,7 @@ func (q *queue) finish(c closeMsg, discard bool) {
 		clear(q.items)
 		q.items = nil
 	}
+	q.space.Broadcast()
 	q.mu.Unlock()
 	q.signal()
 }
@@ -105,6 +126,7 @@ func (q *queue) next() (frame, *closeMsg, bool) {
 	f := q.items[0]
 	q.items[0] = frame{}
 	q.items = q.items[1:]
+	q.space.Broadcast()
 	return f, nil, true
 }
 
@@ -112,6 +134,7 @@ func (q *queue) release(f frame) {
 	q.mu.Lock()
 	q.bytes -= len(f.data)
 	q.releaseReserved(f.reserved)
+	q.space.Broadcast()
 	q.mu.Unlock()
 }
 
