@@ -71,7 +71,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		p.close(closeMsg{websocket.CloseInternalServerErr, "upgrade failed"}, nil, false)
 		return
 	}
-	cp := s.newPeer(ws, p.toClient, true)
+	cp := s.newPeer(ws, p.toClient, &h.bytesOut)
 	s.mu.Lock()
 	if p.state == closed {
 		cause := p.cause
@@ -118,7 +118,7 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 		p.close(closeMsg{websocket.CloseInternalServerErr, "host accept failed"}, nil, false)
 		return
 	}
-	hp := s.newPeer(ws, p.toHost, true)
+	hp := s.newPeer(ws, p.toHost, &p.host.bytesIn)
 	s.mu.Lock()
 	if p.state != accepting {
 		cause := p.cause

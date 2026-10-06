@@ -59,7 +59,7 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 
 ### HTTP
 
-`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations and `ingressEvictions`, the pairs closed to make room in the budget. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
+`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations, `ingressEvictions` (pairs closed to make room in the budget), and `topHosts`. `topHosts` lists the 20 hosts on the node that have relayed the most bytes since they registered, with the first 16 hex characters of each endpoint ID, bytes relayed to and from the host, and open pairs. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
 
 ## Configuration
 
