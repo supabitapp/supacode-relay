@@ -27,6 +27,8 @@ make bench-docker  # the same comparison inside Docker
 
 Frames keep their order, boundaries, and text or binary type. Anything a client sends before the host accepts is buffered and delivered once the pair is ready.
 
+Every buffered payload counts against one ingress budget per node. When the budget is full, the relay splits it evenly between the pair directions currently holding data. A pair holding more than its share is closed with 1013 to make room, so a pair under its share is never closed for capacity. A single busy pair can still use the whole budget while no other pair needs it.
+
 `endpointId` is the lowercase hex SHA-256 of the host's 32-byte Ed25519 public key. Base64 values are unpadded Base64URL.
 
 ### Authentication
@@ -55,7 +57,7 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 
 ### HTTP
 
-`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
+`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations and `ingressEvictions`, the pairs closed to make room in the budget. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
 
 ## Configuration
 

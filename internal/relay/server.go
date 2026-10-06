@@ -34,6 +34,7 @@ type Server struct {
 	rejectedConnections atomic.Int64
 	superseded          atomic.Int64
 	evicted             atomic.Int64
+	ingressEvictions    atomic.Int64
 
 	mu         sync.Mutex
 	hosts      map[string]*host
@@ -115,6 +116,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m["draining"] = s.draining.Load()
 	m["ingressReservedBytes"] = s.budget.bytes.Load()
 	m["ingressReservedWeightedBytes"] = s.budget.used.Load()
+	m["ingressEvictions"] = s.ingressEvictions.Load()
 	m["ingressBudgetBytes"] = s.cfg.IngressBudgetBytes
 	m["ingressWeight"] = s.cfg.IngressWeight
 	writeJSON(w, http.StatusOK, m)

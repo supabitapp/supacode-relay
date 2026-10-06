@@ -112,7 +112,7 @@ func (p *peer) readData(pr *pair, out *queue) {
 		typ, reader, err := p.ws.NextReader()
 		var f frame
 		if err == nil {
-			f, err = p.s.budget.read(reader, p.s.cfg.MaxMessageBytes)
+			f, err = out.read(reader, p.s.cfg.MaxMessageBytes)
 		}
 		if errors.Is(err, errIngressCapacity) {
 			pr.close(closeMsg{websocket.CloseTryAgainLater, "ingress capacity exceeded"}, nil, true)

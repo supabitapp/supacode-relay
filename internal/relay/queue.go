@@ -1,6 +1,9 @@
 package relay
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 type frame struct {
 	typ      int
@@ -26,6 +29,8 @@ func (r pushResult) accepted() bool {
 	return r == pushAccepted || r == pushFinal
 }
 
+const maxIngressEvictions = 3
+
 type queue struct {
 	mu       sync.Mutex
 	items    []frame
@@ -33,6 +38,8 @@ type queue struct {
 	maxBytes int
 	maxMsgs  int
 	budget   *byteBudget
+	arbiter  *Server
+	held     atomic.Int64
 	final    *closeMsg
 	wake     chan struct{}
 }
@@ -61,7 +68,7 @@ func (q *queue) pushResult(f frame) pushResult {
 		return pushQueueLimit
 	}
 	if q.budget != nil && f.reserved == 0 && cap(f.data) != 0 {
-		if !q.budget.reserve(cap(f.data)) {
+		if !q.take(cap(f.data)) {
 			return pushBudgetLimit
 		}
 		f.reserved = cap(f.data)
@@ -108,9 +115,33 @@ func (q *queue) release(f frame) {
 	q.mu.Unlock()
 }
 
+func (q *queue) take(n int) bool {
+	if q.budget == nil {
+		return true
+	}
+	if !q.budget.reserve(n) {
+		return false
+	}
+	q.held.Add(int64(n))
+	return true
+}
+
+func (q *queue) reserve(n int) bool {
+	for range maxIngressEvictions {
+		if q.take(n) {
+			return true
+		}
+		if q.arbiter == nil || !q.arbiter.evictFor(q, n) {
+			return false
+		}
+	}
+	return q.take(n)
+}
+
 func (q *queue) releaseReserved(n int) {
 	if q.budget != nil {
 		q.budget.release(n)
+		q.held.Add(-int64(n))
 	}
 }
 
