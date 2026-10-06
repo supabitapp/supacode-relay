@@ -1,12 +1,14 @@
 package relay
 
 import (
+	"cmp"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"net"
 	"net/http"
 	"runtime"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,7 +19,10 @@ import (
 	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
-const closeGrace = time.Second
+const (
+	closeGrace       = time.Second
+	topHostsReported = 20
+)
 
 type Server struct {
 	cfg      Config
@@ -103,6 +108,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 		"controlConnections": s.controls,
 		"openSockets":        len(s.conns),
 		"directoryStreams":   len(s.dirStreams),
+		"topHosts":           s.topHosts(),
 	}
 	s.mu.Unlock()
 	m["nodeId"] = s.cfg.NodeID
@@ -120,6 +126,28 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m["ingressBudgetBytes"] = s.cfg.IngressBudgetBytes
 	m["ingressWeight"] = s.cfg.IngressWeight
 	writeJSON(w, http.StatusOK, m)
+}
+
+type hostTraffic struct {
+	Endpoint string `json:"endpoint"`
+	BytesIn  int64  `json:"bytesIn"`
+	BytesOut int64  `json:"bytesOut"`
+	Pairs    int    `json:"pairs"`
+}
+
+func (s *Server) topHosts() []hostTraffic {
+	hosts := make([]hostTraffic, 0, len(s.hosts))
+	for id, h := range s.hosts {
+		in, out := h.bytesIn.Load(), h.bytesOut.Load()
+		if in+out == 0 {
+			continue
+		}
+		hosts = append(hosts, hostTraffic{Endpoint: id[:16], BytesIn: in, BytesOut: out, Pairs: len(h.pairs)})
+	}
+	slices.SortFunc(hosts, func(a, b hostTraffic) int {
+		return cmp.Compare(b.BytesIn+b.BytesOut, a.BytesIn+a.BytesOut)
+	})
+	return hosts[:min(len(hosts), topHostsReported)]
 }
 
 func (s *Server) reject(w http.ResponseWriter, status int, msg string) {

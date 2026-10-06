@@ -13,15 +13,15 @@ type peer struct {
 	s            *Server
 	ws           *websocket.Conn
 	q            *queue
-	data         bool
+	traffic      *atomic.Int64
 	writeTimeout time.Duration
 	dead         chan struct{}
 	cause        atomic.Pointer[closeMsg]
 }
 
-func (s *Server) newPeer(ws *websocket.Conn, q *queue, data bool) *peer {
-	p := &peer{s: s, ws: ws, q: q, data: data, writeTimeout: s.cfg.WriteTimeout, dead: make(chan struct{})}
-	if data {
+func (s *Server) newPeer(ws *websocket.Conn, q *queue, traffic *atomic.Int64) *peer {
+	p := &peer{s: s, ws: ws, q: q, traffic: traffic, writeTimeout: s.cfg.WriteTimeout, dead: make(chan struct{})}
+	if traffic != nil {
 		p.writeTimeout = s.cfg.DeliveryTimeout
 	}
 	p.extend()
@@ -70,9 +70,10 @@ func (p *peer) writeLoop() {
 				p.fail(closeMsg{websocket.CloseTryAgainLater, "peer write timeout"})
 				return
 			}
-			if p.data {
+			if p.traffic != nil {
 				p.s.forwardedMessages.Add(1)
 				p.s.forwardedBytes.Add(int64(len(f.data)))
+				p.traffic.Add(int64(len(f.data)))
 			}
 			select {
 			case <-ticker.C:

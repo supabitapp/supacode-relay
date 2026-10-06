@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -28,6 +29,8 @@ type host struct {
 	pending  int
 	gone     bool
 	detached bool
+	bytesIn  atomic.Int64
+	bytesOut atomic.Int64
 }
 
 func (h *host) notify(v any) {
@@ -81,7 +84,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, nil), false)
+	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, nil), nil)
 	h := &host{id: id, regID: randomB64(16), version: s.clock.Next(), ctrl: ctrl, pairs: map[string]*pair{}}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()
