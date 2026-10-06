@@ -152,6 +152,49 @@ func TestIngressBudgetLimit(t *testing.T) {
 	r.waitMetrics("ingress budget release", func(m map[string]float64) bool { return m["ingressReservedBytes"] == 0 })
 }
 
+func TestIngressBudgetEvictsHeaviestPair(t *testing.T) {
+	const chunk = 64 << 10
+	const budget = 8 * chunk
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=4194304", "RELAY_MAX_QUEUE_MESSAGES=1024",
+		fmt.Sprintf("RELAY_INGRESS_BUDGET_BYTES=%d", budget), "RELAY_INGRESS_WEIGHT=1", "RELAY_WRITE_TIMEOUT_MS=30000")
+	hogClient, hogHost, _ := pairUp(t, r, register(t, r))
+
+	data := randomBytes(chunk)
+	for reserved := 0.0; reserved < budget; {
+		send(t, hogClient, message{websocket.BinaryMessage, data})
+		reserved = settledIngress(r)
+	}
+
+	client, host, _ := pairUp(t, r, register(t, r))
+	ping := message{websocket.TextMessage, []byte("ping")}
+	send(t, client, ping)
+	expectMessage(t, host, ping)
+	if ce := expectClose(t, hogClient, websocket.CloseTryAgainLater); ce.Text != "ingress capacity exceeded" {
+		t.Fatalf("unexpected close reason %q", ce.Text)
+	}
+	send(t, host, ping)
+	expectMessage(t, client, ping)
+	r.waitMetrics("eviction recorded", func(m map[string]float64) bool {
+		return m["ingressEvictions"] == 1 && m["activePairs"] == 1
+	})
+
+	hogHost.Close()
+	r.waitMetrics("hog reservations released", func(m map[string]float64) bool { return m["ingressReservedBytes"] == 0 })
+}
+
+func settledIngress(r *relay) float64 {
+	r.t.Helper()
+	last := r.metrics()["ingressReservedBytes"]
+	for {
+		time.Sleep(25 * time.Millisecond)
+		now := r.metrics()["ingressReservedBytes"]
+		if now == last {
+			return now
+		}
+		last = now
+	}
+}
+
 func TestConnectionLimits(t *testing.T) {
 	r := startRelay(t, "RELAY_MAX_CLIENTS=3", "RELAY_MAX_CLIENTS_PER_HOST=2", "RELAY_MAX_PENDING_PER_HOST=1", "RELAY_MAX_HOSTS=2")
 	h1, h2 := register(t, r), register(t, r)

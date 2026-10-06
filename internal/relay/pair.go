@@ -56,8 +56,8 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		id:       directory.ConnectionID(s.cfg.NodeID, randomB64(16)),
 		token:    randomB64(32),
 		host:     h,
-		toHost:   newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget),
-		toClient: newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget),
+		toHost:   s.newPairQueue(),
+		toClient: s.newPairQueue(),
 	}
 	h.pairs[p.id] = p
 	s.pairs[p.id] = p
@@ -135,6 +135,12 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 
 	go hp.writeLoop()
 	hp.readData(p, p.toClient)
+}
+
+func (s *Server) newPairQueue() *queue {
+	q := newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget)
+	q.arbiter = s
+	return q
 }
 
 func (p *pair) expire() {
