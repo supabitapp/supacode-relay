@@ -19,6 +19,9 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if c.Addr != "127.0.0.1:8080" || c.MaxMessageBytes != (32<<20)-14 || c.IngressBudgetBytes != 512<<20 || c.IngressWeight != 4 || c.MaxClients != 20000 || c.Heartbeat != 15*time.Second || c.AdmissionRate != 100 || c.admissionBurst() != 100 {
 		t.Fatalf("unexpected defaults %+v", c)
 	}
+	if c.MaxQueueBytes != 1<<20 || c.MaxClientsPerHost != 256 || c.MaxPendingPerHost != 64 || c.WriteTimeout != 5*time.Second || c.DeliveryTimeout != 30*time.Second {
+		t.Fatalf("unexpected queue, per-host or timeout defaults %+v", c)
+	}
 }
 
 func TestLoadConfigRejectsInvalidValues(t *testing.T) {
@@ -35,6 +38,7 @@ func TestLoadConfigRejectsInvalidValues(t *testing.T) {
 		"RELAY_AUTH_TIMEOUT_MS":        "0",
 		"RELAY_PAIR_TIMEOUT_MS":        "soon",
 		"RELAY_WRITE_TIMEOUT_MS":       "-5",
+		"RELAY_DELIVERY_TIMEOUT_MS":    "0",
 		"RELAY_HEARTBEAT_MS":           "1e3",
 		"RELAY_ADMISSION_RATE":         "0",
 		"RELAY_TRUSTED_PROXIES":        "10.0.0.0/99",
@@ -53,8 +57,8 @@ func TestLoadConfigRejectsInvalidValues(t *testing.T) {
 			t.Errorf("%s=%q: got %v", name, value, err)
 		}
 	}
-	if _, err := LoadConfig(env(map[string]string{"RELAY_MAX_MESSAGE_BYTES": "9000000", "RELAY_MAX_QUEUE_BYTES": "8192"})); err == nil || !strings.Contains(err.Error(), "RELAY_MAX_QUEUE_BYTES") {
-		t.Errorf("message larger than queue accepted: %v", err)
+	if _, err := LoadConfig(env(map[string]string{"RELAY_MAX_MESSAGE_BYTES": "9000000", "RELAY_MAX_QUEUE_BYTES": "8192"})); err != nil {
+		t.Errorf("message larger than queue rejected: %v", err)
 	}
 }
 

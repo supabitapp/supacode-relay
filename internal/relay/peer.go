@@ -10,16 +10,20 @@ import (
 )
 
 type peer struct {
-	s     *Server
-	ws    *websocket.Conn
-	q     *queue
-	data  bool
-	dead  chan struct{}
-	cause atomic.Pointer[closeMsg]
+	s            *Server
+	ws           *websocket.Conn
+	q            *queue
+	data         bool
+	writeTimeout time.Duration
+	dead         chan struct{}
+	cause        atomic.Pointer[closeMsg]
 }
 
 func (s *Server) newPeer(ws *websocket.Conn, q *queue, data bool) *peer {
-	p := &peer{s: s, ws: ws, q: q, data: data, dead: make(chan struct{})}
+	p := &peer{s: s, ws: ws, q: q, data: data, writeTimeout: s.cfg.WriteTimeout, dead: make(chan struct{})}
+	if data {
+		p.writeTimeout = s.cfg.DeliveryTimeout
+	}
 	p.extend()
 	ws.SetPongHandler(func(string) error {
 		p.extend()
@@ -43,7 +47,7 @@ func (p *peer) exit() {
 }
 
 func (p *peer) ping() bool {
-	if err := p.ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(p.s.cfg.WriteTimeout)); err != nil {
+	if err := p.ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(p.writeTimeout)); err != nil {
 		p.fail(closeMsg{websocket.CloseGoingAway, "peer unreachable"})
 		return false
 	}
@@ -59,7 +63,7 @@ func (p *peer) writeLoop() {
 	for {
 		f, final, ok := p.q.next()
 		if ok {
-			_ = p.ws.SetWriteDeadline(time.Now().Add(cfg.WriteTimeout))
+			_ = p.ws.SetWriteDeadline(time.Now().Add(p.writeTimeout))
 			err := p.ws.WriteMessage(f.typ, f.data)
 			p.q.release(f)
 			if err != nil {
@@ -122,15 +126,11 @@ func (p *peer) readData(pr *pair, out *queue) {
 			pr.close(p.closeCause(err), p, false)
 			return
 		}
-		p.extend()
 		f.typ = typ
-		result := out.pushResult(f)
+		result := out.pushWait(f)
+		p.extend()
 		if !result.accepted() {
-			reason := "queue limit exceeded"
-			if result == pushBudgetLimit {
-				reason = "ingress capacity exceeded"
-			}
-			pr.close(closeMsg{websocket.CloseTryAgainLater, reason}, nil, true)
+			pr.close(closeMsg{websocket.CloseTryAgainLater, "ingress capacity exceeded"}, nil, true)
 			return
 		}
 	}

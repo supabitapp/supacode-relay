@@ -28,6 +28,7 @@ type Config struct {
 	AuthTimeout        time.Duration
 	PairTimeout        time.Duration
 	WriteTimeout       time.Duration
+	DeliveryTimeout    time.Duration
 	Heartbeat          time.Duration
 	AdmissionRate      float64
 	TrustedProxies     []netip.Prefix
@@ -66,11 +67,11 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		dst  *int
 	}{
 		{"RELAY_MAX_MESSAGE_BYTES", (32 << 20) - 14, &c.MaxMessageBytes},
-		{"RELAY_MAX_QUEUE_BYTES", 64 << 20, &c.MaxQueueBytes},
+		{"RELAY_MAX_QUEUE_BYTES", 1 << 20, &c.MaxQueueBytes},
 		{"RELAY_MAX_QUEUE_MESSAGES", 256, &c.MaxQueueMessages},
 		{"RELAY_MAX_CLIENTS", 20000, &c.MaxClients},
-		{"RELAY_MAX_CLIENTS_PER_HOST", 20000, &c.MaxClientsPerHost},
-		{"RELAY_MAX_PENDING_PER_HOST", 20000, &c.MaxPendingPerHost},
+		{"RELAY_MAX_CLIENTS_PER_HOST", 256, &c.MaxClientsPerHost},
+		{"RELAY_MAX_PENDING_PER_HOST", 64, &c.MaxPendingPerHost},
 		{"RELAY_MAX_HOSTS", 20000, &c.MaxHosts},
 		{"RELAY_INGRESS_BUDGET_BYTES", 512 << 20, &c.IngressBudgetBytes},
 		{"RELAY_INGRESS_WEIGHT", 4, &c.IngressWeight},
@@ -91,6 +92,7 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		{"RELAY_AUTH_TIMEOUT_MS", 5000, &c.AuthTimeout},
 		{"RELAY_PAIR_TIMEOUT_MS", 5000, &c.PairTimeout},
 		{"RELAY_WRITE_TIMEOUT_MS", 5000, &c.WriteTimeout},
+		{"RELAY_DELIVERY_TIMEOUT_MS", 30000, &c.DeliveryTimeout},
 		{"RELAY_HEARTBEAT_MS", 15000, &c.Heartbeat},
 		{"RELAY_DIRECTORY_HEARTBEAT_MS", 1000, &c.DirectoryHeartbeat},
 		{"RELAY_DIRECTORY_RETRY_MAX_MS", 2000, &c.DirectoryRetryMax},
@@ -133,9 +135,6 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 
 	if c.MaxMessageBytes > c.IngressBudgetBytes/c.IngressWeight {
 		return c, fmt.Errorf("RELAY_INGRESS_BUDGET_BYTES must admit RELAY_MAX_MESSAGE_BYTES at RELAY_INGRESS_WEIGHT")
-	}
-	if c.MaxMessageBytes > c.MaxQueueBytes {
-		return c, fmt.Errorf("RELAY_MAX_MESSAGE_BYTES (%d) must not exceed RELAY_MAX_QUEUE_BYTES (%d)", c.MaxMessageBytes, c.MaxQueueBytes)
 	}
 	if c.MaxPendingPerHost > c.MaxClientsPerHost {
 		return c, fmt.Errorf("RELAY_MAX_PENDING_PER_HOST (%d) must not exceed RELAY_MAX_CLIENTS_PER_HOST (%d)", c.MaxPendingPerHost, c.MaxClientsPerHost)

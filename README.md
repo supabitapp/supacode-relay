@@ -27,6 +27,8 @@ make bench-docker  # the same comparison inside Docker
 
 Frames keep their order, boundaries, and text or binary type. Anything a client sends before the host accepts is buffered and delivered once the pair is ready.
 
+Each direction of a pair buffers up to `RELAY_MAX_QUEUE_BYTES` or `RELAY_MAX_QUEUE_MESSAGES`. Past that, the relay stops reading from the sender until the receiver catches up, so a slow receiver slows its own sender instead of filling relay memory. An empty direction always accepts one message, however large. A receiver that accepts nothing for `RELAY_DELIVERY_TIMEOUT_MS` is closed with 1013.
+
 Every buffered payload counts against one ingress budget per node. When the budget is full, the relay splits it evenly between the pair directions currently holding data. A pair holding more than its share is closed with 1013 to make room, so a pair under its share is never closed for capacity. A single busy pair can still use the whole budget while no other pair needs it.
 
 `endpointId` is the lowercase hex SHA-256 of the host's 32-byte Ed25519 public key. Base64 values are unpadded Base64URL.
@@ -52,7 +54,7 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 | 1008 | Authentication failed or unexpected control message |
 | 1009 | Message larger than `RELAY_MAX_MESSAGE_BYTES` |
 | 1011 | Upgrade failed |
-| 1013 | Queue full, ingress capacity exceeded, pair timeout, or write timeout |
+| 1013 | Ingress capacity exceeded, pair timeout, delivery timeout, or control queue full |
 | 4001 | Registration superseded by a newer one for the same endpoint |
 
 ### HTTP
@@ -65,17 +67,18 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 | --- | --- | --- |
 | `RELAY_ADDR` | `127.0.0.1:8080` | Listen address |
 | `RELAY_MAX_MESSAGE_BYTES` | `33554418` | Largest single message |
-| `RELAY_MAX_QUEUE_BYTES` | `67108864` | Bytes buffered per direction of a pair |
-| `RELAY_MAX_QUEUE_MESSAGES` | `256` | Messages buffered per direction of a pair |
+| `RELAY_MAX_QUEUE_BYTES` | `1048576` | Bytes buffered per direction before the relay stops reading the sender |
+| `RELAY_MAX_QUEUE_MESSAGES` | `256` | Messages buffered per direction before the relay stops reading the sender |
 | `RELAY_MAX_CLIENTS` | `20000` | Pairs across the relay |
-| `RELAY_MAX_CLIENTS_PER_HOST` | `20000` | Pairs per host |
-| `RELAY_MAX_PENDING_PER_HOST` | `20000` | Pairs per host waiting to be accepted |
+| `RELAY_MAX_CLIENTS_PER_HOST` | `256` | Pairs per host |
+| `RELAY_MAX_PENDING_PER_HOST` | `64` | Pairs per host waiting to be accepted |
 | `RELAY_MAX_HOSTS` | `20000` | Connected hosts |
 | `RELAY_INGRESS_BUDGET_BYTES` | `536870912` | Weighted global payload budget |
 | `RELAY_INGRESS_WEIGHT` | `4` | Multiplier applied while each payload is read, queued, or written |
 | `RELAY_AUTH_TIMEOUT_MS` | `5000` | Time to answer the challenge |
 | `RELAY_PAIR_TIMEOUT_MS` | `5000` | Time for the host to accept a client |
-| `RELAY_WRITE_TIMEOUT_MS` | `5000` | Deadline for each socket write |
+| `RELAY_WRITE_TIMEOUT_MS` | `5000` | Deadline for control, close, and directory writes |
+| `RELAY_DELIVERY_TIMEOUT_MS` | `30000` | How long a write to a pair's receiver may stay blocked before the receiver is closed |
 | `RELAY_HEARTBEAT_MS` | `15000` | Ping interval |
 | `RELAY_ADMISSION_RATE` | `100` | Connection attempts per second per IP |
 | `RELAY_TRUSTED_PROXIES` | | CIDRs whose `X-Forwarded-For` is trusted |
