@@ -282,11 +282,11 @@ func TestConnectionLimits(t *testing.T) {
 	}
 }
 
-func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
+func TestClosingStalledPairReleasesItsAdmissionSlot(t *testing.T) {
 	r := startRelay(t, "RELAY_MAX_CLIENTS=1", "RELAY_MAX_CLIENTS_PER_HOST=1", "RELAY_MAX_PENDING_PER_HOST=1", "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=262144", "RELAY_DELIVERY_TIMEOUT_MS=30000")
 	h := register(t, r)
 	nextHost := register(t, r)
-	client, host, _ := pairUp(t, r, h)
+	client, _, _ := pairUp(t, r, h)
 	stopped := make(chan struct{})
 	var sent atomic.Uint64
 	go func() {
@@ -302,14 +302,12 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 	}()
 	r.waitMetrics("stalled delivery owns memory", func(m map[string]float64) bool { return sent.Load() >= 9 && m["forwardedMessages"] >= 8 })
 	h.Close()
-	r.waitMetrics("closed pair still owns sockets", func(m map[string]float64) bool { return m["activePairs"] == 0 && m["closingPairs"] == 1 })
-	_, resp, err := endpoint.Connect(r.base, nextHost.ID)
-	expectStatus(t, resp, err, 503)
-	host.Close()
-	client.Close()
-	<-stopped
 	r.waitMetrics("closing pair released admission", func(m map[string]float64) bool { return m["clientSlots"] == 0 })
-	pairUp(t, r, nextHost)
+	<-stopped
+	nextClient, nextPeer, _ := pairUp(t, r, nextHost)
+	m := message{websocket.TextMessage, []byte("capacity recovered")}
+	send(t, nextClient, m)
+	expectMessage(t, nextPeer, m)
 }
 
 func TestInterruptedStreamingMessageNeverCompletes(t *testing.T) {

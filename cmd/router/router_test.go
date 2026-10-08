@@ -222,7 +222,7 @@ func TestConnectMissRefreshesThroughDirectoryBarrier(t *testing.T) {
 	if err := node.WriteJSON(directory.Message{Type: directory.TypeSnapshot}); err != nil {
 		t.Fatal(err)
 	}
-	synced := make(chan uint64, 4)
+	synced := make(chan error, 4)
 	go func() {
 		for {
 			var m directory.Message
@@ -233,28 +233,31 @@ func TestConnectMissRefreshesThroughDirectoryBarrier(t *testing.T) {
 				continue
 			}
 			put := directory.Registration{EndpointID: endpointA, RegistrationID: "late", Version: 10}
-			_ = node.WriteJSON(directory.Message{Type: directory.TypePut, Registration: &put})
-			_ = node.WriteJSON(directory.Message{Type: directory.TypeSynced, Seq: m.Seq})
-			synced <- m.Seq
+			err := node.WriteJSON(directory.Message{Type: directory.TypePut, Registration: &put})
+			if err == nil {
+				err = node.WriteJSON(directory.Message{Type: directory.TypeSynced, Seq: m.Seq})
+			}
+			synced <- err
+			if err != nil {
+				return
+			}
 		}
 	}()
-	deadline := time.Now().Add(5 * time.Second)
-	for len(rt.table.Candidates()) == 0 && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-
 	ws, resp, err := dial(t, base, "/v1/connect?endpointId="+endpointA, nil)
 	if err != nil {
 		t.Fatalf("connect after barrier: %v (%d)", err, statusOf(resp))
 	}
 	expectChallenge(t, ws)
 	select {
-	case <-synced:
-	default:
+	case err := <-synced:
+		if err != nil {
+			t.Fatalf("sync barrier: %v", err)
+		}
+	case <-time.After(5 * time.Second):
 		t.Fatal("router did not run a sync barrier on miss")
 	}
-	if rt.refreshes.Load() != 1 || rt.retries[routeConnect].Load() != 0 {
-		t.Fatalf("refreshes=%d retries=%d", rt.refreshes.Load(), rt.retries[routeConnect].Load())
+	if rt.refreshes.Load() != 1 || rt.retries[routeConnect].Load() != 0 || rt.roundTimeouts.Load() != 0 {
+		t.Fatalf("refreshes=%d retries=%d timeouts=%d", rt.refreshes.Load(), rt.retries[routeConnect].Load(), rt.roundTimeouts.Load())
 	}
 }
 
