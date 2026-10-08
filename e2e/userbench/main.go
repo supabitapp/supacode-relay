@@ -32,6 +32,7 @@ var (
 	duration   = flag.Duration("duration", 12*time.Second, "measurement duration")
 	setupRate  = flag.Int("setup-rate", 15, "new users per second, below public admission limits")
 	maxLatency = flag.Duration("stop-p99", 2*time.Second, "stop a ramp above this p99 delivery delay")
+	idle       = flag.Bool("idle", false, "hold connected users without agent traffic for memory measurements")
 )
 
 type stats struct {
@@ -370,6 +371,17 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Fprintf(os.Stderr, "ready users=%d\n", len(us))
+		if *idle {
+			start := time.Now()
+			_ = encoder.Encode(map[string]any{"kind": "idle-start", "users": count, "start": start.UTC().Format(time.RFC3339Nano), "durationSec": duration.Seconds()})
+			time.Sleep(*duration)
+			_ = encoder.Encode(map[string]any{"kind": "idle-end", "users": count, "end": time.Now().UTC().Format(time.RFC3339Nano), "errors": s.errors.Load()})
+			if s.errors.Load() != 0 {
+				cleanup()
+				os.Exit(1)
+			}
+			continue
+		}
 		for _, rate := range ints(*ratesFlag) {
 			p := &stats{id: id, users: count, rate: rate, start: time.Now().Add(*warmup)}
 			p.end = p.start.Add(*duration)

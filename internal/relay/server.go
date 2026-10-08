@@ -117,6 +117,9 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m["heapAllocBytes"] = memory.HeapAlloc
 	m["heapInuseBytes"] = memory.HeapInuse
 	m["heapSysBytes"] = memory.HeapSys
+	m["heapReleasedBytes"] = memory.HeapReleased
+	m["stackInuseBytes"] = memory.StackInuse
+	m["runtimeSysBytes"] = memory.Sys
 	m["totalAllocatedBytes"] = memory.TotalAlloc
 	m["gcCycles"] = memory.NumGC
 	m["nodeId"] = s.cfg.NodeID
@@ -185,6 +188,7 @@ func (s *Server) upgrade(w http.ResponseWriter, r *http.Request, limit int64) (*
 
 func (s *Server) closeNow(ws *websocket.Conn, c closeMsg) {
 	deadline := time.Now().Add(closeGrace)
+	ws.SetPongHandler(nil)
 	_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(c.code, c.reason), deadline)
 	_ = ws.SetReadDeadline(deadline)
 	for {
