@@ -1,6 +1,6 @@
 # Supacode relay
 
-A WebSocket relay that connects clients to hosts that aren't reachable directly. Hosts authenticate with an Ed25519 key, and the relay forwards frames between each client and its host without looking at them. Encryption and authorization are up to the endpoints.
+A WebSocket relay that connects clients to hosts that aren't reachable directly. Hosts authenticate with an Ed25519 key, and the relay forwards messages between each client and its host without looking at them. Encryption and authorization are up to the endpoints.
 
 The public relay runs at `wss://supacode-relay.exe.xyz`. It's a router in front of three relay nodes. See [docs/multi-node.md](docs/multi-node.md).
 
@@ -25,11 +25,11 @@ make bench-docker  # the same comparison inside Docker
 4. The host opens `/v1/accept?endpointId=HEX&connectionId=ID&token=TOKEN`, and the two sockets are paired.
 5. When either side closes, the relay sends the host `{"type":"closed","connectionId":"ID"}`.
 
-Frames keep their order, boundaries, and text or binary type. Anything a client sends before the host accepts is buffered and delivered once the pair is ready.
+Messages keep their order, boundaries, and text or binary type. Before acceptance the relay pauses application reads; early bytes wait in the socket buffers and arrive once the pair is ready.
 
-Each direction of a pair buffers up to `RELAY_MAX_QUEUE_BYTES` or `RELAY_MAX_QUEUE_MESSAGES`. Past that, the relay stops reading from the sender until the receiver catches up, so a slow receiver slows its own sender instead of filling relay memory. An empty direction always accepts one message, however large. A receiver that accepts nothing for `RELAY_DELIVERY_TIMEOUT_MS` is closed with 1013.
+Each direction streams directly into a fixed WebSocket writer buffer. A slow receiver stops its sender through TCP backpressure. The configured data buffers total about 40 KiB per pair, plus framing, connection state, goroutine stacks and socket memory. They do not grow with message size or elapsed traffic. Pending, active and closing connections retain their admission slots until cleanup finishes.
 
-Every buffered payload counts against one ingress budget per node. When the budget is full, the relay splits it evenly between the pair directions currently holding data. A pair holding more than its share is closed with 1013 to make room, so a pair under its share is never closed for capacity. A single busy pair can still use the whole budget while no other pair needs it.
+A blocked receiver is closed with 1013 after `RELAY_DELIVERY_TIMEOUT_MS`. Oversized or interrupted messages may forward partial fragments, but those fragments are never finalized into a successful shorter message. Close frames are attempted within a bounded deadline; an aborted or stalled transport can prevent their delivery. Control notifications and directory updates use separate bounded queues.
 
 `endpointId` is the lowercase hex SHA-256 of the host's 32-byte Ed25519 public key. Base64 values are unpadded Base64URL.
 
@@ -54,12 +54,12 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 | 1008 | Authentication failed or unexpected control message |
 | 1009 | Message larger than `RELAY_MAX_MESSAGE_BYTES` |
 | 1011 | Upgrade failed |
-| 1013 | Ingress capacity exceeded, pair timeout, delivery timeout, or control queue full |
+| 1013 | Pair timeout, delivery timeout, or control queue full |
 | 4001 | Registration superseded by a newer one for the same endpoint |
 
 ### HTTP
 
-`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including raw and weighted ingress reservations, `ingressEvictions` (pairs closed to make room in the budget), and `topHosts`. `topHosts` lists the 20 hosts on the node that have relayed the most bytes since they registered, with the first 16 hex characters of each endpoint ID, bytes relayed to and from the host, and open pairs. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
+`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including active and closing admission slots, configured data-buffer capacity, Go heap and allocation counters, and `topHosts`. `topHosts` lists the 20 hosts on the node that have relayed the most bytes since they registered, with the first 16 hex characters of each endpoint ID, bytes relayed to and from the host, and open pairs. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
 
 ## Configuration
 
@@ -67,16 +67,14 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 | --- | --- | --- |
 | `RELAY_ADDR` | `127.0.0.1:8080` | Listen address |
 | `RELAY_MAX_MESSAGE_BYTES` | `33554418` | Largest single message |
-| `RELAY_MAX_QUEUE_BYTES` | `1048576` | Bytes buffered per direction before the relay stops reading the sender |
-| `RELAY_MAX_QUEUE_MESSAGES` | `256` | Messages buffered per direction before the relay stops reading the sender |
+| `RELAY_MAX_QUEUE_BYTES` | `1048576` | Bytes queued per host control connection |
+| `RELAY_MAX_QUEUE_MESSAGES` | `256` | Notifications queued per host control connection |
 | `RELAY_MAX_CLIENTS` | `20000` | Pairs across the relay |
 | `RELAY_MAX_CLIENTS_PER_HOST` | `256` | Pairs per host |
 | `RELAY_MAX_PENDING_PER_HOST` | `64` | Pairs per host waiting to be accepted |
 | `RELAY_MAX_HOSTS` | `20000` | Connected hosts |
-| `RELAY_INGRESS_BUDGET_BYTES` | `536870912` | Weighted global payload budget |
-| `RELAY_INGRESS_WEIGHT` | `4` | Multiplier applied while each payload is read, queued, or written |
 | `RELAY_AUTH_TIMEOUT_MS` | `5000` | Time to answer the challenge |
-| `RELAY_PAIR_TIMEOUT_MS` | `5000` | Time for the host to accept a client |
+| `RELAY_PAIR_TIMEOUT_MS` | `5000` | Time for the host to complete accepting a client |
 | `RELAY_WRITE_TIMEOUT_MS` | `5000` | Deadline for control, close, and directory writes |
 | `RELAY_DELIVERY_TIMEOUT_MS` | `30000` | How long a write to a pair's receiver may stay blocked before the receiver is closed |
 | `RELAY_HEARTBEAT_MS` | `15000` | Ping interval |
@@ -94,6 +92,10 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 | `RELAY_DIRECTORY_RETRY_MAX_MS` | `2000` | Directory reconnect backoff cap |
 
 The router (`cmd/router`) has its own `ROUTER_*` settings, listed in [docs/multi-node.md](docs/multi-node.md).
+
+The deployment units target 4 GiB machines: 8,000 hosts and pairs per node, 10,000 upgraded connections on the router, a 2 GiB soft Go memory target, and a 3 GiB systemd memory ceiling. These are admission and containment limits, not measured operating capacity. The systemd ceiling can terminate an overloaded service; allow space for control queues, TLS and socket memory when sizing a deployment.
+
+`RELAY_INGRESS_BUDGET_BYTES` and `RELAY_INGRESS_WEIGHT` are ignored. Streaming forwarding has no payload queue or ingress eviction budget.
 
 ## License
 

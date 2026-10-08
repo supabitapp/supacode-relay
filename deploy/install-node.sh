@@ -16,9 +16,6 @@ for _ in $(seq 40); do
   fi
   sleep 0.5
 done
-if curl -fsS localhost:9090/healthz; then
-  echo "warning: $node is healthy but has no directory stream yet" >&2
-  exit 0
-fi
+echo "$node failed to join the router" >&2
 sudo journalctl -u supacode-relay -n 50 --no-pager
 exit 1

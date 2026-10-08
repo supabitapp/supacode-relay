@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -177,6 +178,63 @@ func TestControlCloseClosesAllPairs(t *testing.T) {
 	r.waitMetrics("all released", func(m map[string]float64) bool {
 		return m["activeHosts"] == 0 && m["activePairs"] == 0 && m["pendingPairs"] == 0 && m["openSockets"] == 0
 	})
+}
+
+func TestHostRemovalClosesStalledPairsTogether(t *testing.T) {
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_DELIVERY_TIMEOUT_MS=30000")
+	baseline := r.metrics()
+	const count = 8
+	block := make([]byte, 65536)
+	for round := range 3 {
+		h := register(t, r)
+		healthy := make([]*websocket.Conn, 0, count)
+		ready := make(chan struct{}, count)
+		var producers sync.WaitGroup
+		for range count {
+			_, host, _ := pairUp(t, r, h)
+			healthy = append(healthy, host)
+			producers.Add(1)
+			go func() {
+				defer producers.Done()
+				for n := 0; ; n++ {
+					if n == 9 {
+						ready <- struct{}{}
+					}
+					_ = host.SetWriteDeadline(time.Now().Add(deadline))
+					if host.WriteMessage(websocket.BinaryMessage, block) != nil {
+						return
+					}
+				}
+			}()
+			// The destination does not consume data. Its TCP window eventually
+			// blocks the relay writer while the opposite peer can still read.
+		}
+		for range count {
+			select {
+			case <-ready:
+			case <-time.After(deadline):
+				t.Fatal("producers did not fill destination windows")
+			}
+		}
+		started := time.Now()
+		h.Close()
+		for _, host := range healthy {
+			expectClose(t, host, websocket.CloseGoingAway)
+		}
+		r.waitMetrics("stalled host released all resources", func(m map[string]float64) bool {
+			return m["activeHosts"] == 0 && m["activePairs"] == 0 && m["clientSlots"] == 0 && m["openSockets"] == 0
+		})
+		if elapsed := time.Since(started); elapsed > 3*time.Second {
+			t.Fatalf("round %d: teardown of %d blocked pairs took %s", round, count, elapsed)
+		}
+		producers.Wait()
+		r.waitMetrics("stalled handlers and heartbeats exited", func(m map[string]float64) bool {
+			return m["goroutines"] <= baseline["goroutines"]+3
+		})
+	}
+	if growth := r.metrics()["heapAllocBytes"] - baseline["heapAllocBytes"]; growth > 8<<20 {
+		t.Fatalf("repeated stalled teardown retained %.0f bytes", growth)
+	}
 }
 
 func TestGracefulShutdownWaitsForActivePairs(t *testing.T) {

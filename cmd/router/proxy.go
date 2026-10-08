@@ -63,6 +63,33 @@ type halfCloseConn struct {
 	once sync.Once
 }
 
+const copyBufferBytes = 16 * 1024
+
+var copyBuffers = sync.Pool{New: func() any {
+	buffer := make([]byte, copyBufferBytes)
+	return &buffer
+}}
+
+// Preserve the wrapper's half-close deadline while giving each upgrade
+// direction a fixed copy buffer, including TLS and buffered handshake bytes.
+func (c *halfCloseConn) ReadFrom(reader io.Reader) (int64, error) {
+	return copyFixed(c.Conn, reader)
+}
+
+func (c *halfCloseConn) WriteTo(writer io.Writer) (int64, error) {
+	return copyFixed(writer, c.Conn)
+}
+
+func copyFixed(writer io.Writer, reader io.Reader) (int64, error) {
+	buffer := copyBuffers.Get().(*[]byte)
+	defer func() {
+		clear(*buffer)
+		copyBuffers.Put(buffer)
+	}()
+	// Hide optional copy interfaces to avoid recursion and uncontrolled buffers.
+	return io.CopyBuffer(struct{ io.Writer }{writer}, struct{ io.Reader }{reader}, *buffer)
+}
+
 func (c *halfCloseConn) CloseWrite() error {
 	var err error
 	if cw, ok := c.Conn.(interface{ CloseWrite() error }); ok {

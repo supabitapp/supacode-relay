@@ -54,21 +54,27 @@ func (st *stream) send(m directory.Message) bool {
 	}
 }
 
-func (st *stream) sync(clock uint64) <-chan struct{} {
+func (st *stream) sync(clock uint64) (<-chan struct{}, func()) {
 	st.mu.Lock()
 	if st.closed {
 		st.mu.Unlock()
-		return nil
+		return nil, func() {}
 	}
 	st.seq++
 	seq := st.seq
 	ch := make(chan struct{})
 	st.waiters[seq] = ch
 	st.mu.Unlock()
-	if !st.send(directory.Message{Type: directory.TypeSync, Seq: seq, Clock: clock}) {
-		return nil
+	cancel := func() {
+		st.mu.Lock()
+		delete(st.waiters, seq)
+		st.mu.Unlock()
 	}
-	return ch
+	if !st.send(directory.Message{Type: directory.TypeSync, Seq: seq, Clock: clock}) {
+		cancel()
+		return nil, func() {}
+	}
+	return ch, cancel
 }
 
 func (st *stream) ack(seq uint64) {
@@ -275,7 +281,9 @@ func (rt *router) syncRound(streams []*stream) {
 	clock := rt.table.Clock()
 	var waits []<-chan struct{}
 	for _, st := range streams {
-		if ch := st.sync(clock); ch != nil {
+		ch, cancel := st.sync(clock)
+		defer cancel()
+		if ch != nil {
 			waits = append(waits, ch)
 		}
 	}
