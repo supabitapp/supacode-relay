@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -21,16 +22,17 @@ const (
 )
 
 type host struct {
-	id       string
-	regID    string
-	version  uint64
-	ctrl     *peer
-	pairs    map[string]*pair
-	pending  int
-	gone     bool
-	detached bool
-	bytesIn  atomic.Int64
-	bytesOut atomic.Int64
+	id          string
+	regID       string
+	version     uint64
+	ctrl        *peer
+	pairs       map[string]*pair
+	pending     int
+	clientSlots int
+	gone        bool
+	detached    bool
+	bytesIn     atomic.Int64
+	bytesOut    atomic.Int64
 }
 
 func (h *host) notify(v any) {
@@ -84,7 +86,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, nil), nil)
+	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages), nil)
 	h := &host{id: id, regID: randomB64(16), version: s.clock.Next(), ctrl: ctrl, pairs: map[string]*pair{}}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()
@@ -103,6 +105,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go ctrl.writeLoop()
+	defer func() { <-ctrl.written }()
 	ctrl.readControl()
 	s.removeHost(h)
 }
@@ -143,9 +146,15 @@ func (s *Server) removeHost(h *host) {
 		pairs = append(pairs, p)
 	}
 	s.mu.Unlock()
+	var cleanup sync.WaitGroup
 	for _, p := range pairs {
-		p.close(closeMsg{websocket.CloseGoingAway, "host offline"}, nil, false)
+		cleanup.Add(1)
+		go func() {
+			defer cleanup.Done()
+			p.close(closeMsg{websocket.CloseGoingAway, "host offline"})
+		}()
 	}
+	cleanup.Wait()
 }
 
 func decodeB64(s string, n int) ([]byte, bool) {

@@ -1,9 +1,12 @@
 package e2e
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -166,9 +169,7 @@ func TestSlowReaderPausesSender(t *testing.T) {
 		}
 	}()
 
-	if reserved := settledIngress(r); reserved == 0 || reserved > queue+chunk {
-		t.Fatalf("relay buffered %v bytes for a stalled reader, want between 1 and %d", reserved, queue+chunk)
-	}
+	r.waitMetrics("stalled delivery active", func(m map[string]float64) bool { return m["activePairs"] == 1 })
 	time.Sleep(time.Second)
 	if m := r.metrics(); m["activePairs"] != 1 {
 		t.Fatalf("stalled pair was closed instead of paused: %v", m)
@@ -194,70 +195,69 @@ func TestSlowReaderPausesSender(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	close(stop)
 	sent := <-total
-	r.waitMetrics("paused queue drained", func(m map[string]float64) bool { return m["ingressReservedBytes"] == 0 })
-	host.Close()
+	// A close follows every accepted message through the same source socket.
+	_ = client.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "done"), time.Now().Add(deadline))
 	if got := <-received; got != sent {
 		t.Fatalf("host received %d of %d messages", got, sent)
 	}
 }
 
-func TestIngressBudgetLimit(t *testing.T) {
-	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=4096", "RELAY_MAX_QUEUE_BYTES=65536", "RELAY_INGRESS_BUDGET_BYTES=4096", "RELAY_INGRESS_WEIGHT=1")
-	h := register(t, r)
-	client, ev := connect(t, r, h)
-	send(t, client, message{websocket.BinaryMessage, randomBytes(4096)})
-	send(t, client, message{websocket.BinaryMessage, []byte("next")})
-	ce := expectClose(t, client, websocket.CloseTryAgainLater)
-	if ce.Text != "ingress capacity exceeded" {
-		t.Fatalf("unexpected close reason %q", ce.Text)
-	}
-	if closed := nextEvent(t, h, "closed"); closed.ConnectionID != ev.ConnectionID {
-		t.Fatalf("closed event for wrong pair %+v", closed)
-	}
-	r.waitMetrics("ingress budget release", func(m map[string]float64) bool { return m["ingressReservedBytes"] == 0 })
-}
-
-func TestIngressBudgetEvictsHeaviestPair(t *testing.T) {
-	const chunk = 64 << 10
-	const budget = 8 * chunk
-	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=4194304", "RELAY_MAX_QUEUE_MESSAGES=1024",
-		fmt.Sprintf("RELAY_INGRESS_BUDGET_BYTES=%d", budget), "RELAY_INGRESS_WEIGHT=1", "RELAY_WRITE_TIMEOUT_MS=30000")
-	hogClient, hogHost, _ := pairUp(t, r, register(t, r))
-
-	data := randomBytes(chunk)
-	for reserved := 0.0; reserved < budget; {
-		send(t, hogClient, message{websocket.BinaryMessage, data})
-		reserved = settledIngress(r)
-	}
-
+func TestStreamingMessageStartsBeforeFinalFragment(t *testing.T) {
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=33554432")
 	client, host, _ := pairUp(t, r, register(t, r))
-	ping := message{websocket.TextMessage, []byte("ping")}
-	send(t, client, ping)
-	expectMessage(t, host, ping)
-	if ce := expectClose(t, hogClient, websocket.CloseTryAgainLater); ce.Text != "ingress capacity exceeded" {
-		t.Fatalf("unexpected close reason %q", ce.Text)
+	writer, err := client.NextWriter(websocket.BinaryMessage)
+	if err != nil {
+		t.Fatal(err)
 	}
-	send(t, host, ping)
-	expectMessage(t, client, ping)
-	r.waitMetrics("eviction recorded", func(m map[string]float64) bool {
-		return m["ingressEvictions"] == 1 && m["activePairs"] == 1
-	})
-
-	hogHost.Close()
-	r.waitMetrics("hog reservations released", func(m map[string]float64) bool { return m["ingressReservedBytes"] == 0 })
+	payload := randomBytes(64 << 10)
+	if _, err := writer.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	// No final fragment has been sent. The receiver must already see bytes.
+	_ = host.SetReadDeadline(time.Now().Add(deadline))
+	typ, reader, err := host.NextReader()
+	if err != nil || typ != websocket.BinaryMessage {
+		t.Fatalf("reader type=%d err=%v", typ, err)
+	}
+	prefix := make([]byte, 32<<10)
+	if _, err := io.ReadFull(reader, prefix); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(prefix, payload[:len(prefix)]) {
+		t.Fatal("prefix changed")
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	rest, err := io.ReadAll(reader)
+	if err != nil || !bytes.Equal(rest, payload[len(prefix):]) {
+		t.Fatalf("tail changed: %v", err)
+	}
 }
 
-func settledIngress(r *relay) float64 {
-	r.t.Helper()
-	last := r.metrics()["ingressReservedBytes"]
-	for {
-		time.Sleep(25 * time.Millisecond)
-		now := r.metrics()["ingressReservedBytes"]
-		if now == last {
-			return now
-		}
-		last = now
+func TestTruncatedMessageIsNeverCompleted(t *testing.T) {
+	r := startRelay(t)
+	client, host, _ := pairUp(t, r, register(t, r))
+	writer, err := client.NextWriter(websocket.BinaryMessage)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if _, err := writer.Write(randomBytes(64 << 10)); err != nil {
+		t.Fatal(err)
+	}
+	_ = host.SetReadDeadline(time.Now().Add(deadline))
+	_, reader, err := host.NextReader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.CopyN(io.Discard, reader, 32<<10); err != nil {
+		t.Fatal(err)
+	}
+	client.Close() // Abrupt EOF with no final fragment.
+	if _, err := io.Copy(io.Discard, reader); err == nil {
+		t.Fatal("truncated message was finalized")
+	}
+	r.waitIdle()
 }
 
 func TestConnectionLimits(t *testing.T) {
@@ -280,4 +280,124 @@ func TestConnectionLimits(t *testing.T) {
 	if m := r.metrics(); m["activePairs"] != 1 || m["pendingPairs"] != 2 || m["rejectedConnections"] < 4 {
 		t.Fatalf("unexpected metrics %v", m)
 	}
+}
+
+func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
+	r := startRelay(t, "RELAY_MAX_CLIENTS=1", "RELAY_MAX_CLIENTS_PER_HOST=1", "RELAY_MAX_PENDING_PER_HOST=1", "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=262144", "RELAY_DELIVERY_TIMEOUT_MS=30000")
+	h := register(t, r)
+	nextHost := register(t, r)
+	client, host, _ := pairUp(t, r, h)
+	stopped := make(chan struct{})
+	var sent atomic.Uint64
+	go func() {
+		defer close(stopped)
+		payload := randomBytes(65536)
+		for {
+			_ = client.SetWriteDeadline(time.Now().Add(deadline))
+			if client.WriteMessage(websocket.BinaryMessage, payload) != nil {
+				return
+			}
+			sent.Add(1)
+		}
+	}()
+	r.waitMetrics("stalled delivery owns memory", func(m map[string]float64) bool { return sent.Load() >= 9 && m["forwardedMessages"] >= 8 })
+	h.Close()
+	r.waitMetrics("closed pair still owns sockets", func(m map[string]float64) bool { return m["activePairs"] == 0 && m["closingPairs"] == 1 })
+	_, resp, err := endpoint.Connect(r.base, nextHost.ID)
+	expectStatus(t, resp, err, 503)
+	host.Close()
+	client.Close()
+	<-stopped
+	r.waitMetrics("closing pair released admission", func(m map[string]float64) bool { return m["clientSlots"] == 0 })
+	pairUp(t, r, nextHost)
+}
+
+func TestInterruptedStreamingMessageNeverCompletes(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  []string
+	}{
+		{"oversized", []string{"RELAY_MAX_MESSAGE_BYTES=65536"}},
+		{"source inactivity", []string{"RELAY_HEARTBEAT_MS=100"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := startRelay(t, tc.env...)
+			client, host, _ := pairUp(t, r, register(t, r))
+			writer, err := client.NextWriter(websocket.BinaryMessage)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = client.SetWriteDeadline(time.Now().Add(deadline))
+			_, _ = writer.Write(make([]byte, 128<<10))
+			// Leave the fragmented message unfinished, including when the source
+			// exceeds its read limit or stops answering heartbeats.
+			_ = host.SetReadDeadline(time.Now().Add(deadline))
+			_, reader, err := host.NextReader()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := io.CopyN(io.Discard, reader, 16<<10); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := io.Copy(io.Discard, reader); err == nil {
+				t.Fatal("interrupted fragments became a complete message")
+			}
+		})
+	}
+}
+
+func TestLargeStreamingMessageKeepsHeapBounded(t *testing.T) {
+	const size = 32 << 20
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=33554432")
+	client, host, _ := pairUp(t, r, register(t, r))
+	baseline := r.metrics()["heapAllocBytes"]
+	block := bytes.Repeat([]byte{0xa5}, 64<<10)
+	written := make(chan error, 1)
+	go func() {
+		writer, err := client.NextWriter(websocket.BinaryMessage)
+		if err != nil {
+			written <- err
+			return
+		}
+		for range size / len(block) {
+			if _, err := writer.Write(block); err != nil {
+				written <- err
+				return
+			}
+		}
+		written <- writer.Close()
+	}()
+	_, reader, err := host.NextReader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	buffer := make([]byte, len(block))
+	// Pause the receiver within a message much larger than the relay buffers.
+	// A store-and-forward implementation still retains its complete 32 MiB here.
+	for range (8 << 20) / len(block) {
+		if _, err := io.ReadFull(reader, buffer); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(buffer, block) {
+			t.Fatal("stream changed")
+		}
+	}
+	if growth := r.metrics()["heapAllocBytes"] - baseline; growth > 4<<20 {
+		t.Fatalf("relay heap grew %.0f bytes while streaming a %d byte message", growth, size)
+	}
+	for range (size - (8 << 20)) / len(block) {
+		if _, err := io.ReadFull(reader, buffer); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(buffer, block) {
+			t.Fatal("stream changed")
+		}
+	}
+	if n, err := reader.Read(buffer); n != 0 || err != io.EOF {
+		t.Fatalf("message end n=%d err=%v", n, err)
+	}
+	if err := <-written; err != nil {
+		t.Fatal(err)
+	}
+	r.waitMetrics("large message counted", func(m map[string]float64) bool { return m["forwardedBytes"] == size })
 }

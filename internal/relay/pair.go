@@ -3,6 +3,7 @@ package relay
 import (
 	"crypto/subtle"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -28,10 +29,11 @@ type pair struct {
 	cause     closeMsg
 	announced bool
 	timer     *time.Timer
-	toHost    *queue
-	toClient  *queue
+	ready     chan struct{}
+	done      chan struct{}
 	client    *peer
 	hostPeer  *peer
+	refs      int
 }
 
 func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
@@ -46,32 +48,36 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		s.reject(w, http.StatusNotFound, "endpoint not found")
 		return
 	}
-	if s.pending+s.active >= s.cfg.MaxClients || len(h.pairs) >= s.cfg.MaxClientsPerHost || h.pending >= s.cfg.MaxPendingPerHost {
+	if s.clientSlots >= s.cfg.MaxClients || h.clientSlots >= s.cfg.MaxClientsPerHost || h.pending >= s.cfg.MaxPendingPerHost {
 		s.mu.Unlock()
 		s.reject(w, http.StatusServiceUnavailable, "client capacity reached")
 		return
 	}
 	p := &pair{
-		s:        s,
-		id:       directory.ConnectionID(s.cfg.NodeID, randomB64(16)),
-		token:    randomB64(32),
-		host:     h,
-		toHost:   s.newPairQueue(),
-		toClient: s.newPairQueue(),
+		s:     s,
+		refs:  1,
+		id:    directory.ConnectionID(s.cfg.NodeID, randomB64(16)),
+		token: randomB64(32),
+		host:  h,
+		ready: make(chan struct{}),
+		done:  make(chan struct{}),
 	}
 	h.pairs[p.id] = p
 	s.pairs[p.id] = p
 	h.pending++
+	h.clientSlots++
+	s.clientSlots++
 	s.pending++
 	p.timer = time.AfterFunc(s.cfg.PairTimeout, p.expire)
 	s.mu.Unlock()
+	defer p.releaseSlot()
 
 	ws, ok := s.upgrade(w, r, int64(s.cfg.MaxMessageBytes))
 	if !ok {
-		p.close(closeMsg{websocket.CloseInternalServerErr, "upgrade failed"}, nil, false)
+		p.close(closeMsg{websocket.CloseInternalServerErr, "upgrade failed"})
 		return
 	}
-	cp := s.newPeer(ws, p.toClient, &h.bytesOut)
+	cp := s.newPeer(ws, nil, &h.bytesOut)
 	s.mu.Lock()
 	if p.state == closed {
 		cause := p.cause
@@ -84,8 +90,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	h.notify(map[string]string{"type": "incoming", "connectionId": p.id, "token": p.token})
 	s.mu.Unlock()
 
-	go cp.writeLoop()
-	cp.readData(p, p.toHost)
+	cp.readData(p)
 }
 
 func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
@@ -110,15 +115,16 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.state = accepting
-	p.timer.Stop()
+	p.refs++
 	s.mu.Unlock()
+	defer p.releaseSlot()
 
 	ws, ok := s.upgrade(w, r, int64(s.cfg.MaxMessageBytes))
 	if !ok {
-		p.close(closeMsg{websocket.CloseInternalServerErr, "host accept failed"}, nil, false)
+		p.close(closeMsg{websocket.CloseInternalServerErr, "host accept failed"})
 		return
 	}
-	hp := s.newPeer(ws, p.toHost, &p.host.bytesIn)
+	hp := s.newPeer(ws, nil, &p.host.bytesIn)
 	s.mu.Lock()
 	if p.state != accepting {
 		cause := p.cause
@@ -127,37 +133,36 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.state = active
+	p.timer.Stop()
 	p.hostPeer = hp
 	p.host.pending--
 	s.pending--
 	s.active++
+	close(p.ready)
 	s.mu.Unlock()
 
-	go hp.writeLoop()
-	hp.readData(p, p.toClient)
-}
-
-func (s *Server) newPairQueue() *queue {
-	q := newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages, s.budget)
-	q.arbiter = s
-	return q
+	hp.readData(p)
 }
 
 func (p *pair) expire() {
-	p.s.mu.Lock()
-	waiting := p.state == pending
-	p.s.mu.Unlock()
-	if waiting {
-		p.close(closeMsg{websocket.CloseTryAgainLater, "pair timeout"}, nil, false)
-	}
+	p.closeWhen(closeMsg{websocket.CloseTryAgainLater, "pair timeout"}, true)
 }
 
-func (p *pair) close(c closeMsg, origin *peer, discard bool) {
+func (p *pair) close(c closeMsg) {
+	p.closeWhen(c, false)
+}
+
+func (p *pair) closeWhen(c closeMsg, waitingOnly bool) {
 	s := p.s
 	s.mu.Lock()
 	prev := p.state
+	if waitingOnly && prev != pending && prev != accepting {
+		s.mu.Unlock()
+		return
+	}
 	if prev == closed {
 		s.mu.Unlock()
+		<-p.done
 		return
 	}
 	p.state = closed
@@ -177,6 +182,32 @@ func (p *pair) close(c closeMsg, origin *peer, discard bool) {
 	client, hostPeer := p.client, p.hostPeer
 	s.mu.Unlock()
 	p.timer.Stop()
-	p.toClient.finish(c, discard || client == nil || client == origin)
-	p.toHost.finish(c, discard || hostPeer == nil || hostPeer == origin)
+	// Close controls may run alongside a data writer. One shared deadline
+	// bounds teardown even when either destination has stopped reading.
+	deadline := time.Now().Add(closeGrace)
+	var cleanup sync.WaitGroup
+	for _, peer := range []*peer{client, hostPeer} {
+		if peer == nil {
+			continue
+		}
+		cleanup.Add(1)
+		go func() {
+			defer cleanup.Done()
+			_ = peer.ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(c.code, c.reason), deadline)
+			_ = peer.ws.Close()
+		}()
+	}
+	cleanup.Wait()
+	close(p.done)
+}
+
+// Keep admission ownership until every accepted socket and writer has exited.
+func (p *pair) releaseSlot() {
+	p.s.mu.Lock()
+	defer p.s.mu.Unlock()
+	p.refs--
+	if p.refs == 0 {
+		p.s.clientSlots--
+		p.host.clientSlots--
+	}
 }

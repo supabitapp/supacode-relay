@@ -11,6 +11,10 @@ Environment=RELAY_TRUSTED_PROXIES=127.0.0.1/32
 Environment=RELAY_CLIENT_IP_HEADER=X-Relay-Client-Ip
 Environment=RELAY_ROUTERS=https://relay-directory.int.exe.xyz
 Environment=RELAY_DIRECTORY_TOKEN_FILE=%d/directory-token
+Environment=RELAY_MAX_HOSTS=8000
+Environment=RELAY_MAX_CLIENTS=8000
+Environment=RELAY_MAX_QUEUE_BYTES=65536
+Environment=GOMEMLIMIT=2GiB
 EnvironmentFile=/etc/supacode-relay/node.env
 LoadCredential=directory-token:/etc/supacode-relay/directory-token
 Restart=always
@@ -22,6 +26,7 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 LimitNOFILE=65536
+MemoryMax=3G
 
 [Install]
 WantedBy=multi-user.target

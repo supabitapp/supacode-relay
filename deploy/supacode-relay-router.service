@@ -9,8 +9,9 @@ Environment=ROUTER_ADDR=127.0.0.1:8080
 Environment=ROUTER_PRIVATE_ADDR=127.0.0.1:9090
 Environment=ROUTER_PRIVATE_ALLOWED_PEERS=127.0.0.1/32
 Environment=ROUTER_TRUSTED_PROXIES=127.0.0.1/32
-Environment=ROUTER_MAX_CONNS=40000
-Environment=ROUTER_MAX_CONNS_PER_IP=20000
+Environment=ROUTER_MAX_CONNS=10000
+Environment=ROUTER_MAX_CONNS_PER_IP=1500
+Environment=GOMEMLIMIT=2GiB
 Environment=ROUTER_DIRECTORY_TOKEN_FILE=%d/directory-token
 LoadCredential=directory-token:/etc/supacode-relay/directory-token
 Restart=always
@@ -22,6 +23,7 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 LimitNOFILE=131072
+MemoryMax=3G
 
 [Install]
 WantedBy=multi-user.target

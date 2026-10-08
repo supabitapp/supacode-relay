@@ -17,8 +17,6 @@ import (
 type Config struct {
 	Addr               string
 	MaxMessageBytes    int
-	IngressBudgetBytes int
-	IngressWeight      int
 	MaxQueueBytes      int
 	MaxQueueMessages   int
 	MaxClients         int
@@ -73,8 +71,6 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		{"RELAY_MAX_CLIENTS_PER_HOST", 256, &c.MaxClientsPerHost},
 		{"RELAY_MAX_PENDING_PER_HOST", 64, &c.MaxPendingPerHost},
 		{"RELAY_MAX_HOSTS", 20000, &c.MaxHosts},
-		{"RELAY_INGRESS_BUDGET_BYTES", 512 << 20, &c.IngressBudgetBytes},
-		{"RELAY_INGRESS_WEIGHT", 4, &c.IngressWeight},
 	}
 	for _, f := range ints {
 		n, err := positiveInt(getenv, f.name, f.def)
@@ -133,9 +129,6 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		return c, err
 	}
 
-	if c.MaxMessageBytes > c.IngressBudgetBytes/c.IngressWeight {
-		return c, fmt.Errorf("RELAY_INGRESS_BUDGET_BYTES must admit RELAY_MAX_MESSAGE_BYTES at RELAY_INGRESS_WEIGHT")
-	}
 	if c.MaxPendingPerHost > c.MaxClientsPerHost {
 		return c, fmt.Errorf("RELAY_MAX_PENDING_PER_HOST (%d) must not exceed RELAY_MAX_CLIENTS_PER_HOST (%d)", c.MaxPendingPerHost, c.MaxClientsPerHost)
 	}

@@ -110,6 +110,8 @@ func (rt *router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (rt *router) handleMetrics(w http.ResponseWriter, _ *http.Request) {
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
 	rt.mu.Lock()
 	controls := map[string]int{}
 	for k, v := range rt.controls {
@@ -130,6 +132,13 @@ func (rt *router) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	}
 	total, ips := rt.gate.Stats()
 	writeJSON(w, http.StatusOK, map[string]any{
+		"heapAllocBytes":              memory.HeapAlloc,
+		"heapInuseBytes":              memory.HeapInuse,
+		"heapSysBytes":                memory.HeapSys,
+		"totalAllocatedBytes":         memory.TotalAlloc,
+		"gcCycles":                    memory.NumGC,
+		"copyBufferBytesPerDirection": copyBufferBytes,
+
 		"nodes":                   nodes,
 		"endpoints":               rt.table.Len(),
 		"directoryStreams":        streams,

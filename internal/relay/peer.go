@@ -2,6 +2,7 @@ package relay
 
 import (
 	"errors"
+	"io"
 	"net"
 	"sync/atomic"
 	"time"
@@ -16,11 +17,12 @@ type peer struct {
 	traffic      *atomic.Int64
 	writeTimeout time.Duration
 	dead         chan struct{}
+	written      chan struct{}
 	cause        atomic.Pointer[closeMsg]
 }
 
 func (s *Server) newPeer(ws *websocket.Conn, q *queue, traffic *atomic.Int64) *peer {
-	p := &peer{s: s, ws: ws, q: q, traffic: traffic, writeTimeout: s.cfg.WriteTimeout, dead: make(chan struct{})}
+	p := &peer{s: s, ws: ws, q: q, traffic: traffic, writeTimeout: s.cfg.WriteTimeout, dead: make(chan struct{}), written: make(chan struct{})}
 	if traffic != nil {
 		p.writeTimeout = s.cfg.DeliveryTimeout
 	}
@@ -42,7 +44,9 @@ func (p *peer) fail(c closeMsg) {
 }
 
 func (p *peer) exit() {
-	p.q.finish(closeMsg{websocket.CloseGoingAway, "peer disconnected"}, true)
+	if p.q != nil {
+		p.q.finish(closeMsg{websocket.CloseGoingAway, "peer disconnected"}, true)
+	}
 	close(p.dead)
 }
 
@@ -55,6 +59,7 @@ func (p *peer) ping() bool {
 }
 
 func (p *peer) writeLoop() {
+	defer close(p.written)
 	defer p.q.finish(closeMsg{websocket.CloseGoingAway, "writer stopped"}, true)
 	defer p.s.forget(p.ws)
 	cfg := p.s.cfg
@@ -111,27 +116,90 @@ func (p *peer) readControl() {
 	}
 }
 
-func (p *peer) readData(pr *pair, out *queue) {
+// Each data direction reads directly into the destination's fixed WebSocket
+// writer buffer. A stalled writer stops its source; no payload queue is kept.
+func (p *peer) readData(pr *pair) {
+	defer p.s.forget(p.ws)
+	defer func() { <-p.written }()
 	defer p.exit()
+	go p.keepAlive()
+	select {
+	case <-pr.ready:
+	case <-pr.done:
+		return
+	}
+	p.s.mu.Lock()
+	out := pr.hostPeer
+	if p == pr.hostPeer {
+		out = pr.client
+	}
+	p.s.mu.Unlock()
+	progress := &progressReader{peer: p}
 	for {
 		typ, reader, err := p.ws.NextReader()
-		var f frame
-		if err == nil {
-			f, err = out.read(reader, p.s.cfg.MaxMessageBytes)
-		}
-		if errors.Is(err, errIngressCapacity) {
-			pr.close(closeMsg{websocket.CloseTryAgainLater, "ingress capacity exceeded"}, nil, true)
-			return
-		}
 		if err != nil {
-			pr.close(p.closeCause(err), p, false)
+			pr.close(p.closeCause(err))
 			return
 		}
-		f.typ = typ
-		result := out.pushWait(f)
+		_ = out.ws.SetWriteDeadline(time.Now().Add(p.s.cfg.DeliveryTimeout))
+		writer, err := out.ws.NextWriter(typ)
+		if err != nil {
+			pr.close(closeMsg{websocket.CloseTryAgainLater, "peer write timeout"})
+			return
+		}
+		progress.reader, progress.err, progress.out = reader, nil, out
+		n, err := io.Copy(writer, progress)
+		if err != nil {
+			// Closing the message writer here would turn a truncated input into
+			// a valid shorter message. Close the pair with the fragment unfinished.
+			cause := closeMsg{websocket.CloseTryAgainLater, "peer write timeout"}
+			if progress.err != nil {
+				cause = p.closeCause(progress.err)
+			}
+			pr.close(cause)
+			return
+		}
+		if err := writer.Close(); err != nil {
+			pr.close(closeMsg{websocket.CloseTryAgainLater, "peer write timeout"})
+			return
+		}
+		p.s.forwardedMessages.Add(1)
+		p.s.forwardedBytes.Add(n)
+		out.traffic.Add(n)
 		p.extend()
-		if !result.accepted() {
-			pr.close(closeMsg{websocket.CloseTryAgainLater, "ingress capacity exceeded"}, nil, true)
+	}
+}
+
+type progressReader struct {
+	reader io.Reader
+	peer   *peer
+	out    *peer
+	err    error
+}
+
+func (r *progressReader) Read(b []byte) (int, error) {
+	n, err := r.reader.Read(b)
+	if n > 0 {
+		r.peer.extend()
+		_ = r.out.ws.SetWriteDeadline(time.Now().Add(r.peer.s.cfg.DeliveryTimeout))
+	}
+	if err != nil && err != io.EOF {
+		r.err = err
+	}
+	return n, err
+}
+
+func (p *peer) keepAlive() {
+	defer close(p.written)
+	ticker := time.NewTicker(p.s.cfg.Heartbeat)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if !p.ping() {
+				return
+			}
+		case <-p.dead:
 			return
 		}
 	}

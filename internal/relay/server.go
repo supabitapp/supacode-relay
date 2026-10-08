@@ -30,7 +30,6 @@ type Server struct {
 	private  *http.Server
 	upgrader websocket.Upgrader
 	limiter  *admission.Limiter
-	budget   *byteBudget
 	draining atomic.Bool
 	clock    directory.Clock
 
@@ -39,29 +38,29 @@ type Server struct {
 	rejectedConnections atomic.Int64
 	superseded          atomic.Int64
 	evicted             atomic.Int64
-	ingressEvictions    atomic.Int64
 
-	mu         sync.Mutex
-	hosts      map[string]*host
-	pairs      map[string]*pair
-	controls   int
-	pending    int
-	active     int
-	conns      map[*websocket.Conn]struct{}
-	dirStreams map[*dirStream]struct{}
+	mu          sync.Mutex
+	hosts       map[string]*host
+	pairs       map[string]*pair
+	controls    int
+	pending     int
+	active      int
+	clientSlots int
+	conns       map[*websocket.Conn]struct{}
+	dirStreams  map[*dirStream]struct{}
 }
 
 func New(cfg Config) *Server {
 	s := &Server{
 		cfg: cfg,
 		upgrader: websocket.Upgrader{
-			ReadBufferSize:  4096,
-			WriteBufferSize: 4096,
-			WriteBufferPool: &sync.Pool{},
-			CheckOrigin:     func(*http.Request) bool { return true },
+			HandshakeTimeout: cfg.WriteTimeout,
+			ReadBufferSize:   4096,
+			WriteBufferSize:  16 * 1024,
+			WriteBufferPool:  &sync.Pool{},
+			CheckOrigin:      func(*http.Request) bool { return true },
 		},
 		limiter:    admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
-		budget:     newByteBudget(int64(cfg.IngressBudgetBytes), int64(cfg.IngressWeight)),
 		hosts:      map[string]*host{},
 		pairs:      map[string]*pair{},
 		conns:      map[*websocket.Conn]struct{}{},
@@ -104,6 +103,8 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m := map[string]any{
 		"activeHosts":        len(s.hosts),
 		"activePairs":        s.active,
+		"clientSlots":        s.clientSlots,
+		"closingPairs":       s.clientSlots - s.active - s.pending,
 		"pendingPairs":       s.pending,
 		"controlConnections": s.controls,
 		"openSockets":        len(s.conns),
@@ -111,6 +112,13 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 		"topHosts":           s.topHosts(),
 	}
 	s.mu.Unlock()
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	m["heapAllocBytes"] = memory.HeapAlloc
+	m["heapInuseBytes"] = memory.HeapInuse
+	m["heapSysBytes"] = memory.HeapSys
+	m["totalAllocatedBytes"] = memory.TotalAlloc
+	m["gcCycles"] = memory.NumGC
 	m["nodeId"] = s.cfg.NodeID
 	m["supersededRegistrations"] = s.superseded.Load()
 	m["evictedRegistrations"] = s.evicted.Load()
@@ -120,11 +128,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m["rateLimiterEntries"] = s.limiter.Size()
 	m["goroutines"] = runtime.NumGoroutine()
 	m["draining"] = s.draining.Load()
-	m["ingressReservedBytes"] = s.budget.bytes.Load()
-	m["ingressReservedWeightedBytes"] = s.budget.used.Load()
-	m["ingressEvictions"] = s.ingressEvictions.Load()
-	m["ingressBudgetBytes"] = s.cfg.IngressBudgetBytes
-	m["ingressWeight"] = s.cfg.IngressWeight
+	m["dataBufferBytesPerSocket"] = 4096 + 16*1024
 	writeJSON(w, http.StatusOK, m)
 }
 
@@ -180,8 +184,9 @@ func (s *Server) upgrade(w http.ResponseWriter, r *http.Request, limit int64) (*
 }
 
 func (s *Server) closeNow(ws *websocket.Conn, c closeMsg) {
-	_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(c.code, c.reason), time.Now().Add(closeGrace))
-	_ = ws.SetReadDeadline(time.Now().Add(closeGrace))
+	deadline := time.Now().Add(closeGrace)
+	_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(c.code, c.reason), deadline)
+	_ = ws.SetReadDeadline(deadline)
 	for {
 		if _, _, err := ws.NextReader(); err != nil {
 			break
