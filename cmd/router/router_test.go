@@ -233,11 +233,10 @@ func TestConnectMissRefreshesThroughDirectoryBarrier(t *testing.T) {
 				continue
 			}
 			put := directory.Registration{EndpointID: endpointA, RegistrationID: "late", Version: 10}
-			if err := node.WriteJSON(directory.Message{Type: directory.TypePut, Registration: &put}); err != nil {
-				synced <- err
-				return
+			err := node.WriteJSON(directory.Message{Type: directory.TypePut, Registration: &put})
+			if err == nil {
+				err = node.WriteJSON(directory.Message{Type: directory.TypeSynced, Seq: m.Seq})
 			}
-			err := node.WriteJSON(directory.Message{Type: directory.TypeSynced, Seq: m.Seq})
 			synced <- err
 			if err != nil {
 				return
