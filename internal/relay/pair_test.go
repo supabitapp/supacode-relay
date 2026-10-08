@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -102,11 +103,14 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 	waitForHandler(t, connect.entered, "connect terminal read")
 	waitForHandler(t, accept.entered, "accept terminal read")
 	expectClientCapacityReached(t, nextHost)
+	expectClosingPairMetrics(t, s, 1)
 	connect.release()
 	waitForHandler(t, connect.returned, "connect handler exit")
 	expectClientCapacityReached(t, nextHost)
+	expectClosingPairMetrics(t, s, 1)
 	accept.release()
 	waitForHandler(t, accept.returned, "accept handler exit")
+	expectClosingPairMetrics(t, s, 0)
 	client, host = openPair(t, nextHost)
 	expectPairMessage(t, client, host)
 }
@@ -117,6 +121,24 @@ func waitForHandler(t *testing.T, ch <-chan struct{}, milestone string) {
 	case <-ch:
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out waiting for %s", milestone)
+	}
+}
+
+func expectClosingPairMetrics(t *testing.T, s *Server, want int) {
+	t.Helper()
+	w := httptest.NewRecorder()
+	s.handleMetrics(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	var counts struct {
+		ActivePairs  int
+		PendingPairs int
+		ClosingPairs int
+		ClientSlots  int
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &counts); err != nil {
+		t.Fatal(err)
+	}
+	if counts.ActivePairs != 0 || counts.PendingPairs != 0 || counts.ClosingPairs != want || counts.ClientSlots != want {
+		t.Fatalf("expected %d closing pairs and slots, got %+v", want, counts)
 	}
 }
 
