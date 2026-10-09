@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -21,6 +22,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supacode-relay/internal/admission"
+	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 	"github.com/supabitapp/supacode-relay/internal/directory"
 	"github.com/supabitapp/supacode-relay/internal/healthcheck"
 )
@@ -28,6 +30,7 @@ import (
 type router struct {
 	cfg      config
 	log      *log.Logger
+	events   *slog.Logger
 	table    *directory.Table
 	limiter  *admission.Limiter
 	gate     *admission.Gate
@@ -78,6 +81,7 @@ func newRouter(cfg config, logOut io.Writer) *router {
 	rt := &router{
 		cfg:      cfg,
 		log:      log.New(redactingWriter{logOut}, "", log.LstdFlags),
+		events:   diagnostics.Logger(redactingWriter{logOut}, "router", ""),
 		table:    directory.NewTable(cfg.acceptGrace),
 		limiter:  admission.NewLimiter(cfg.admissionRate, cfg.admissionBurst),
 		gate:     admission.NewGate(cfg.maxConns, cfg.maxConnsPerIP),
@@ -179,6 +183,9 @@ func (rt *router) activeTotal() int64 {
 }
 
 func main() {
+	if code, handled := diagnostics.Command(os.Args, os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	cfg, err := loadConfig(os.Getenv)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "router: invalid configuration:", err)
@@ -188,6 +195,10 @@ func main() {
 		os.Exit(code)
 	}
 	rt := newRouter(cfg, os.Stderr)
+	rt.events.Info("router.started", "dial_timeout_ms", cfg.dialTimeout.Milliseconds(),
+		"header_timeout_ms", cfg.headerTimeout.Milliseconds(), "refresh_timeout_ms", cfg.refreshTimeout.Milliseconds(),
+		"heartbeat_ms", cfg.heartbeat.Milliseconds(), "max_connections", cfg.maxConns,
+		"max_connections_per_client", cfg.maxConnsPerIP, "admission_rate", cfg.admissionRate)
 	lc := net.ListenConfig{KeepAliveConfig: net.KeepAliveConfig{Enable: true, Idle: keepAliveIdle, Interval: 5 * time.Second, Count: 3}}
 	ln, err := lc.Listen(context.Background(), "tcp", cfg.addr)
 	if err != nil {

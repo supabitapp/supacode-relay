@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
@@ -28,6 +29,7 @@ type stream struct {
 	closed  bool
 	seq     uint64
 	waiters map[uint64]chan struct{}
+	trace   *diagnostics.Trace
 }
 
 type round struct {
@@ -115,11 +117,13 @@ func (st *stream) writeLoop(heartbeat time.Duration) {
 		case data := <-st.out:
 			_ = st.ws.SetWriteDeadline(time.Now().Add(writeTimeout))
 			if err := st.ws.WriteMessage(websocket.TextMessage, data); err != nil {
+				st.trace.Failure("directory.write.failed", err)
 				st.close()
 				return
 			}
 		case <-ping.C:
 			if err := st.ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeTimeout)); err != nil {
+				st.trace.Failure("directory.ping.failed", err)
 				st.close()
 				return
 			}
@@ -140,13 +144,20 @@ func validNodeAddr(addr string) bool {
 }
 
 func (rt *router) handleDirectory(w http.ResponseWriter, r *http.Request) {
+	trace, request := diagnostics.Request(rt.events, r, diagnostics.RequestOptions{TrustedProxies: rt.cfg.privatePeers, InheritTrace: true})
+	r = request
+	w.Header().Set(diagnostics.Header, trace.ID())
+	trace.Event("directory.request.begin")
+	defer trace.Event("directory.request.end")
 	if !rt.authorized(r) {
+		trace.Event("directory.auth.failed", "status", http.StatusUnauthorized)
 		rt.directoryRejected.Add(1)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
-	ws, err := rt.upgrader.Upgrade(w, r, nil)
+	ws, err := rt.upgrader.Upgrade(w, r, http.Header{diagnostics.Header: {trace.ID()}})
 	if err != nil {
+		trace.Failure("directory.upgrade.failed", err)
 		return
 	}
 	defer ws.Close()
@@ -154,12 +165,14 @@ func (rt *router) handleDirectory(w http.ResponseWriter, r *http.Request) {
 	_ = ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	var hello directory.Message
 	if err := ws.ReadJSON(&hello); err != nil || hello.Type != directory.TypeHello || !directory.ValidNodeID(hello.NodeID) || !validNodeAddr(hello.Addr) {
+		trace.Failure("directory.hello.failed", err, "reason", "invalid_hello")
 		rt.directoryRejected.Add(1)
 		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid hello"), time.Now().Add(time.Second))
 		return
 	}
 	session := rt.sessions.Add(1)
 	st := newStream(hello.NodeID, session, ws)
+	st.trace = trace.With("directory_node", hello.NodeID, "directory_session", session)
 	st.send(directory.Message{Type: directory.TypeWelcome, Clock: rt.table.Clock()})
 	rt.mu.Lock()
 	old := rt.streams[hello.NodeID]
@@ -169,6 +182,7 @@ func (rt *router) handleDirectory(w http.ResponseWriter, r *http.Request) {
 	if old != nil {
 		old.close()
 	}
+	st.trace.Event("directory.node.joined", "replaced_session", replaced, "draining", hello.Draining)
 	rt.log.Printf("router: node %s joined (session %d, replaced %d, draining %v)", hello.NodeID, session, replaced, hello.Draining)
 	go st.writeLoop(rt.cfg.heartbeat)
 
@@ -180,6 +194,7 @@ func (rt *router) handleDirectory(w http.ResponseWriter, r *http.Request) {
 		rt.mu.Unlock()
 		left := rt.table.Leave(hello.NodeID, session, time.Now())
 		st.close()
+		st.trace.Event("directory.node.left", "purged", left)
 		rt.log.Printf("router: node %s left (session %d, purged %v)", hello.NodeID, session, left)
 	}()
 
@@ -190,32 +205,41 @@ func (rt *router) handleDirectory(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, data, err := ws.ReadMessage()
 		if err != nil {
+			st.trace.Failure("directory.read.ended", err, "close_code", diagnostics.CloseCode(err))
 			return
 		}
 		extend()
 		var m directory.Message
 		if json.Unmarshal(data, &m) != nil {
+			st.trace.Event("directory.message.invalid", "bytes", len(data))
 			return
 		}
 		switch m.Type {
 		case directory.TypeSnapshot:
-			ev, _ := rt.table.Snapshot(hello.NodeID, session, m.Registrations)
+			ev, accepted := rt.table.Snapshot(hello.NodeID, session, m.Registrations)
+			st.trace.Event("directory.snapshot", "registrations", len(m.Registrations), "accepted", accepted, "evictions", len(ev))
 			rt.evict(ev)
 		case directory.TypePut:
 			if m.Registration != nil {
-				ev, _ := rt.table.Put(hello.NodeID, session, *m.Registration)
+				ev, accepted := rt.table.Put(hello.NodeID, session, *m.Registration)
+				st.trace.Event("directory.endpoint.put", "endpoint_tag", diagnostics.Tag(m.Registration.EndpointID), "accepted", accepted, "evictions", len(ev))
 				rt.evict(ev)
 			}
 		case directory.TypeDel:
 			if m.Registration != nil {
-				rt.table.Del(hello.NodeID, session, *m.Registration)
+				removed := rt.table.Del(hello.NodeID, session, *m.Registration)
+				st.trace.Event("directory.endpoint.deleted", "endpoint_tag", diagnostics.Tag(m.Registration.EndpointID), "removed", removed)
 			}
 		case directory.TypeDrain:
 			if rt.table.SetDraining(hello.NodeID, session) {
+				st.trace.Event("directory.node.draining")
 				rt.log.Printf("router: node %s draining", hello.NodeID)
 			}
 		case directory.TypeSynced:
 			st.ack(m.Seq)
+			st.trace.Event("directory.sync.acknowledged", "sequence", m.Seq)
+		default:
+			st.trace.Event("directory.message.unknown", "bytes", len(data))
 		}
 	}
 }
@@ -230,12 +254,15 @@ func (rt *router) evict(evs []directory.Eviction) {
 		}
 		reg := ev.Registration
 		if st.send(directory.Message{Type: directory.TypeEvict, Registration: &reg, Clock: ev.Winner}) {
+			st.trace.Event("directory.eviction.sent", "endpoint_tag", diagnostics.Tag(reg.EndpointID), "winner_version", ev.Winner)
 			rt.evictions.Add(1)
 		}
 	}
 }
 
 func (rt *router) refresh(ctx context.Context) {
+	started := time.Now()
+	state, _ := ctx.Value(stateKey{}).(*proxyState)
 	rt.refreshes.Add(1)
 	rt.mu.Lock()
 	rd := rt.nextRound
@@ -250,7 +277,13 @@ func (rt *router) refresh(ctx context.Context) {
 	rt.mu.Unlock()
 	select {
 	case <-rd.done:
+		if state != nil {
+			state.trace.Event("directory.refresh.finished", "refresh_ms", time.Since(started).Milliseconds(), "registered_endpoints", rt.table.Len())
+		}
 	case <-ctx.Done():
+		if state != nil {
+			state.trace.Failure("directory.refresh.cancelled", ctx.Err(), "refresh_ms", time.Since(started).Milliseconds())
+		}
 	}
 }
 
@@ -276,6 +309,8 @@ func (rt *router) runRounds() {
 
 func (rt *router) syncRound(streams []*stream) {
 	rt.rounds.Add(1)
+	trace := diagnostics.New(rt.events, "directory")
+	trace.Event("directory.sync.started", "streams", len(streams), "timeout_ms", rt.cfg.refreshTimeout.Milliseconds())
 	timer := time.NewTimer(rt.cfg.refreshTimeout)
 	defer timer.Stop()
 	clock := rt.table.Clock()
@@ -292,9 +327,11 @@ func (rt *router) syncRound(streams []*stream) {
 		case <-ch:
 		case <-timer.C:
 			rt.roundTimeouts.Add(1)
+			trace.Event("directory.sync.timeout", "streams", len(streams), "awaited_streams", len(waits))
 			return
 		}
 	}
+	trace.Event("directory.sync.finished", "streams", len(streams))
 }
 
 func (rt *router) closeStreams() {

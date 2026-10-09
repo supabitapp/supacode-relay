@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/supabitapp/supacode-relay/internal/admission"
+	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
@@ -44,6 +45,7 @@ type stateKey struct{}
 
 type hijackWriter struct {
 	http.ResponseWriter
+	trace *diagnostics.Trace
 }
 
 func (h hijackWriter) Unwrap() http.ResponseWriter {
@@ -55,12 +57,13 @@ func (h hijackWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return &halfCloseConn{Conn: conn}, brw, nil
+	return &halfCloseConn{Conn: conn, trace: h.trace}, brw, nil
 }
 
 type halfCloseConn struct {
 	net.Conn
-	once sync.Once
+	once  sync.Once
+	trace *diagnostics.Trace
 }
 
 const copyBufferBytes = 16 * 1024
@@ -73,11 +76,34 @@ var copyBuffers = sync.Pool{New: func() any {
 // Preserve the wrapper's half-close deadline while giving each upgrade
 // direction a fixed copy buffer, including TLS and buffered handshake bytes.
 func (c *halfCloseConn) ReadFrom(reader io.Reader) (int64, error) {
-	return copyFixed(c.Conn, reader)
+	return tracedCopy(c.trace, "to_client", c.Conn, reader)
 }
 
 func (c *halfCloseConn) WriteTo(writer io.Writer) (int64, error) {
-	return copyFixed(writer, c.Conn)
+	return tracedCopy(c.trace, "from_client", writer, c.Conn)
+}
+
+func tracedCopy(trace *diagnostics.Trace, direction string, writer io.Writer, reader io.Reader) (int64, error) {
+	trace.Event("router.forwarding.started", "direction", direction)
+	n, err := copyFixed(writer, &firstByteReader{Reader: reader, trace: trace, direction: direction})
+	trace.Failure("router.forwarding.ended", err, "direction", direction, "bytes", n)
+	return n, err
+}
+
+type firstByteReader struct {
+	io.Reader
+	trace     *diagnostics.Trace
+	direction string
+	received  bool
+}
+
+func (r *firstByteReader) Read(bytes []byte) (int, error) {
+	n, err := r.Reader.Read(bytes)
+	if n > 0 && !r.received {
+		r.received = true
+		r.trace.Event("router.byte.first", "direction", r.direction, "bytes", n)
+	}
+	return n, err
 }
 
 func copyFixed(writer io.Writer, reader io.Reader) (int64, error) {
@@ -105,6 +131,7 @@ type proxyState struct {
 	endpointID string
 	nodeID     string
 	upgraded   string
+	trace      *diagnostics.Trace
 }
 
 func stateOf(r *http.Request) *proxyState {
@@ -155,6 +182,11 @@ func (rt *router) newProxy() *httputil.ReverseProxy {
 			}
 			pr.Out.Header.Set("X-Forwarded-For", st.ip.String())
 			pr.Out.Header.Set(directory.ClientIPHeader, st.ip.String())
+			pr.Out.Header.Set(diagnostics.Header, st.trace.ID())
+		},
+		ModifyResponse: func(response *http.Response) error {
+			response.Header.Del(diagnostics.Header)
+			return nil
 		},
 		Transport:    &upstream{rt: rt, base: base},
 		ErrorHandler: rt.proxyError,
@@ -163,41 +195,57 @@ func (rt *router) newProxy() *httputil.ReverseProxy {
 }
 
 func (rt *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	trace, request := diagnostics.Request(rt.events, r, diagnostics.RequestOptions{TrustedProxies: rt.cfg.trustedProxies})
+	r = request
+	response := &diagnostics.Response{ResponseWriter: w}
+	w = response
+	w.Header().Set(diagnostics.Header, trace.ID())
+	trace.Event("request.begin")
+	defer func() {
+		trace.Event("request.end", "status", response.Status, "upgraded", response.Hijacked)
+	}()
 	rt0, ok := routePaths[r.URL.Path]
 	if !ok {
+		trace.Event("request.rejected", "status", http.StatusNotFound, "reason", "unsupported_path")
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
 	if r.Method != http.MethodGet {
+		trace.Event("request.rejected", "status", http.StatusMethodNotAllowed, "reason", "unsupported_method")
 		w.Header().Set("Allow", http.MethodGet)
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		return
 	}
 	if rt0 != routeAccept && rt.draining.Load() {
+		trace.Event("request.rejected", "status", http.StatusServiceUnavailable, "reason", "draining")
 		rt.rejected(w, http.StatusServiceUnavailable, "draining", &rt.rejectedDraining)
 		return
 	}
 	ip := admission.ClientIP(r, rt.cfg.trustedProxies, "")
 	if !rt.limiter.Allow(ip, time.Now()) {
+		trace.Event("request.rejected", "status", http.StatusTooManyRequests, "reason", "rate_limited")
 		rt.rejected(w, http.StatusTooManyRequests, "rate limited", &rt.rejectedRate)
 		return
 	}
 	switch rt.gate.Acquire(ip) {
 	case admission.GlobalFull:
+		trace.Event("request.rejected", "status", http.StatusServiceUnavailable, "reason", "global_capacity")
 		rt.rejected(w, http.StatusServiceUnavailable, "router capacity reached", &rt.rejectedCapacity)
 		return
 	case admission.PerIPFull:
+		trace.Event("request.rejected", "status", http.StatusTooManyRequests, "reason", "client_capacity")
 		rt.rejected(w, http.StatusTooManyRequests, "too many connections", &rt.rejectedCapacity)
 		return
 	}
 	defer rt.gate.Release(ip)
 
-	st := &proxyState{route: rt0, ip: ip}
+	st := &proxyState{route: rt0, ip: ip, trace: trace}
 	q := r.URL.Query()
 	switch rt0 {
 	case routeControl:
 		id, ok := directory.EndpointIDFromPublicKey(q.Get("publicKey"))
 		if !ok {
+			trace.Event("request.rejected", "status", http.StatusBadRequest, "reason", "invalid_public_key")
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid publicKey"})
 			return
 		}
@@ -210,7 +258,7 @@ func (rt *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rt.requests[rt0].Add(1)
 	rt.active[rt0].Add(1)
 	defer rt.active[rt0].Add(-1)
-	rt.proxy.ServeHTTP(hijackWriter{w}, r.WithContext(context.WithValue(r.Context(), stateKey{}, st)))
+	rt.proxy.ServeHTTP(hijackWriter{ResponseWriter: w, trace: trace}, r.WithContext(context.WithValue(r.Context(), stateKey{}, st)))
 	if st.upgraded != "" && rt0 == routeControl {
 		rt.mu.Lock()
 		rt.controls[st.upgraded]--
@@ -231,6 +279,7 @@ func (rt *router) proxyError(w http.ResponseWriter, r *http.Request, err error) 
 	route := "unknown"
 	if st := stateOf(r); st != nil {
 		route = st.route.String()
+		st.trace.Failure("router.upstream.failed", err, "status", http.StatusBadGateway)
 	}
 	rt.log.Printf("router: %s upstream error: %v", route, err)
 	writeJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream unavailable"})
@@ -248,8 +297,10 @@ func (u *upstream) RoundTrip(req *http.Request) (*http.Response, error) {
 	for attempt := 0; ; attempt++ {
 		node, addr, res := rt.pick(req, st, tried, attempt)
 		if res != nil {
+			st.trace.Event("router.route.unavailable", "attempt", attempt+1, "status", res.StatusCode, "registered_endpoints", rt.table.Len())
 			return res, nil
 		}
+		st.trace.Event("router.route.selected", "attempt", attempt+1, "selected_node", node, "upstream_tag", diagnostics.Tag(addr))
 		target, err := url.Parse(addr)
 		if err != nil {
 			return synthetic(req, http.StatusBadGateway, "upstream unavailable"), nil
@@ -259,6 +310,11 @@ func (u *upstream) RoundTrip(req *http.Request) (*http.Response, error) {
 		out.URL.Host = target.Host
 		out.Host = target.Host
 		res, err = u.base.RoundTrip(out)
+		status := 0
+		if res != nil {
+			status = res.StatusCode
+		}
+		st.trace.Failure("router.upstream.response", err, "attempt", attempt+1, "selected_node", node, "status", status)
 		if attempt > 0 || !rt.retryable(st, res, err) {
 			if err == nil && res.StatusCode == http.StatusSwitchingProtocols {
 				st.upgraded = node
@@ -275,6 +331,7 @@ func (u *upstream) RoundTrip(req *http.Request) (*http.Response, error) {
 			res.Body.Close()
 		}
 		tried[node] = true
+		st.trace.Event("router.upstream.retry", "selected_node", node, "status", status, "error_kind", diagnostics.ErrorKind(err))
 		rt.retries[st.route].Add(1)
 		if st.route == routeConnect {
 			rt.refresh(req.Context())
@@ -315,6 +372,7 @@ func (rt *router) pick(req *http.Request, st *proxyState, tried map[string]bool,
 			}
 		}
 		if len(cands) == 0 {
+			st.trace.Event("router.nodes.unavailable", "attempt", attempt+1)
 			rt.misses[st.route].Add(1)
 			return "", "", synthetic(req, http.StatusServiceUnavailable, "no relay nodes available")
 		}
@@ -330,21 +388,27 @@ func (rt *router) pick(req *http.Request, st *proxyState, tried map[string]bool,
 	case routeConnect:
 		n, _, ok := rt.table.Lookup(st.endpointID)
 		if !ok && attempt == 0 && directory.ValidEndpointID(st.endpointID) {
+			started := time.Now()
+			st.trace.Event("router.directory.miss")
 			rt.refresh(req.Context())
 			n, _, ok = rt.table.Lookup(st.endpointID)
+			st.trace.Event("router.directory.refreshed", "found", ok, "refresh_ms", time.Since(started).Milliseconds())
 		}
 		if !ok {
+			st.trace.Event("router.endpoint.missing")
 			rt.misses[st.route].Add(1)
 			return "", "", synthetic(req, http.StatusNotFound, "endpoint not found")
 		}
 		return n.ID, n.Addr, nil
 	default:
 		if st.nodeID == "" {
+			st.trace.Event("router.accept.invalid_node")
 			rt.misses[st.route].Add(1)
 			return "", "", synthetic(req, http.StatusNotFound, "connection not found")
 		}
 		addr, ok := rt.table.NodeAddr(st.nodeID, time.Now())
 		if !ok {
+			st.trace.Event("router.accept.node_missing", "selected_node", st.nodeID)
 			rt.refresh(req.Context())
 			addr, ok = rt.table.NodeAddr(st.nodeID, time.Now())
 		}
