@@ -4,6 +4,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertTrue
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -46,9 +47,17 @@ class IngressSpikeTest {
               assertTrue(NativeTunnel.spikeMessages.poll(10, TimeUnit.SECONDS) == payload.size)
             }
             val queued = actor.queue.size
-            println("INGRESS_SPIKE bounded=$bounded received=$target queued_tasks=$queued payload_bytes=${if (bounded) 7 * payload.size else 128 * payload.size}")
-            if (bounded) assertTrue(queued <= 12) else assertTrue(queued >= 127)
+            val bytesField=NativeTunnel::class.java.getDeclaredField("spikeQueuedBytes").apply { isAccessible=true }
+            val queuedBytes=(bytesField.get(tunnel) as AtomicInteger).get()
+            println("INGRESS_SPIKE bounded=$bounded received=$target queued_tasks=$queued payload_bytes=${if (bounded) queuedBytes else 128 * payload.size}")
+            if (bounded) { assertTrue(queued <= 12);assertTrue(queuedBytes <= 524288) } else assertTrue(queued >= 127)
           } finally { release.countDown() }
+          actor.submit {}.get(10,TimeUnit.SECONDS)
+          if (bounded) {
+            val count=NativeTunnel::class.java.getDeclaredField("spikeQueuedBytes").apply { isAccessible=true }
+            assertTrue((count.get(tunnel) as AtomicInteger).get()==0)
+            println("INGRESS_SPIKE retired_session_budget_bytes=0")
+          }
         }
       }
     }

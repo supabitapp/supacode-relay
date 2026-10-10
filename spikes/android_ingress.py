@@ -17,24 +17,30 @@ source = source.replace('private val actor = Executors.newSingleThreadScheduledE
     'private val actor = java.util.concurrent.ScheduledThreadPoolExecutor(1) {')
 source = source.replace('private val io = Executors.newCachedThreadPool {',
     'private val spikeQueuedBytes = java.util.concurrent.atomic.AtomicInteger()\n  private val io = Executors.newCachedThreadPool {')
-needle = '''        override fun onMessage(socket: WebSocket, bytes: ByteString) {
-          post {'''
-replacement = '''        override fun onMessage(socket: WebSocket, bytes: ByteString) {
-          spikeMessages.add(bytes.size)
+start = source.index('        override fun onMessage(socket: WebSocket, bytes: ByteString) {')
+end = source.index('        override fun onClosing(', start)
+source = source[:start] + '''        override fun onMessage(socket: WebSocket, bytes: ByteString) {
           val bounded = java.lang.Boolean.getBoolean("spike.bounded")
           if (bounded && (bytes.size > 65560 || spikeQueuedBytes.addAndGet(bytes.size) > 524288)) {
             if (bytes.size <= 65560) spikeQueuedBytes.addAndGet(-bytes.size)
             socket.cancel()
             post { fail(future, IllegalStateException("Relay ingress overflow")) }
+            spikeMessages.add(bytes.size)
             return
           }
-          post {'''
-assert needle in source
-source = source.replace(needle, replacement)
-needle = '(mux ?: error("Binary handshake")).receive(bytes.toByteArray())'
-assert needle in source
-source = source.replace(needle, '''try { (mux ?: error("Binary handshake")).receive(bytes.toByteArray()) }
-              finally { if (bounded) spikeQueuedBytes.addAndGet(-bytes.size) }''')
+          val accepted = post {
+            try {
+              if (attempt !== future) return@post
+              failOnError(future) {
+                (mux ?: error("Binary handshake")).receive(bytes.toByteArray())
+              }
+            } finally { if (bounded) spikeQueuedBytes.addAndGet(-bytes.size) }
+          }
+          if (!accepted && bounded) spikeQueuedBytes.addAndGet(-bytes.size)
+          spikeMessages.add(bytes.size)
+        }
+
+''' + source[end:]
 p.write_text(source)
 tests = out / 'android/jvm/src/test/kotlin/expo/modules/supacoderelaytunnel/core'
 shutil.copy(fixtures / 'IngressSpikeTest.kt', tests / 'IngressSpikeTest.kt')
