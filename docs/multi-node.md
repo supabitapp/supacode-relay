@@ -33,7 +33,7 @@ nodes ── authenticated directory stream ──▶ router private :9090 (/hea
 
 **Half-closed clients.** When a node closes a proxied socket, the router forwards the FIN to the client and fully closes the client socket 2 s later if the client has not closed it. This stops a client that never closes from holding a router socket.
 
-**Logs.** Neither binary logs URLs, keys, endpoint ids, connection ids, tokens, or nonces. The router also passes everything it logs (including `net/http` and `httputil` messages) through a redactor that removes query strings and 64-hex runs.
+**Logs.** Connection records use shared trace IDs and hashed endpoint and pair tags, so requests, directory changes, retries, byte flow, and closures can be matched across the router and nodes. See [Diagnostics](../README.md#diagnostics) for filtering commands. Neither binary logs URLs, keys, raw endpoint or connection IDs, tokens, nonces, or payloads. The router also passes everything it logs (including `net/http` and `httputil` messages) through a redactor that removes query strings and 64-hex runs.
 
 
 ## Router configuration

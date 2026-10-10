@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
@@ -76,6 +77,7 @@ func (s *Server) evict(m directory.Message) {
 	delete(s.hosts, h.id)
 	s.mu.Unlock()
 	s.evicted.Add(1)
+	h.trace.Event("host.evicted", "winner_version", m.Clock)
 	h.ctrl.q.finish(closeMsg{directory.CloseSuperseded, directory.SupersededText}, true)
 }
 
@@ -100,7 +102,10 @@ func (s *Server) runDirectory(ctx context.Context, target string) {
 	var lastLog time.Time
 	for {
 		started := time.Now()
-		established, err := s.directorySession(ctx, target, name)
+		trace := diagnostics.New(s.events, "directory").With("router_tag", diagnostics.Tag(target))
+		trace.Event("directory.connecting", "attempt", failures+1)
+		established, err := s.directorySession(ctx, target, name, trace)
+		trace.Failure("directory.ended", err, "established", established)
 		if ctx.Err() != nil {
 			return
 		}
@@ -114,6 +119,7 @@ func (s *Server) runDirectory(ctx context.Context, target string) {
 			lastLog = time.Now()
 		}
 		wait := backoff/2 + rand.N(backoff/2+1)
+		trace.Event("directory.retry.scheduled", "wait_ms", wait.Milliseconds(), "attempt", failures)
 		select {
 		case <-ctx.Done():
 			return
@@ -123,25 +129,33 @@ func (s *Server) runDirectory(ctx context.Context, target string) {
 	}
 }
 
-func (s *Server) directorySession(ctx context.Context, target, name string) (bool, error) {
+func (s *Server) directorySession(ctx context.Context, target, name string, trace *diagnostics.Trace) (bool, error) {
 	d := websocket.Dialer{HandshakeTimeout: 5 * time.Second, ReadBufferSize: 4096, WriteBufferSize: 4096}
-	ws, resp, err := d.DialContext(ctx, target, http.Header{"Authorization": {"Bearer " + s.cfg.DirectoryToken}})
+	ws, resp, err := d.DialContext(ctx, target, http.Header{"Authorization": {"Bearer " + s.cfg.DirectoryToken}, diagnostics.Header: {trace.ID()}})
 	if err != nil {
+		status := 0
+		if resp != nil {
+			status = resp.StatusCode
+		}
+		trace.Failure("directory.upgrade.failed", err, "status", status)
 		if resp != nil {
 			return false, fmt.Errorf("handshake status %d", resp.StatusCode)
 		}
 		return false, err
 	}
+	trace.Event("directory.socket.upgraded")
 	defer ws.Close()
 	ws.SetReadLimit(dirReadLimit)
 	_ = ws.SetWriteDeadline(time.Now().Add(s.cfg.WriteTimeout))
 	hello := directory.Message{Type: directory.TypeHello, NodeID: s.cfg.NodeID, Addr: s.cfg.AdvertiseURL, Draining: s.draining.Load()}
 	if err := ws.WriteJSON(hello); err != nil {
+		trace.Failure("directory.hello.failed", err)
 		return false, err
 	}
 	_ = ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	var welcome directory.Message
 	if err := ws.ReadJSON(&welcome); err != nil || welcome.Type != directory.TypeWelcome {
+		trace.Failure("directory.welcome.failed", err, "reason", "invalid_welcome")
 		return false, fmt.Errorf("expected welcome: %v", err)
 	}
 	s.clock.Observe(welcome.Clock)
@@ -158,6 +172,7 @@ func (s *Server) directorySession(ctx context.Context, target, name string) (boo
 	}
 	s.dirStreams[st] = struct{}{}
 	s.mu.Unlock()
+	trace.Event("directory.snapshot.queued", "registrations", len(regs))
 	log.Printf("relay: directory stream to %s established with %d registrations", name, len(regs))
 	defer func() {
 		s.mu.Lock()

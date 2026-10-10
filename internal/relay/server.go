@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"runtime"
@@ -16,6 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supacode-relay/internal/admission"
+	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
@@ -30,6 +33,7 @@ type Server struct {
 	private  *http.Server
 	upgrader websocket.Upgrader
 	limiter  *admission.Limiter
+	events   *slog.Logger
 	draining atomic.Bool
 	clock    directory.Clock
 
@@ -52,7 +56,8 @@ type Server struct {
 
 func New(cfg Config) *Server {
 	s := &Server{
-		cfg: cfg,
+		cfg:    cfg,
+		events: diagnostics.Logger(log.Writer(), "node", cfg.NodeID),
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: cfg.WriteTimeout,
 			ReadBufferSize:   4096,
@@ -77,12 +82,34 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("GET /v1/control", s.handleControl)
 	mux.HandleFunc("GET /v1/connect", s.handleConnect)
 	mux.HandleFunc("GET /v1/accept", s.handleAccept)
-	s.http = &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	s.http = &http.Server{Handler: s.traceRequests(mux), ReadHeaderTimeout: 5 * time.Second}
 	s.private = &http.Server{Handler: admin, ReadHeaderTimeout: 5 * time.Second}
 	return s
 }
 
+func (s *Server) traceRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		trace, request := diagnostics.Request(s.events, r, diagnostics.RequestOptions{
+			TrustedProxies: s.cfg.TrustedProxies,
+			ClientIPHeader: s.cfg.ClientIPHeader,
+			InheritTrace:   s.cfg.Clustered() && admission.IsTrusted(admission.ClientIP(r, nil, ""), s.cfg.TrustedProxies),
+		})
+		trace.Event("request.begin")
+		response := &diagnostics.Response{ResponseWriter: w}
+		response.Header().Set(diagnostics.Header, trace.ID())
+		defer func() {
+			trace.Event("request.end", "status", response.Status, "upgraded", response.Hijacked)
+		}()
+		next.ServeHTTP(response, request)
+	})
+}
+
 func (s *Server) Serve(ln net.Listener) error {
+	s.events.Info("node.started", "auth_timeout_ms", s.cfg.AuthTimeout.Milliseconds(),
+		"pair_timeout_ms", s.cfg.PairTimeout.Milliseconds(), "delivery_timeout_ms", s.cfg.DeliveryTimeout.Milliseconds(),
+		"heartbeat_ms", s.cfg.Heartbeat.Milliseconds(), "max_hosts", s.cfg.MaxHosts,
+		"max_clients", s.cfg.MaxClients, "max_clients_per_host", s.cfg.MaxClientsPerHost,
+		"max_pending_per_host", s.cfg.MaxPendingPerHost, "directory_routers", len(s.cfg.Routers))
 	return s.http.Serve(admission.FilterListener(ln, s.cfg.AllowedPeers))
 }
 
@@ -137,6 +164,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 
 type hostTraffic struct {
 	Endpoint string `json:"endpoint"`
+	TraceTag string `json:"traceTag"`
 	BytesIn  int64  `json:"bytesIn"`
 	BytesOut int64  `json:"bytesOut"`
 	Pairs    int    `json:"pairs"`
@@ -149,7 +177,7 @@ func (s *Server) topHosts() []hostTraffic {
 		if in+out == 0 {
 			continue
 		}
-		hosts = append(hosts, hostTraffic{Endpoint: id[:16], BytesIn: in, BytesOut: out, Pairs: len(h.pairs)})
+		hosts = append(hosts, hostTraffic{Endpoint: id[:16], TraceTag: diagnostics.Tag(id), BytesIn: in, BytesOut: out, Pairs: len(h.pairs)})
 	}
 	slices.SortFunc(hosts, func(a, b hostTraffic) int {
 		return cmp.Compare(b.BytesIn+b.BytesOut, a.BytesIn+a.BytesOut)
@@ -157,32 +185,39 @@ func (s *Server) topHosts() []hostTraffic {
 	return hosts[:min(len(hosts), topHostsReported)]
 }
 
-func (s *Server) reject(w http.ResponseWriter, status int, msg string) {
+func (s *Server) reject(w http.ResponseWriter, r *http.Request, status int, msg string) {
 	s.rejectedConnections.Add(1)
+	diagnostics.From(r).Event("request.rejected", "status", status, "reason", msg)
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
 func (s *Server) admit(w http.ResponseWriter, r *http.Request, duringDrain bool) bool {
 	if !duringDrain && s.draining.Load() {
-		s.reject(w, http.StatusServiceUnavailable, "draining")
+		s.reject(w, r, http.StatusServiceUnavailable, "draining")
 		return false
 	}
 	if !s.limiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
-		s.reject(w, http.StatusTooManyRequests, "rate limited")
+		s.reject(w, r, http.StatusTooManyRequests, "rate limited")
 		return false
 	}
 	return true
 }
 
 func (s *Server) upgrade(w http.ResponseWriter, r *http.Request, limit int64) (*websocket.Conn, bool) {
-	ws, err := s.upgrader.Upgrade(w, r, nil)
+	var headers http.Header
+	if trace := diagnostics.From(r); trace != nil {
+		headers = http.Header{diagnostics.Header: {trace.ID()}}
+	}
+	ws, err := s.upgrader.Upgrade(w, r, headers)
 	if err != nil {
+		diagnostics.From(r).Failure("socket.upgrade.failed", err)
 		return nil, false
 	}
 	ws.SetReadLimit(limit)
 	s.mu.Lock()
 	s.conns[ws] = struct{}{}
 	s.mu.Unlock()
+	diagnostics.From(r).Event("socket.upgraded")
 	return ws, true
 }
 
