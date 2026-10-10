@@ -50,4 +50,4 @@ Run one relay behind the TLS proxy. Hosts register and clients connect to that s
 
 ## License
 
-GNU Affero General Public License v3.0 only ([AGPL-3.0-only](LICENSE)). The original MIT copyright and permission notice is preserved in [NOTICE](NOTICE).
+GNU Affero General Public License v3.0 only ([AGPL-3.0-only](LICENSE)).
