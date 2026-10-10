@@ -2,7 +2,7 @@
 
 A WebSocket relay that connects clients to hosts that aren't reachable directly. Hosts authenticate with an Ed25519 key, and the relay forwards messages between each client and its host without looking at them. Encryption and authorization are up to the endpoints.
 
-The public relay runs at `wss://relay.supacode.sh`. It's a router in front of three relay nodes. The original `wss://supacode-relay.exe.xyz` address also works. See [docs/multi-node.md](docs/multi-node.md).
+The public relay runs at `wss://relay.supacode.sh`. It's a router in front of three relay nodes. See [docs/multi-node.md](docs/multi-node.md).
 
 ## Development
 
