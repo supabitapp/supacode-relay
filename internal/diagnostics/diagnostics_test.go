@@ -20,7 +20,7 @@ func TestTraceCorrelationAndSensitiveValues(t *testing.T) {
 	endpoint := strings.Repeat("a", 64)
 	for _, trusted := range []bool{false, true} {
 		var output bytes.Buffer
-		log := Logger(&output, "node", "node-a")
+		log := Logger(&output)
 		request := httptest.NewRequest("GET", "http://relay/v1/connect?endpointId="+endpoint+"&token=pair-secret", nil)
 		request.RemoteAddr = "127.0.0.1:1234"
 		request.Header.Set(Header, incoming)
@@ -30,8 +30,8 @@ func TestTraceCorrelationAndSensitiveValues(t *testing.T) {
 		if trusted {
 			peers = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
 		}
-		trace, enriched := Request(log, request, RequestOptions{TrustedProxies: peers, InheritTrace: trusted})
-		if trusted != (trace.ID() == incoming) || From(enriched).ID() != trace.ID() {
+		trace, enriched := Request(log, request, RequestOptions{TrustedProxies: peers})
+		if trace.ID() == incoming || From(enriched).ID() != trace.ID() {
 			t.Fatalf("incorrect trace trust or context propagation: trusted=%v", trusted)
 		}
 		trace.Failure("request.failed", errors.New("https://upstream?token=error-secret"), "status", 502)
@@ -56,10 +56,9 @@ func TestClientTagsUseTheSameForwardedAddressAsAdmission(t *testing.T) {
 	request.RemoteAddr = "127.0.0.1:1234"
 	request.Header.Set("X-Forwarded-For", "198.51.100.1")
 	request.Header.Set("X-Relay-Client-Ip", "203.0.113.2")
-	trace, _ := Request(Logger(&output, "node", "node-a"), request, RequestOptions{
+	trace, _ := Request(Logger(&output), request, RequestOptions{
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")},
 		ClientIPHeader: "X-Relay-Client-Ip",
-		InheritTrace:   true,
 	})
 	trace.Event("request.begin")
 	var record map[string]any

@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supacode-relay/internal/diagnostics"
-	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 type pairState int
@@ -68,7 +67,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	p := &pair{
 		s:     s,
 		refs:  1,
-		id:    directory.ConnectionID(s.cfg.NodeID, randomB64(16)),
+		id:    randomB64(16),
 		token: randomB64(32),
 		host:  h,
 		ready: make(chan struct{}),

@@ -106,7 +106,7 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 	}
 	s := New(cfg)
 	logs := &diagnosticBuffer{}
-	s.events = diagnostics.Logger(logs, "node", "test-node")
+	s.events = diagnostics.Logger(logs)
 	connect, accept := newHandlerBarrier(t), newHandlerBarrier(t)
 	listener := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var b *handlerBarrier

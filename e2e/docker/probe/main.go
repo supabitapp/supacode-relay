@@ -29,8 +29,8 @@ func main() {
 	out := map[string]any{"mode": *mode}
 	switch *mode {
 	case "smoke":
-		nodes, err := smoke(*target, *n)
-		out["nodes"] = nodes
+		pairs, err := smoke(*target, *n)
+		out["pairsVerified"] = pairs
 		if err != nil {
 			out["error"] = err.Error()
 			_ = json.NewEncoder(os.Stdout).Encode(out)
@@ -75,47 +75,46 @@ func main() {
 	_ = json.NewEncoder(os.Stdout).Encode(out)
 }
 
-func smoke(base string, hosts int) (map[string]int, error) {
-	nodes := map[string]int{}
+func smoke(base string, hosts int) (int, error) {
+	verified := 0
+	if hosts <= 0 {
+		return 0, errors.New("host count must be positive")
+	}
 	for i := range hosts {
 		_, priv, _ := ed25519.GenerateKey(rand.Reader)
 		h, err := endpoint.Register(base, priv)
 		if err != nil {
-			return nodes, fmt.Errorf("host %d register: %w", i, err)
+			return verified, fmt.Errorf("host %d register: %w", i, err)
 		}
-		node, err := smokePair(base, h)
+		err = smokePair(base, h)
 		h.Close()
 		if err != nil {
-			return nodes, fmt.Errorf("host %d: %w", i, err)
+			return verified, fmt.Errorf("host %d: %w", i, err)
 		}
-		nodes[node]++
+		verified++
 	}
-	return nodes, nil
+	return verified, nil
 }
 
-func smokePair(base string, h *endpoint.Host) (string, error) {
+func smokePair(base string, h *endpoint.Host) error {
 	client, resp, err := endpoint.Connect(base, h.ID)
 	if err != nil {
 		if resp != nil {
-			return "", fmt.Errorf("connect: HTTP %d", resp.StatusCode)
+			return fmt.Errorf("connect: HTTP %d", resp.StatusCode)
 		}
-		return "", fmt.Errorf("connect: %w", err)
+		return fmt.Errorf("connect: %w", err)
 	}
 	defer client.Close()
 	ev, err := h.Next(10 * time.Second)
 	if err != nil || ev.Type != "incoming" {
-		return "", fmt.Errorf("no incoming event: %v", err)
-	}
-	node, _, _ := strings.Cut(ev.ConnectionID, ".")
-	if node == ev.ConnectionID {
-		node = "single"
+		return fmt.Errorf("no incoming event: %v", err)
 	}
 	accepted, resp, err := h.Accept(ev)
 	if err != nil {
 		if resp != nil {
-			return node, fmt.Errorf("accept: HTTP %d", resp.StatusCode)
+			return fmt.Errorf("accept: HTTP %d", resp.StatusCode)
 		}
-		return node, fmt.Errorf("accept: %w", err)
+		return fmt.Errorf("accept: %w", err)
 	}
 	defer accepted.Close()
 	for k := range 20 {
@@ -130,16 +129,16 @@ func smokePair(base string, h *endpoint.Host) (string, error) {
 		}
 		_ = from.SetWriteDeadline(time.Now().Add(10 * time.Second))
 		if err := from.WriteMessage(typ, payload); err != nil {
-			return node, fmt.Errorf("write %d: %w", k, err)
+			return fmt.Errorf("write %d: %w", k, err)
 		}
 		_ = to.SetReadDeadline(time.Now().Add(10 * time.Second))
 		gotTyp, got, err := to.ReadMessage()
 		if err != nil {
-			return node, fmt.Errorf("read %d: %w", k, err)
+			return fmt.Errorf("read %d: %w", k, err)
 		}
 		if gotTyp != typ || !bytes.Equal(got, payload) {
-			return node, errors.New("payload mismatch")
+			return errors.New("payload mismatch")
 		}
 	}
-	return node, nil
+	return nil
 }

@@ -25,7 +25,7 @@ import (
 
 const deadline = 5 * time.Second
 
-var relayBin, routerBin string
+var relayBin string
 
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "supacode-relay-e2e")
@@ -46,7 +46,6 @@ func TestMain(m *testing.M) {
 		return out
 	}
 	relayBin = build("relay", "../cmd/relay")
-	routerBin = build("router", "../cmd/router")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
@@ -97,13 +96,13 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	t.Helper()
 	cmd := exec.Command(bin)
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "RELAY_") && !strings.HasPrefix(kv, "ROUTER_") {
+		if !strings.HasPrefix(kv, "RELAY_") {
 			cmd.Env = append(cmd.Env, kv)
 		}
 	}
 	cmd.Env = append(cmd.Env, "GORACE=atexit_sleep_ms=0")
 	cmd.Env = append(cmd.Env, env...)
-	wantPrivate := bin == routerBin
+	wantPrivate := false
 	for _, kv := range env {
 		wantPrivate = wantPrivate || strings.HasPrefix(kv, "RELAY_PRIVATE_ADDR=")
 	}

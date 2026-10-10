@@ -33,8 +33,7 @@ jobs:
       url: https://relay.supacode.sh/
     env:
       PUBLIC_RELAY_URL: wss://relay.supacode.sh
-      ROUTER_HOST: supacode-relay.exe.xyz
-      NODES: node-a node-b node-c
+      RELAY_HOST: supacode-relay.exe.xyz
       HOST_KEY: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEKtEcRW8OBtro5B/MG+EaisD+ZVwwHFa5m7M8wFwBlMmPJJssY+1aGBRW3b9InAeCnTU2Kt7gazqbg/9od1KnK6x5piQNVQZ4C/lrjsC2ScBrOydnw9ry9G2+voFCAk+dQGabIrIT6gqqDJNOqxgFiG/lA3Xx6KwpfwI2BH5f3ab2fHCR2BGAC5jlB2RJXPgly80hMxYEHqexhJxYRwC+deeLrQSG795we9rSzPmdz58t9+9jLTKkyyqWKe/hmBvty1AYrEmRsefu6/TUrIGi/UWJfa+RBIQtFgWqN6xT1F6rRwELeVOfwwr5tZbsmgWY5frZU3EOtVWcF7Ve3gfL
     steps:
       - uses: actions/checkout@v7
@@ -52,21 +51,12 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          for host in "$ROUTER_HOST" $(printf 'supacode-relay-%s.exe.xyz ' $NODES); do
-            printf '%s %s\n' "$host" "$HOST_KEY"
-          done > ~/.ssh/known_hosts
-      - name: Roll relay nodes
+          printf '%s %s\n' "$RELAY_HOST" "$HOST_KEY" > ~/.ssh/known_hosts
+      - name: Install relay
         run: |
-          for node in $NODES; do
-            host="supacode-relay-$node.exe.xyz"
-            scp -o BatchMode=yes bin/relay deploy/supacode-relay-node.service "$host:/tmp/"
-            ssh -o BatchMode=yes "$host" "bash -s -- $node" < deploy/install-node.sh
-          done
-      - name: Install router
-        run: |
-          scp -o BatchMode=yes bin/relay-router deploy/supacode-relay-router.service "$ROUTER_HOST:/tmp/"
-          ssh -o BatchMode=yes "$ROUTER_HOST" 'bash -s' < deploy/install-router.sh
+          scp -o BatchMode=yes bin/relay deploy/supacode-relay.service "$RELAY_HOST:/tmp/"
+          ssh -o BatchMode=yes "$RELAY_HOST" 'bash -s' < deploy/install-relay.sh
       - name: Smoke test through the public endpoint
         run: |
           go run ./e2e/docker/probe -mode smoke -url "$PUBLIC_RELAY_URL" -n 6
-          go run ./e2e/docker/probe -mode smoke -url "wss://$ROUTER_HOST" -n 6
+          go run ./e2e/docker/probe -mode smoke -url "wss://$RELAY_HOST" -n 6

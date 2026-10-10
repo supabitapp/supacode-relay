@@ -12,18 +12,14 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"regexp"
 	"time"
 
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supacode-relay/internal/admission"
-	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 const Header = "X-Supacode-Relay-Trace"
-
-var validTraceID = regexp.MustCompile(`^[A-Za-z0-9_-]{16}$`)
 
 type traceKey struct{}
 
@@ -33,8 +29,8 @@ type Trace struct {
 	log     *slog.Logger
 }
 
-func Logger(writer io.Writer, component, node string) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(writer, nil)).With("component", component, "node", node)
+func Logger(writer io.Writer) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(writer, nil)).With("component", "relay")
 }
 
 func Tag(value string) string {
@@ -53,22 +49,17 @@ func New(log *slog.Logger, route string) *Trace {
 type RequestOptions struct {
 	TrustedProxies []netip.Prefix
 	ClientIPHeader string
-	InheritTrace   bool
 }
 
 func Request(log *slog.Logger, r *http.Request, options RequestOptions) (*Trace, *http.Request) {
 	trace := New(log, Route(r.URL.Path))
-	if id := r.Header.Get(Header); options.InheritTrace && validTraceID.MatchString(id) {
-		trace.id = id
-		trace.log = log.With("trace_id", id, "route", Route(r.URL.Path))
-	}
 	trace = trace.With("client_tag", Tag(admission.ClientIP(r, options.TrustedProxies, options.ClientIPHeader).String()))
 	query := r.URL.Query()
 	id := query.Get("endpointId")
 	if r.URL.Path == "/v1/control" {
-		id, _ = directory.EndpointIDFromPublicKey(query.Get("publicKey"))
+		id, _ = endpointIDFromPublicKey(query.Get("publicKey"))
 	}
-	if directory.ValidEndpointID(id) {
+	if validEndpointID(id) {
 		trace = trace.With("endpoint_tag", Tag(id))
 	}
 	return trace, r.WithContext(context.WithValue(r.Context(), traceKey{}, trace))
@@ -113,8 +104,6 @@ func Route(path string) string {
 		return "connect"
 	case "/v1/accept":
 		return "accept"
-	case directory.Path:
-		return "directory"
 	default:
 		return "other"
 	}
@@ -148,7 +137,7 @@ func CloseReason(reason string) string {
 	switch reason {
 	case "", "peer disconnected", "peer timeout", "peer unreachable", "peer write timeout",
 		"pair timeout", "host offline", "upgrade failed", "host accept failed", "message too big",
-		"control queue limit exceeded", "directory queue limit exceeded", "authentication failed",
+		"control queue limit exceeded", "authentication failed",
 		"relay draining", "relay shutting down", "unexpected control message", "writer stopped":
 		return reason
 	default:

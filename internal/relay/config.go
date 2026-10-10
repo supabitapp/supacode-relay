@@ -4,42 +4,34 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"net/url"
-	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/supabitapp/supacode-relay/internal/admission"
-	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 type Config struct {
-	Addr               string
-	MaxMessageBytes    int
-	MaxQueueBytes      int
-	MaxQueueMessages   int
-	MaxClients         int
-	MaxClientsPerHost  int
-	MaxPendingPerHost  int
-	MaxHosts           int
-	AuthTimeout        time.Duration
-	PairTimeout        time.Duration
-	WriteTimeout       time.Duration
-	DeliveryTimeout    time.Duration
-	Heartbeat          time.Duration
-	AdmissionRate      float64
-	TrustedProxies     []netip.Prefix
-	ClientIPHeader     string
-	PrivateAddr        string
-	AllowedPeers       []netip.Prefix
-	PrivatePeers       []netip.Prefix
-	NodeID             string
-	Routers            []string
-	DirectoryToken     string
-	AdvertiseURL       string
-	DirectoryHeartbeat time.Duration
-	DirectoryRetryMax  time.Duration
+	Addr                string
+	MaxMessageBytes     int
+	MaxQueueBytes       int
+	MaxQueueMessages    int
+	MaxClients          int
+	MaxClientsPerHost   int
+	MaxPendingPerHost   int
+	MaxHosts            int
+	MaxConnections      int
+	MaxConnectionsPerIP int
+	AuthTimeout         time.Duration
+	PairTimeout         time.Duration
+	WriteTimeout        time.Duration
+	DeliveryTimeout     time.Duration
+	Heartbeat           time.Duration
+	AdmissionRate       float64
+	TrustedProxies      []netip.Prefix
+	ClientIPHeader      string
+	PrivateAddr         string
+	AllowedPeers        []netip.Prefix
+	PrivatePeers        []netip.Prefix
 }
 
 func (c Config) pongTimeout() time.Duration {
@@ -71,6 +63,8 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		{"RELAY_MAX_CLIENTS_PER_HOST", 256, &c.MaxClientsPerHost},
 		{"RELAY_MAX_PENDING_PER_HOST", 64, &c.MaxPendingPerHost},
 		{"RELAY_MAX_HOSTS", 20000, &c.MaxHosts},
+		{"RELAY_MAX_CONNS", 16384, &c.MaxConnections},
+		{"RELAY_MAX_CONNS_PER_IP", 512, &c.MaxConnectionsPerIP},
 	}
 	for _, f := range ints {
 		n, err := positiveInt(getenv, f.name, f.def)
@@ -90,8 +84,6 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		{"RELAY_WRITE_TIMEOUT_MS", 5000, &c.WriteTimeout},
 		{"RELAY_DELIVERY_TIMEOUT_MS", 30000, &c.DeliveryTimeout},
 		{"RELAY_HEARTBEAT_MS", 15000, &c.Heartbeat},
-		{"RELAY_DIRECTORY_HEARTBEAT_MS", 1000, &c.DirectoryHeartbeat},
-		{"RELAY_DIRECTORY_RETRY_MAX_MS", 2000, &c.DirectoryRetryMax},
 	}
 	for _, f := range durations {
 		n, err := positiveInt(getenv, f.name, f.def)
@@ -125,8 +117,11 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 	}
 	c.ClientIPHeader = getenv("RELAY_CLIENT_IP_HEADER")
 
-	if err := loadClusterConfig(getenv, &c); err != nil {
-		return c, err
+	if v := getenv("RELAY_PRIVATE_ADDR"); v != "" {
+		if err := validAddr(v); err != nil {
+			return c, fmt.Errorf("RELAY_PRIVATE_ADDR: %w", err)
+		}
+		c.PrivateAddr = v
 	}
 
 	if c.MaxPendingPerHost > c.MaxClientsPerHost {
@@ -147,62 +142,6 @@ func positiveInt(getenv func(string) string, name string, def int) (int, error) 
 	return n, nil
 }
 
-func loadClusterConfig(getenv func(string) string, c *Config) error {
-	c.NodeID = getenv("RELAY_NODE_ID")
-	if c.NodeID != "" && !directory.ValidNodeID(c.NodeID) {
-		return fmt.Errorf("RELAY_NODE_ID: must match [a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?, got %q", c.NodeID)
-	}
-	if v := getenv("RELAY_PRIVATE_ADDR"); v != "" {
-		if err := validAddr(v); err != nil {
-			return fmt.Errorf("RELAY_PRIVATE_ADDR: %w", err)
-		}
-		c.PrivateAddr = v
-	}
-	for _, raw := range strings.Split(getenv("RELAY_ROUTERS"), ",") {
-		if raw = strings.TrimSpace(raw); raw == "" {
-			continue
-		}
-		u, err := directoryURL(raw)
-		if err != nil {
-			return fmt.Errorf("RELAY_ROUTERS: %w", err)
-		}
-		c.Routers = append(c.Routers, u)
-	}
-	token, err := secret(getenv, "RELAY_DIRECTORY_TOKEN")
-	if err != nil {
-		return err
-	}
-	c.DirectoryToken = token
-	c.AdvertiseURL = getenv("RELAY_ADVERTISE_URL")
-	if c.AdvertiseURL != "" {
-		u, err := url.Parse(c.AdvertiseURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.User != nil {
-			return fmt.Errorf("RELAY_ADVERTISE_URL: must be an http(s) origin, got %q", c.AdvertiseURL)
-		}
-		c.AdvertiseURL = strings.TrimSuffix(c.AdvertiseURL, "/")
-	}
-	if len(c.Routers) == 0 {
-		return nil
-	}
-	if c.NodeID == "" {
-		return fmt.Errorf("RELAY_NODE_ID: required when RELAY_ROUTERS is set")
-	}
-	if len(c.DirectoryToken) < 16 {
-		return fmt.Errorf("RELAY_DIRECTORY_TOKEN: at least 16 characters required when RELAY_ROUTERS is set")
-	}
-	if c.AdvertiseURL == "" {
-		host, _, _ := net.SplitHostPort(c.Addr)
-		if ip, err := netip.ParseAddr(host); host == "" || (err == nil && ip.IsUnspecified()) {
-			return fmt.Errorf("RELAY_ADVERTISE_URL: required when RELAY_ADDR binds an unspecified address")
-		}
-	}
-	return nil
-}
-
-func (c Config) Clustered() bool {
-	return len(c.Routers) > 0
-}
-
 func validAddr(v string) error {
 	_, port, err := net.SplitHostPort(v)
 	if err != nil {
@@ -212,38 +151,4 @@ func validAddr(v string) error {
 		return fmt.Errorf("invalid port %q", port)
 	}
 	return nil
-}
-
-func directoryURL(raw string) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" || u.RawQuery != "" || u.User != nil {
-		return "", fmt.Errorf("invalid router URL %q", raw)
-	}
-	switch u.Scheme {
-	case "http", "ws":
-		u.Scheme = "ws"
-	case "https", "wss":
-		u.Scheme = "wss"
-	default:
-		return "", fmt.Errorf("invalid router URL scheme %q", u.Scheme)
-	}
-	if u.Path == "" || u.Path == "/" {
-		u.Path = directory.Path
-	}
-	return u.String(), nil
-}
-
-func secret(getenv func(string) string, name string) (string, error) {
-	if v := getenv(name); v != "" {
-		return v, nil
-	}
-	path := getenv(name + "_FILE")
-	if path == "" {
-		return "", nil
-	}
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("%s_FILE: %w", name, err)
-	}
-	return strings.TrimSpace(string(b)), nil
 }

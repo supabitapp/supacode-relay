@@ -1,8 +1,7 @@
-.PHONY: build run test e2e-docker bench-paths bench-docker
+.PHONY: build run test e2e-docker bench bench-docker
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/relay ./cmd/relay
-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/relay-router ./cmd/router
 
 run: build
 	./bin/relay
@@ -16,8 +15,8 @@ test:
 e2e-docker:
 	./e2e/docker/run.sh
 
-bench-paths: build
-	go run ./e2e/pathbench -spawn -relay-bin bin/relay -router-bin bin/relay-router
+bench: build
+	go run ./e2e/bench -spawn -relay-bin bin/relay
 
 bench-docker:
 	./e2e/docker/bench.sh

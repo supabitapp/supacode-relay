@@ -1,5 +1,7 @@
 # Multi-node relay
 
+> Historical architecture and measurements. The standalone implementation and deployment are described in [Deployment](deployment.md). Links to removed source files below refer to the [router implementation at 7127208](https://github.com/supabitapp/supacode-relay/tree/7127208224c9c012d86083c6817e7c80388c38ee).
+
 A router in front of several relay nodes. Clients and hosts keep using `/v1/control`, `/v1/connect`, and `/v1/accept`. The router decides which node serves each request.
 
 ## Architecture
@@ -59,7 +61,7 @@ nodes ── authenticated directory stream ──▶ router private :9090 (/hea
 
 ## Metrics
 
-The router's public `GET /metrics` returns indented JSON with connection and request counts, node labels and readiness, memory use, errors, and configured connection limits. It exposes aggregate activity and operational state. Tokens, keys, client IPs, endpoint identifiers, registration identifiers, internal node URLs, and payloads are excluded. The response fields are defined by [`handleMetrics`](../cmd/router/main.go).
+The router's public `GET /metrics` returns indented JSON with connection and request counts, node labels and readiness, memory use, errors, and configured connection limits. It exposes aggregate activity and operational state. Tokens, keys, client IPs, endpoint identifiers, registration identifiers, internal node URLs, and payloads are excluded. The response fields are defined by [`handleMetrics`](https://github.com/supabitapp/supacode-relay/blob/7127208224c9c012d86083c6817e7c80388c38ee/cmd/router/main.go).
 
 Public metrics use a separate limiter with the `ROUTER_ADMISSION_RATE` rate and burst. Polling consumes no WebSocket admission slots and remains available while the router drains. The private listener serves the same stats without this limiter. `/healthz` and `/v1/directory` remain private.
 
@@ -169,3 +171,79 @@ Phase resources:
 At 64 KiB both paths are capped by something other than the router inside the VM, most likely the driver container or the bridge.
 
 What these numbers support: for small and medium messages the router hop adds roughly 55–150 µs of median latency with one client. It cuts throughput by 30–50% at 32 clients, and the router uses about as much CPU as the node it fronts. They are not production measurements. Everything runs on one shared host over macOS loopback or a desktop VM's bridge, with no TLS, no real NICs, and no cross-host latency. Docker Desktop and OrbStack networking in particular is not representative of production networking.
+
+## Live transport investigation
+
+The live bulk throughput ceiling tracks shared VM upload capacity. Increasing backend count or changing WebSocket buffer sizes does not remove it. The [retained measurements](performance-transport-results.json) distinguish this transport constraint from relay CPU saturation.
+
+Measurements on 2026-10-10 use the live London VMs with two vCPUs and 4 GiB each. The probe derives from [benchmark source at 7bc0264](https://github.com/supabitapp/supacode-relay/blob/7bc0264536ba14a2934ff19beb406abde4e6b6c6/e2e/pathbench/main.go). Live revisions are `cdbb53b75a4fd1750d674c737afbbbf60c389a58` and `7127208224c9c012d86083c6817e7c80388c38ee`; their forwarding code is identical.
+
+These are observed rates, not a documented provider quota or a maximum production capacity. The guest does not expose the configuration behind the effective upload ceiling. A deployment occurred between measurement groups; each measured case kept one service process ID.
+
+### Controlled throughput measurements
+
+The relay on node-a forwards substantially faster when the transport stays on loopback. All cases use 64 KiB payloads, one client per driver, and four messages in flight. The first three rows use one four-second window; the remaining rows use two five-second repetitions.
+
+| Arrangement | Echo payload throughput | Median RTT | Source VM upload during measurement |
+| --- | --- | --- | --- |
+| Live node-a, both endpoints on its loopback | 253.1 MiB/s | 0.67 ms | No integration traffic |
+| Both endpoints on router VM, node-a integration, 4 KiB writer | 6.8 MiB/s | 35.6 ms | Separate wire capture unavailable |
+| Same path, 64 KiB writer | 7.1 MiB/s | 35.4 ms | Separate wire capture unavailable |
+| One destination, both endpoints on router VM | 6.9-7.0 MiB/s | 35.5-35.7 ms | 14.3-14.4 MiB/s |
+| Two simultaneous destinations, node-a and node-b | 7.1-7.3 MiB/s total | 69.4-71.0 ms per driver | 14.5-14.6 MiB/s total |
+| Client on router VM, echo host on node-a loopback | 13.9-14.0 MiB/s | 17.7-17.8 ms | 14.4 MiB/s |
+
+Two destinations share the same aggregate throughput instead of doubling it. Moving the echo host onto the node halves outbound traffic through the source VM and doubles received payload throughput. This locates the shared constraint on the source transport rather than an individual relay node's forwarding capacity.
+
+Independent ordinary HTTPS transfers reproduce the asymmetry: a 32 MiB download reaches 84.2 MiB/s, while a 64 MiB upload reaches 13.9 MiB/s. During sustained upload, the VM interface transmits about 14.4-14.7 MiB/s. The upload uses the documented [speed-test API](https://github.com/cloudflare/speedtest/blob/main/README.md).
+
+The echo workload sends each payload twice from the source VM: once from the client, and once from the echo host. An effective upload rate near 14 MiB/s therefore produces an echo payload rate near half that value. Actual one-way application traffic has a different accounting factor.
+
+### Queueing and practical improvements
+
+More queued data increases delay once the transport reaches its throughput ceiling. With a single 64 KiB client, reducing the window from four messages to one cuts median RTT from 35.6 ms to 11.8 ms. Payload throughput falls from 7.0 MiB/s to 5.1-5.2 MiB/s.
+
+The queue model also fits the earlier bulk ramp: 32 clients with four 64 KiB messages outstanding can hold 8 MiB of echo payload in flight. At the observed shared echo rate, draining that amount takes roughly a second. This is an explanatory estimate, not a measurement of every socket's queue.
+
+For higher throughput, test a backend arrangement that avoids the constrained outbound hop, such as a colocated router and node using loopback. Confirm the result through the public TLS endpoint before changing deployment. Colocation trades separate VM failure isolation and resource budgets for fewer transport hops.
+
+For interactive latency, test paced sends and limits on queued bytes at the endpoints. The smaller-window experiment shows a throughput tradeoff, so reducing a window blindly is insufficient. Confirm provider egress capacity before adding CPU or backend nodes as a throughput remedy.
+
+The observed bulk limit persists with low CPU steal and no guest CPU throttling. Recorded node-a steal averages are below 6% in these controlled cases, and guest `cpu.stat` reports no throttled time. Higher steal in earlier small-message runs may still contribute to their latency variation.
+
+All 15 controlled relay cases finish with zero failed or corrupt messages. Plain HTTP to the integration redirects to HTTPS, so no plaintext integration throughput result is claimed. Temporary probes are removed; live services and directory streams remain active with no pending or closing pairs.
+
+## Public TLS colocation measurements
+
+A colocated router and relay node improve throughput and latency in these public TLS workloads. A control on the same VM also improves when the backend uses loopback rather than an HTTPS integration. The [retained results](performance-colocation-results.json) include all 42 measured cases, resource counters, binary hashes, and cleanup verification.
+
+The 2026-10-10 test uses a temporary London VM with two vCPUs and 4 GiB, matching the live VMs. Copies of the live binaries run the router and node with a separate test directory and token. The node advertises its loopback listener to the router.
+
+Both the client and echo host run on the same external Mac for every case. All measured connect and accept traffic uses public WSS with certificate verification. SSH forwards carry host registration only, pinning the live path to node-a and the temporary path to its test node.
+
+Each variant uses four echo hosts, a three-second warmup, an eight-second measurement window, and three repetitions. The variants alternate order between repetitions. Table values are medians of the three run-level measurements, including each run's p99. Pair setup is paced at 40 per second.
+
+| Payload | Clients | Messages in flight per client | Live RTT p50 / p99 | Colocated RTT p50 / p99 | Live echo rate | Colocated echo rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 KiB | 1 | 4 | 19.69 / 29.69 ms | 13.10 / 18.21 ms | 199 msg/s | 302 msg/s |
+| 1 KiB | 8 | 4 | 18.74 / 48.48 ms | 11.70 / 18.31 ms | 1,419 msg/s | 2,661 msg/s |
+| 1 KiB | 32 | 4 | 75.98 / 100.11 ms | 16.58 / 37.54 ms | 1,914 msg/s | 7,284 msg/s |
+| 64 KiB | 1 | 4 | 53.02 / 86.53 ms | 19.67 / 31.29 ms | 4.6 MiB/s | 12.3 MiB/s |
+| 64 KiB | 8 | 1 | 96.40 / 152.65 ms | 33.85 / 57.57 ms | 5.2 MiB/s | 14.4 MiB/s |
+
+Scheduling conditions differ between the live and temporary VMs. With 32 small-message clients, the live router reports 27.7-30.6% CPU steal; the temporary VM reports 3.9-5.5%. The live comparison therefore combines the deployment arrangement with scheduling differences.
+
+The additional control holds the VM and public endpoint fixed. Two identical node binaries register with its router: one advertises loopback, and the other advertises an HTTPS peer integration targeting that same VM. Registration pins each workload to the intended node.
+
+| Payload | Clients | Messages in flight per client | Integration RTT p50 / p99 | Loopback RTT p50 / p99 | Integration echo rate | Loopback echo rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 KiB | 32 | 4 | 43.53 / 80.85 ms | 16.56 / 35.79 ms | 2,623 msg/s | 7,226 msg/s |
+| 64 KiB | 8 | 1 | 83.91 / 117.10 ms | 33.67 / 51.75 ms | 6.1 MiB/s | 14.6 MiB/s |
+
+This control supports removing the HTTPS integration from the backend path without requiring a different VM placement. It does not reproduce every cross-VM latency component, and reported CPU steal still varies between the two paths. The combined router and node CPU averages stay below 53% of one core in the colocated windows.
+
+The bulk control's integration path transmits a median 12.6 MiB/s through the guest's `eth0`; loopback transmits less than 0.01 MiB/s there. Public proxy traffic reaches the application through loopback, so `eth0` excludes that traffic. These counters support avoiding the guest's outbound integration path; they do not measure total public bandwidth.
+
+All 42 cases have zero failed or corrupt messages, and service process IDs stay fixed during each case. This bounded comparison does not establish maximum capacity, long-duration behavior, or failover behavior. Colocation also shares the CPU budget and failure domain of one VM.
+
+The temporary VM, peer integration, and generated peer credential are deleted and verified absent. Test collectors and SSH forwards are removed. The live router remains active with all three nodes ready; node-a has no remaining test hosts, pending pairs, or closing pairs.

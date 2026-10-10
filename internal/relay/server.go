@@ -19,7 +19,6 @@ import (
 
 	"github.com/supabitapp/supacode-relay/internal/admission"
 	"github.com/supabitapp/supacode-relay/internal/diagnostics"
-	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 const (
@@ -28,20 +27,20 @@ const (
 )
 
 type Server struct {
-	cfg      Config
-	http     *http.Server
-	private  *http.Server
-	upgrader websocket.Upgrader
-	limiter  *admission.Limiter
-	events   *slog.Logger
-	draining atomic.Bool
-	clock    directory.Clock
+	cfg            Config
+	http           *http.Server
+	private        *http.Server
+	upgrader       websocket.Upgrader
+	limiter        *admission.Limiter
+	metricsLimiter *admission.Limiter
+	gate           *admission.Gate
+	events         *slog.Logger
+	draining       atomic.Bool
 
 	forwardedMessages   atomic.Int64
 	forwardedBytes      atomic.Int64
 	rejectedConnections atomic.Int64
 	superseded          atomic.Int64
-	evicted             atomic.Int64
 
 	mu          sync.Mutex
 	hosts       map[string]*host
@@ -51,13 +50,12 @@ type Server struct {
 	active      int
 	clientSlots int
 	conns       map[*websocket.Conn]struct{}
-	dirStreams  map[*dirStream]struct{}
 }
 
 func New(cfg Config) *Server {
 	s := &Server{
 		cfg:    cfg,
-		events: diagnostics.Logger(log.Writer(), "node", cfg.NodeID),
+		events: diagnostics.Logger(log.Writer()),
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: cfg.WriteTimeout,
 			ReadBufferSize:   4096,
@@ -65,11 +63,12 @@ func New(cfg Config) *Server {
 			WriteBufferPool:  &sync.Pool{},
 			CheckOrigin:      func(*http.Request) bool { return true },
 		},
-		limiter:    admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
-		hosts:      map[string]*host{},
-		pairs:      map[string]*pair{},
-		conns:      map[*websocket.Conn]struct{}{},
-		dirStreams: map[*dirStream]struct{}{},
+		limiter:        admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
+		metricsLimiter: admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
+		gate:           admission.NewGate(cfg.MaxConnections, cfg.MaxConnectionsPerIP),
+		hosts:          map[string]*host{},
+		pairs:          map[string]*pair{},
+		conns:          map[*websocket.Conn]struct{}{},
 	}
 	admin := http.NewServeMux()
 	admin.HandleFunc("GET /healthz", s.handleHealth)
@@ -78,10 +77,12 @@ func New(cfg Config) *Server {
 	if cfg.PrivateAddr == "" {
 		mux.Handle("GET /healthz", admin)
 		mux.Handle("GET /metrics", admin)
+	} else {
+		mux.HandleFunc("GET /metrics", s.handlePublicMetrics)
 	}
-	mux.HandleFunc("GET /v1/control", s.handleControl)
-	mux.HandleFunc("GET /v1/connect", s.handleConnect)
-	mux.HandleFunc("GET /v1/accept", s.handleAccept)
+	mux.HandleFunc("GET /v1/control", s.limitConnections(s.handleControl))
+	mux.HandleFunc("GET /v1/connect", s.limitConnections(s.handleConnect))
+	mux.HandleFunc("GET /v1/accept", s.limitConnections(s.handleAccept))
 	s.http = &http.Server{Handler: s.traceRequests(mux), ReadHeaderTimeout: 5 * time.Second}
 	s.private = &http.Server{Handler: admin, ReadHeaderTimeout: 5 * time.Second}
 	return s
@@ -92,7 +93,6 @@ func (s *Server) traceRequests(next http.Handler) http.Handler {
 		trace, request := diagnostics.Request(s.events, r, diagnostics.RequestOptions{
 			TrustedProxies: s.cfg.TrustedProxies,
 			ClientIPHeader: s.cfg.ClientIPHeader,
-			InheritTrace:   s.cfg.Clustered() && admission.IsTrusted(admission.ClientIP(r, nil, ""), s.cfg.TrustedProxies),
 		})
 		trace.Event("request.begin")
 		response := &diagnostics.Response{ResponseWriter: w}
@@ -105,11 +105,11 @@ func (s *Server) traceRequests(next http.Handler) http.Handler {
 }
 
 func (s *Server) Serve(ln net.Listener) error {
-	s.events.Info("node.started", "auth_timeout_ms", s.cfg.AuthTimeout.Milliseconds(),
+	s.events.Info("relay.started", "auth_timeout_ms", s.cfg.AuthTimeout.Milliseconds(),
 		"pair_timeout_ms", s.cfg.PairTimeout.Milliseconds(), "delivery_timeout_ms", s.cfg.DeliveryTimeout.Milliseconds(),
 		"heartbeat_ms", s.cfg.Heartbeat.Milliseconds(), "max_hosts", s.cfg.MaxHosts,
 		"max_clients", s.cfg.MaxClients, "max_clients_per_host", s.cfg.MaxClientsPerHost,
-		"max_pending_per_host", s.cfg.MaxPendingPerHost, "directory_routers", len(s.cfg.Routers))
+		"max_pending_per_host", s.cfg.MaxPendingPerHost)
 	return s.http.Serve(admission.FilterListener(ln, s.cfg.AllowedPeers))
 }
 
@@ -126,6 +126,18 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
+	s.writeMetrics(w, true)
+}
+
+func (s *Server) handlePublicMetrics(w http.ResponseWriter, r *http.Request) {
+	if !s.metricsLimiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
+		return
+	}
+	s.writeMetrics(w, false)
+}
+
+func (s *Server) writeMetrics(w http.ResponseWriter, detailed bool) {
 	s.mu.Lock()
 	m := map[string]any{
 		"activeHosts":        len(s.hosts),
@@ -135,10 +147,14 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 		"pendingPairs":       s.pending,
 		"controlConnections": s.controls,
 		"openSockets":        len(s.conns),
-		"directoryStreams":   len(s.dirStreams),
-		"topHosts":           s.topHosts(),
+	}
+	if detailed {
+		m["topHosts"] = s.topHosts()
 	}
 	s.mu.Unlock()
+	m["openConnections"], m["openConnectionIPs"] = s.gate.Stats()
+	m["maxConnections"] = s.cfg.MaxConnections
+	m["maxConnectionsPerClient"] = s.cfg.MaxConnectionsPerIP
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
 	m["heapAllocBytes"] = memory.HeapAlloc
@@ -149,9 +165,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m["runtimeSysBytes"] = memory.Sys
 	m["totalAllocatedBytes"] = memory.TotalAlloc
 	m["gcCycles"] = memory.NumGC
-	m["nodeId"] = s.cfg.NodeID
 	m["supersededRegistrations"] = s.superseded.Load()
-	m["evictedRegistrations"] = s.evicted.Load()
 	m["forwardedMessages"] = s.forwardedMessages.Load()
 	m["forwardedBytes"] = s.forwardedBytes.Load()
 	m["rejectedConnections"] = s.rejectedConnections.Load()
@@ -160,6 +174,22 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	m["draining"] = s.draining.Load()
 	m["dataBufferBytesPerSocket"] = 4096 + 16*1024
 	writeJSON(w, http.StatusOK, m)
+}
+
+func (s *Server) limitConnections(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip := admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader)
+		switch s.gate.Acquire(ip) {
+		case admission.GlobalFull:
+			s.reject(w, r, http.StatusServiceUnavailable, "connection capacity reached")
+			return
+		case admission.PerIPFull:
+			s.reject(w, r, http.StatusTooManyRequests, "client connection capacity reached")
+			return
+		}
+		defer s.gate.Release(ip)
+		next(w, r)
+	}
 }
 
 type hostTraffic struct {

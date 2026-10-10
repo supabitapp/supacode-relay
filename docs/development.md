@@ -2,11 +2,15 @@
 
 Requires Go 1.25 or later.
 
-```bash
-make build         # bin/relay and bin/relay-router
-make run           # listen on 127.0.0.1:8080
-make test          # gofmt, go vet, and all tests with -race
-make e2e-docker    # Docker Compose suite: one router, three nodes
-make bench-paths   # direct node vs router-to-node on loopback
-make bench-docker  # the same comparison inside Docker
-```
+| Command | Purpose |
+| --- | --- |
+| `make build` | Build `bin/relay` |
+| `make run` | Listen on `127.0.0.1:8080` |
+| `make test` | Check formatting, vet all packages and the container suite, and run all Go tests with the race detector |
+| `make e2e-docker` | Verify one relay through the published port and a separate probe container |
+| `make bench` | Measure standalone relay echo throughput and latency on loopback |
+| `make bench-docker` | Measure the relay from another container and retain resource samples |
+
+The container suite checks the public surface, pairing and ordered streaming across 12 hosts, duplicate identity replacement, graceful restart and abrupt restart, per-client limits, and log privacy. It removes its containers and network on completion. Set `E2E_KEEP=1` to retain them, `E2E_SKIP_BUILD=1` to use existing images, or `E2E_RELAY_PORT` to change the published port.
+
+The benchmark accepts `-url` for an existing relay or `-spawn` for a local process. Payload sizes, client counts, message window, and measurement duration are configurable. Verify payloads and stop on failed echoes when testing a live service; the retained [transport measurements](multi-node.md#live-transport-investigation) explain why sender bandwidth and queued data affect results.
