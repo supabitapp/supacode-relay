@@ -3,7 +3,7 @@
 1. The host opens `/v1/control?publicKey=B64` and answers the relay's challenge.
 2. A client opens `/v1/connect?endpointId=HEX`.
 3. The relay sends the host `{"type":"incoming","connectionId":"ID","token":"TOKEN"}`.
-4. The host opens `/v1/accept?endpointId=HEX&connectionId=ID&token=TOKEN`, and the two sockets are paired.
+4. The host opens `/v1/accept?endpointId=HEX&connectionId=ID&token=TOKEN`, and the two sockets are paired. A host may ignore `incoming`, for example when it is at capacity; the relay closes that client with 1013 after `RELAY_PAIR_TIMEOUT_MS`.
 5. When either side closes, the relay sends the host `{"type":"closed","connectionId":"ID"}`.
 
 Messages keep their order, boundaries, and text or binary type. Before acceptance the relay pauses application reads; early bytes wait in the socket buffers and arrive once the pair is ready.

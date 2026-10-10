@@ -18,7 +18,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if c.Addr != "127.0.0.1:8080" || c.MaxMessageBytes != (32<<20)-14 || c.MaxClients != 20000 || c.Heartbeat != 15*time.Second || c.AdmissionRate != 100 || c.admissionBurst() != 100 || c.MaxConnections != 16384 || c.MaxConnectionsPerIP != 512 {
 		t.Fatalf("unexpected defaults %+v", c)
 	}
-	if c.MaxQueueBytes != 1<<20 || c.MaxClientsPerHost != 256 || c.MaxPendingPerHost != 64 || c.WriteTimeout != 5*time.Second || c.DeliveryTimeout != 30*time.Second {
+	if c.MaxQueueBytes != 1<<20 || c.MaxClientsPerHost != 64 || c.MaxPendingPerHost != 64 || c.WriteTimeout != 5*time.Second || c.DeliveryTimeout != 30*time.Second {
 		t.Fatalf("unexpected queue, per-host or timeout defaults %+v", c)
 	}
 }
