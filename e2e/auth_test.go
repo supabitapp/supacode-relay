@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"strings"
@@ -18,7 +19,10 @@ import (
 func TestHealthMetricsAndRegistration(t *testing.T) {
 	r := startRelay(t)
 	code, body := r.get("/healthz")
-	if code != 200 || strings.TrimSpace(string(body)) != `{"status":"ok"}` {
+	var health struct {
+		Status string `json:"status"`
+	}
+	if code != 200 || json.Unmarshal(body, &health) != nil || health.Status != "ok" {
 		t.Fatalf("healthz: %d %s", code, body)
 	}
 	priv := newKey(t)

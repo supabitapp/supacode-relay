@@ -10,7 +10,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable supacode-relay
 sudo systemctl restart supacode-relay
 for _ in $(seq 40); do
-  if curl -fsS localhost:9090/metrics | grep -q '"directoryStreams":1'; then
+  if curl -fsS localhost:9090/metrics | grep -Eq '"directoryStreams":[[:space:]]*1[[:space:]]*[,}]'; then
     echo "$node joined the router"
     exit 0
   fi
