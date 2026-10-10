@@ -59,36 +59,22 @@ func TestCloseNowPongsCannotExtendDrain(t *testing.T) {
 	}
 }
 
-func TestNodeOnlyInheritsClusterRouterTraces(t *testing.T) {
+func TestRelayIgnoresCallerTraceHeaders(t *testing.T) {
 	const suppliedTrace = "ABCDabcd1234-_56"
-	for _, test := range []struct {
-		name    string
-		cluster bool
-		trusted bool
-	}{
-		{"standalone", false, true},
-		{"trusted_router", true, true},
-		{"untrusted_peer", true, false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			cfg := Config{}
-			if test.cluster {
-				cfg.Routers = []string{"ws://router"}
-			}
-			if test.trusted {
-				cfg.TrustedProxies = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
-			}
-			s := New(cfg)
-			request := httptest.NewRequest(http.MethodGet, "/unsupported", nil)
-			request.RemoteAddr = "127.0.0.1:1234"
-			request.Header.Set(diagnostics.Header, suppliedTrace)
-			request.Header.Set("X-Forwarded-For", "203.0.113.2")
-			response := httptest.NewRecorder()
-			s.http.Handler.ServeHTTP(response, request)
-			trace := response.Header().Get(diagnostics.Header)
-			if len(trace) != 16 || (trace == suppliedTrace) != (test.cluster && test.trusted) {
-				t.Fatalf("incorrect node trace trust: %q", trace)
-			}
-		})
+	for _, trusted := range []bool{false, true} {
+		cfg := Config{}
+		if trusted {
+			cfg.TrustedProxies = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
+		}
+		s := New(cfg)
+		request := httptest.NewRequest(http.MethodGet, "/unsupported", nil)
+		request.RemoteAddr = "127.0.0.1:1234"
+		request.Header.Set(diagnostics.Header, suppliedTrace)
+		response := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(response, request)
+		trace := response.Header().Get(diagnostics.Header)
+		if len(trace) != 16 || trace == suppliedTrace {
+			t.Fatalf("incorrect relay trace: %q", trace)
+		}
 	}
 }

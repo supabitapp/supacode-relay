@@ -12,7 +12,6 @@ import (
 	"math"
 	mrand "math/rand/v2"
 	"net/http"
-	osexec "os/exec"
 	"slices"
 	"strings"
 	"sync"
@@ -37,22 +36,19 @@ const (
 var dialer = &websocket.Dialer{HandshakeTimeout: 5 * time.Second, ReadBufferSize: 4096, WriteBufferSize: 4096}
 
 type host struct {
-	base        string
-	priv        ed25519.PrivateKey
-	id          string
-	tag         string
-	acceptDelay atomic.Int64
-	abandon     bool
-	stopc       chan struct{}
-	done        chan struct{}
-	registered  chan struct{}
+	base       string
+	priv       ed25519.PrivateKey
+	id         string
+	tag        string
+	stopc      chan struct{}
+	done       chan struct{}
+	registered chan struct{}
 
 	accepts     atomic.Int64
 	acceptFails atomic.Int64
 
 	mu         sync.Mutex
 	ctrl       *websocket.Conn
-	node       string
 	regs       int
 	online     bool
 	lostAt     time.Time
@@ -61,27 +57,21 @@ type host struct {
 	lossCodes  []int
 	failReason []string
 	attempts   int
-	abandoned  []*websocket.Conn
 }
 
-func abandonStale(h *host) { h.abandon = true }
-
-func newHost(t *testing.T, tag string, opts ...func(*host)) *host {
+func newHost(t *testing.T, tag string) *host {
 	t.Helper()
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return startHostKey(t, tag, priv, opts...)
+	return startHostKey(t, tag, priv)
 }
 
-func startHostKey(t *testing.T, tag string, priv ed25519.PrivateKey, opts ...func(*host)) *host {
+func startHostKey(t *testing.T, tag string, priv ed25519.PrivateKey) *host {
 	t.Helper()
 	pub := priv.Public().(ed25519.PublicKey)
 	h := &host{base: st.base, priv: priv, id: endpoint.EndpointID(pub), tag: tag, stopc: make(chan struct{}), done: make(chan struct{}), registered: make(chan struct{}, 1)}
-	for _, o := range opts {
-		o(h)
-	}
 	st.remember(h.id, endpoint.B64(pub))
 	go h.run()
 	t.Cleanup(h.stop)
@@ -100,11 +90,6 @@ func (h *host) stop() {
 	}
 	h.mu.Unlock()
 	<-h.done
-	h.mu.Lock()
-	for _, ws := range h.abandoned {
-		ws.Close()
-	}
-	h.mu.Unlock()
 }
 
 func (h *host) waitRegistered(t *testing.T, timeout time.Duration) {
@@ -153,12 +138,6 @@ func (h *host) registeredAt(n int) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return h.regAt[n-1], true
-}
-
-func (h *host) currentNode() string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return h.node
 }
 
 func (h *host) reconnectGaps() []time.Duration {
@@ -266,15 +245,7 @@ func (h *host) register() (*websocket.Conn, error) {
 }
 
 func (h *host) serve(ws *websocket.Conn) (code int) {
-	defer func() {
-		if h.abandon && code == 0 && !h.stopped() {
-			h.mu.Lock()
-			h.abandoned = append(h.abandoned, ws)
-			h.mu.Unlock()
-			return
-		}
-		ws.Close()
-	}()
+	defer ws.Close()
 	extend := func() { _ = ws.SetReadDeadline(time.Now().Add(hostDeadTimeout)) }
 	extend()
 	ws.SetPongHandler(func(string) error { extend(); return nil })
@@ -312,9 +283,6 @@ func (h *host) serve(ws *websocket.Conn) (code int) {
 }
 
 func (h *host) accept(ev endpoint.Event) {
-	if d := time.Duration(h.acceptDelay.Load()); d > 0 {
-		time.Sleep(d)
-	}
 	ws, resp, err := endpoint.Dialer.Dial(h.base+"/v1/accept?endpointId="+h.id+"&connectionId="+ev.ConnectionID+"&token="+ev.Token, nil)
 	if err != nil {
 		h.acceptFails.Add(1)
@@ -330,10 +298,6 @@ func (h *host) accept(ev endpoint.Event) {
 		return
 	}
 	h.accepts.Add(1)
-	node, _, _ := strings.Cut(ev.ConnectionID, ".")
-	h.mu.Lock()
-	h.node = node
-	h.mu.Unlock()
 	defer ws.Close()
 	ws.SetReadLimit(1 << 20)
 	prefix := []byte(h.tag + ":")
@@ -453,19 +417,6 @@ func exchangeWithRetry(base string, h *host, label string, rounds int, within ti
 	return attempts, fmt.Errorf("host %s unreachable after %d attempts in %s: %v", h.tag, attempts, within, last)
 }
 
-func placements(t *testing.T, hosts []*host) map[string][]*host {
-	t.Helper()
-	out := map[string][]*host{}
-	for _, h := range hosts {
-		if _, err := exchangeWithRetry(st.base, h, "where-"+h.tag, 1, 10*time.Second); err != nil {
-			t.Fatal(err)
-		}
-		n := h.currentNode()
-		out[n] = append(out[n], h)
-	}
-	return out
-}
-
 type durations []time.Duration
 
 func (d durations) summary() map[string]float64 {
@@ -496,11 +447,6 @@ func httpStatus(t *testing.T, method, url string, hdr http.Header) int {
 	}
 	resp.Body.Close()
 	return resp.StatusCode
-}
-
-func runDocker(args ...string) (string, error) {
-	out, err := osexec.Command("docker", args...).CombinedOutput()
-	return string(out), err
 }
 
 func randomKey() string {

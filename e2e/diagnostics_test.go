@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
-	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 )
 
 func awaitDiagnostic(t *testing.T, relay *relay, event string) map[string]any {
@@ -41,46 +39,6 @@ func awaitDiagnosticMatch(t *testing.T, relay *relay, event string, matches func
 		case <-timer.C:
 			t.Fatalf("missing %s diagnostic:\n%s", event, text)
 		}
-	}
-}
-
-func TestRouterAndNodeLogsShareTheClientTrace(t *testing.T) {
-	cluster := startCluster(t, []string{"node-a"})
-	node := cluster.nodes["node-a"]
-	host := register(t, cluster.router)
-	client, incoming := connect(t, cluster.router, host)
-	hostPeer := accept(t, host, incoming)
-	const payload = "private-cluster-payload"
-	send(t, client, message{websocket.BinaryMessage, []byte(payload)})
-	expectMessage(t, hostPeer, message{websocket.BinaryMessage, []byte(payload)})
-	created := awaitDiagnostic(t, node, "pair.created")
-	trace := created["trace_id"]
-	selected := awaitDiagnosticMatch(t, cluster.router, "router.route.selected", func(record map[string]any) bool {
-		return record["route"] == "connect" && record["trace_id"] == trace
-	})
-	if selected["selected_node"] != "node-a" || selected["endpoint_tag"] != created["endpoint_tag"] {
-		t.Fatalf("trace did not survive routing: node=%v router=%v", created, selected)
-	}
-	first := awaitDiagnosticMatch(t, cluster.router, "router.byte.first", func(record map[string]any) bool {
-		return record["trace_id"] == trace && record["direction"] == "from_client"
-	})
-	if first["bytes"].(float64) <= 0 {
-		t.Fatalf("no first-byte evidence: %v", first)
-	}
-	client.Close()
-	closed := awaitDiagnostic(t, node, "pair.closed")
-	if closed["trace_id"] != trace || closed["pair_tag"] != created["pair_tag"] {
-		t.Fatalf("connection lost its correlation: %v", closed)
-	}
-	for _, process := range []*relay{node, cluster.router} {
-		for _, secret := range []string{host.ID, incoming.ConnectionID, incoming.Token, directoryToken, payload} {
-			if strings.Contains(process.stderr.String(), secret) {
-				t.Fatalf("log exposed %q", secret)
-			}
-		}
-	}
-	if created["endpoint_tag"] != diagnostics.Tag(host.ID) {
-		t.Fatalf("wrong endpoint tag: %v", created)
 	}
 }
 

@@ -43,22 +43,12 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if cfg.AdvertiseURL == "" {
-		cfg.AdvertiseURL = "http://" + ln.Addr().String()
-	}
 	s := relay.New(cfg)
 	announce(ln, "")
 	errc := make(chan error, 2)
 	if pln != nil {
 		announce(pln, "private")
 		go func() { errc <- s.ServePrivate(pln) }()
-	}
-
-	dirCtx, dirStop := context.WithCancel(context.Background())
-	defer dirStop()
-	s.RunDirectory(dirCtx)
-	if cfg.NodeID != "" {
-		log.Printf("relay: node %s publishing to %d routers", cfg.NodeID, len(cfg.Routers))
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)

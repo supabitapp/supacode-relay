@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -398,4 +399,27 @@ func TestLargeStreamingMessageKeepsHeapBounded(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.waitMetrics("large message counted", func(m map[string]float64) bool { return m["forwardedBytes"] == size })
+}
+
+func TestProtocolConnectionLimitsReleaseOnDisconnect(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		limits []string
+		status int
+	}{
+		{"global", []string{"RELAY_MAX_CONNS=1", "RELAY_MAX_CONNS_PER_IP=10"}, http.StatusServiceUnavailable},
+		{"per_ip", []string{"RELAY_MAX_CONNS=10", "RELAY_MAX_CONNS_PER_IP=1"}, http.StatusTooManyRequests},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			r := startRelay(t, test.limits...)
+			h := register(t, r)
+			_, _, response, err := endpoint.DialControl(r.base, endpoint.B64(newKey(t).Public().(ed25519.PublicKey)))
+			if err == nil || response == nil || response.StatusCode != test.status {
+				t.Fatalf("full connection gate: got %s, error %v", status(response), err)
+			}
+			h.Close()
+			r.waitMetrics("released connection", func(m map[string]float64) bool { return m["openConnections"] == 0 && m["openConnectionIPs"] == 0 })
+			register(t, r)
+		})
+	}
 }

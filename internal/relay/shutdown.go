@@ -17,7 +17,7 @@ func (s *Server) Shutdown() {
 	start := time.Now()
 	hardStop := start.Add(drainTimeout - hardStopReserve)
 	closeAt := hardStop.Add(-closeReserve)
-	s.beginDrain()
+	s.draining.Store(true)
 	log.Println("relay: draining")
 	s.http.SetKeepAlivesEnabled(false)
 

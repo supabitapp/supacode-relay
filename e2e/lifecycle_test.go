@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"io"
@@ -345,5 +346,33 @@ func TestInvalidConfigExits(t *testing.T) {
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "RELAY_MAX_CLIENTS") {
 		t.Fatalf("expected exit 2 naming RELAY_MAX_CLIENTS, got %v: %s", err, out)
+	}
+}
+
+func TestAuthenticationCannotRegisterDuringShutdown(t *testing.T) {
+	r := startRelay(t)
+	h := register(t, r)
+	client, accepted, _ := pairUp(t, r, h)
+	key := newKey(t)
+	ws, challenge, _, err := endpoint.DialControl(r.base, endpoint.B64(key.Public().(ed25519.PublicKey)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Close()
+	r.signal(syscall.SIGTERM)
+	waitHealth(t, r, http.StatusServiceUnavailable)
+	if err := ws.WriteJSON(map[string]string{"type": "authenticate", "signature": endpoint.SignChallenge(key, endpoint.EndpointID(key.Public().(ed25519.PublicKey)), challenge.Nonce)}); err != nil {
+		t.Fatal(err)
+	}
+	_ = ws.SetReadDeadline(time.Now().Add(deadline))
+	_, _, err = ws.ReadMessage()
+	var closed *websocket.CloseError
+	if !errors.As(err, &closed) || closed.Code != websocket.CloseGoingAway {
+		t.Fatalf("authentication completed during shutdown: %v", err)
+	}
+	client.Close()
+	accepted.Close()
+	if err := r.waitExit(8 * time.Second); err != nil {
+		t.Fatal(err)
 	}
 }

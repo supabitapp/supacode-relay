@@ -11,8 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -29,21 +27,16 @@ import (
 	"github.com/supabitapp/supacode-relay/internal/endpoint"
 )
 
-const token = "pathbench-directory-token-0123456789"
-
 var (
-	directURL = flag.String("direct", "", "ws base URL of a relay node reached directly")
-	routedURL = flag.String("routed", "", "ws base URL of a router in front of relay nodes")
-	spawnBins = flag.Bool("spawn", false, "start a router and one node on loopback and measure both paths")
-	relayBin  = flag.String("relay-bin", "bin/relay", "relay binary for -spawn")
-	routerBin = flag.String("router-bin", "bin/relay-router", "router binary for -spawn")
-	pathSel   = flag.String("path", "both", "direct, routed, or both")
-	payloads  = flag.String("payloads", "64,1024,65536", "payload sizes in bytes")
-	clients   = flag.String("clients", "1,32", "concurrent client counts")
-	inflight  = flag.Int("inflight", 4, "messages in flight per client")
-	warmup    = flag.Duration("warmup", 2*time.Second, "warmup per case")
-	duration  = flag.Duration("duration", 5*time.Second, "measurement window per case")
-	hostCount = flag.Int("hosts", 4, "echo hosts per path")
+	relayURL   = flag.String("url", "", "WebSocket base URL of the relay")
+	spawnRelay = flag.Bool("spawn", false, "start a relay on loopback")
+	relayBin   = flag.String("relay-bin", "bin/relay", "relay binary for -spawn")
+	payloads   = flag.String("payloads", "64,1024,65536", "payload sizes in bytes")
+	clients    = flag.String("clients", "1,32", "concurrent client counts")
+	inflight   = flag.Int("inflight", 4, "messages in flight per client")
+	warmup     = flag.Duration("warmup", 2*time.Second, "warmup per case")
+	duration   = flag.Duration("duration", 5*time.Second, "measurement window per case")
+	hostCount  = flag.Int("hosts", 4, "echo hosts")
 )
 
 type dist struct {
@@ -58,7 +51,6 @@ type usage struct {
 }
 
 type result struct {
-	Path      string           `json:"path"`
 	Payload   int              `json:"payloadBytes"`
 	Clients   int              `json:"clients"`
 	Messages  int64            `json:"messagesInWindow"`
@@ -71,7 +63,6 @@ type result struct {
 }
 
 type target struct {
-	name  string
 	base  string
 	hosts []*endpoint.Host
 	pids  map[string]int
@@ -79,76 +70,74 @@ type target struct {
 
 func main() {
 	flag.Parse()
-	var procs []*exec.Cmd
-	defer func() {
-		for _, p := range procs {
-			_ = p.Process.Signal(syscall.SIGTERM)
-			_, _ = p.Process.Wait()
-		}
-	}()
-	pids := map[string]int{}
-	if *spawnBins {
-		var err error
-		procs, err = spawnLocal(pids)
-		if err != nil {
-			fail(err)
-		}
+	if err := benchmark(); err != nil {
+		fmt.Fprintln(os.Stderr, "relay-bench:", err)
+		os.Exit(1)
 	}
-	var targets []*target
-	for _, p := range []struct{ name, base string }{{"direct", *directURL}, {"routed", *routedURL}} {
-		if *pathSel != "both" && *pathSel != p.name {
-			continue
-		}
-		if p.base == "" {
-			fail(fmt.Errorf("-%s is required", p.name))
-		}
-		hosts, err := serveEcho(p.base, *hostCount)
-		if err != nil {
-			fail(fmt.Errorf("%s hosts: %w", p.name, err))
-		}
-		tg := &target{name: p.name, base: p.base, hosts: hosts, pids: map[string]int{}}
-		if pid, ok := pids["node"]; ok {
-			tg.pids["node"] = pid
-		}
-		if pid, ok := pids["router"]; ok && p.name == "routed" {
-			tg.pids["router"] = pid
-		}
-		targets = append(targets, tg)
+}
+
+func benchmark() error {
+	if *hostCount <= 0 || *inflight <= 0 || *warmup < 0 || *duration <= 0 {
+		return errors.New("hosts, inflight and duration must be positive; warmup must not be negative")
 	}
 	sizes, err := ints(*payloads)
 	if err != nil {
-		fail(err)
+		return err
 	}
 	counts, err := ints(*clients)
 	if err != nil {
-		fail(err)
+		return err
 	}
+	pids := map[string]int{}
+	if *spawnRelay {
+		process, address, err := spawn(*relayBin, "RELAY_ADDR=127.0.0.1:0", "RELAY_PRIVATE_ADDR=", "RELAY_ADMISSION_RATE=1000000", "RELAY_MAX_CONNS=100000", "RELAY_MAX_CONNS_PER_IP=100000")
+		if process != nil {
+			defer func() {
+				_ = process.Process.Signal(syscall.SIGTERM)
+				_ = process.Wait()
+			}()
+		}
+		if err != nil {
+			return err
+		}
+
+		pids["relay"] = process.Process.Pid
+		*relayURL = "ws://" + address
+	}
+	if *relayURL == "" {
+		return errors.New("-url or -spawn is required")
+	}
+	hosts, err := serveEcho(*relayURL, *hostCount)
+	if err != nil {
+		return fmt.Errorf("echo hosts: %w", err)
+	}
+	defer func() {
+		for _, host := range hosts {
+			host.Close()
+		}
+	}()
+	tg := &target{base: *relayURL, hosts: hosts, pids: pids}
 	var results []result
 	for _, size := range sizes {
-		for _, n := range counts {
-			for _, tg := range targets {
-				r, err := run(tg, size, n)
-				if err != nil {
-					fail(fmt.Errorf("%s %dB x%d: %w", tg.name, size, n, err))
-				}
-				fmt.Fprintf(os.Stderr, "%-6s %6dB x%-3d p50=%.0fus p99=%.0fus %8.0f msg/s %7.1f MiB/s %v fail=%d corrupt=%d\n", r.Path, r.Payload, r.Clients, r.RTT.P50, r.RTT.P99, r.MsgPerSec, r.MiBPerSec, r.Processes, r.Failures, r.Corrupt)
-				results = append(results, r)
-				time.Sleep(300 * time.Millisecond)
+		for _, count := range counts {
+			r, err := run(tg, size, count)
+			if err != nil {
+				return fmt.Errorf("%dB x%d: %w", size, count, err)
 			}
+			fmt.Fprintf(os.Stderr, "%6dB x%-3d p50=%.0fus p99=%.0fus %8.0f msg/s %7.1f MiB/s %v fail=%d corrupt=%d\n", r.Payload, r.Clients, r.RTT.P50, r.RTT.P99, r.MsgPerSec, r.MiBPerSec, r.Processes, r.Failures, r.Corrupt)
+			results = append(results, r)
+			if r.Failures > 0 || r.Corrupt > 0 {
+				return errors.New("echo validation failed")
+			}
+			time.Sleep(300 * time.Millisecond)
 		}
 	}
-	out, _ := json.Marshal(map[string]any{
-		"direct": *directURL, "routed": *routedURL, "spawned": *spawnBins,
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{
+		"url": *relayURL, "spawned": *spawnRelay,
 		"warmupSec": warmup.Seconds(), "durationSec": duration.Seconds(), "inflightPerClient": *inflight, "hosts": *hostCount,
 		"driver":  map[string]any{"goos": runtime.GOOS, "goarch": runtime.GOARCH, "cpus": runtime.NumCPU(), "go": runtime.Version()},
 		"results": results,
 	})
-	fmt.Println(string(out))
-}
-
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, "pathbench:", err)
-	os.Exit(1)
 }
 
 func ints(v string) ([]int, error) {
@@ -161,37 +150,6 @@ func ints(v string) ([]int, error) {
 		out = append(out, n)
 	}
 	return out, nil
-}
-
-func spawnLocal(pids map[string]int) ([]*exec.Cmd, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, err
-	}
-	private := ln.Addr().String()
-	ln.Close()
-	router, routerAddr, err := spawn(*routerBin, "ROUTER_ADDR=127.0.0.1:0", "ROUTER_PRIVATE_ADDR="+private, "ROUTER_DIRECTORY_TOKEN="+token, "ROUTER_ADMISSION_RATE=1000000", "ROUTER_MAX_CONNS_PER_IP=100000")
-	if err != nil {
-		return nil, err
-	}
-	node, nodeAddr, err := spawn(*relayBin, "RELAY_ADDR=127.0.0.1:0", "RELAY_NODE_ID=bench", "RELAY_ROUTERS=http://"+private, "RELAY_DIRECTORY_TOKEN="+token, "RELAY_TRUSTED_PROXIES=127.0.0.1/32", "RELAY_ADMISSION_RATE=1000000")
-	if err != nil {
-		return []*exec.Cmd{router}, err
-	}
-	procs := []*exec.Cmd{node, router}
-	pids["router"], pids["node"] = router.Process.Pid, node.Process.Pid
-	*directURL, *routedURL = "ws://"+nodeAddr, "ws://"+routerAddr
-	end := time.Now().Add(10 * time.Second)
-	for time.Now().Before(end) {
-		if resp, err := http.Get("http://" + private + "/healthz"); err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return procs, nil
-			}
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	return procs, errors.New("router never reported a ready node")
 }
 
 func spawn(bin string, env ...string) (*exec.Cmd, string, error) {
@@ -265,7 +223,7 @@ type client struct {
 }
 
 func run(tg *target, size, n int) (result, error) {
-	res := result{Path: tg.name, Payload: size, Clients: n}
+	res := result{Payload: size, Clients: n}
 	block := make([]byte, max(size, 16))
 	_, _ = rand.Read(block)
 	cs := make([]*client, n)

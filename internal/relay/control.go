@@ -14,24 +14,21 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supacode-relay/internal/diagnostics"
-	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
 const (
 	signaturePrefix  = "supacode-relay-v1\n"
 	controlReadLimit = 4096
+	closeSuperseded  = 4001
 )
 
 type host struct {
 	id          string
-	regID       string
-	version     uint64
 	ctrl        *peer
 	pairs       map[string]*pair
 	pending     int
 	clientSlots int
 	gone        bool
-	detached    bool
 	bytesIn     atomic.Int64
 	bytesOut    atomic.Int64
 	trace       *diagnostics.Trace
@@ -100,23 +97,22 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 
 	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages), nil)
 	ctrl.trace = trace.With("peer", "control")
-	h := &host{id: id, regID: randomB64(16), version: s.clock.Next(), ctrl: ctrl, pairs: map[string]*pair{}, trace: trace}
+	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}, trace: trace}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()
-	if s.cfg.Clustered() && s.draining.Load() {
+	if s.draining.Load() {
 		s.mu.Unlock()
 		s.closeNow(ws, closeMsg{websocket.CloseGoingAway, "relay draining"})
 		return
 	}
 	old := s.hosts[id]
 	s.hosts[id] = h
-	s.publishLocked(directory.Message{Type: directory.TypePut, Registration: s.registration(h)})
 	s.mu.Unlock()
-	trace.Event("host.registered", "superseded_previous", old != nil, "registration_version", h.version)
+	trace.Event("host.registered", "superseded_previous", old != nil)
 	if old != nil {
 		old.trace.Event("host.superseded", "replacement_trace_id", trace.ID())
 		s.superseded.Add(1)
-		old.ctrl.q.finish(closeMsg{directory.CloseSuperseded, directory.SupersededText}, true)
+		old.ctrl.q.finish(closeMsg{closeSuperseded, "registration superseded"}, true)
 	}
 
 	go ctrl.writeLoop()
@@ -153,21 +149,12 @@ func verifyAuth(ws *websocket.Conn, pub ed25519.PublicKey, msg []byte) (bool, st
 	return true, ""
 }
 
-func (s *Server) registration(h *host) *directory.Registration {
-	return &directory.Registration{EndpointID: h.id, NodeID: s.cfg.NodeID, RegistrationID: h.regID, Version: h.version}
-}
-
 func (s *Server) removeHost(h *host) {
 	s.mu.Lock()
 	if s.hosts[h.id] == h {
 		delete(s.hosts, h.id)
-		s.publishLocked(directory.Message{Type: directory.TypeDel, Registration: s.registration(h)})
 	}
 	h.gone = true
-	if h.detached {
-		s.mu.Unlock()
-		return
-	}
 	pairs := make([]*pair, 0, len(h.pairs))
 	for _, p := range h.pairs {
 		pairs = append(pairs, p)

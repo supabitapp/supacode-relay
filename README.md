@@ -36,22 +36,15 @@ docker run -p 8080:8080 supacode-relay
 
 The relay does not terminate TLS, so put it behind a proxy that serves `wss://`. Settings are `RELAY_*` environment variables, listed in [configuration](docs/configuration.md).
 
-To scale out, run a router in front of several nodes. See [multi-node relay](docs/multi-node.md).
-
-```mermaid
-flowchart LR
-  peers["Clients and hosts"] --> router["Router"]
-  router --> a["Node A"]
-  router --> b["Node B"]
-  router --> c["Node C"]
-```
+Run one relay behind the TLS proxy. Hosts register and clients connect to that same instance. See [deployment](docs/deployment.md) for the production service and cutover.
 
 ## Docs
 
 - [Protocol](docs/protocol.md)
 - [Configuration](docs/configuration.md)
 - [Diagnostics](docs/diagnostics.md)
-- [Multi-node relay](docs/multi-node.md)
+- [Deployment](docs/deployment.md)
+- [Performance measurements](docs/multi-node.md#live-transport-investigation)
 - [Development](docs/development.md)
 
 ## License
