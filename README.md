@@ -1,6 +1,6 @@
 # Supacode relay
 
-An end-to-end encrypted relay for Supacode. It connects clients to hosts that have no open ports, and it only ever sees ciphertext.
+An end-to-end encrypted relay for [Supacode](https://github.com/supabitapp/supacode-next). It connects clients to hosts that have no open ports, and it only ever sees ciphertext.
 
 ```mermaid
 flowchart LR
