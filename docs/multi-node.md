@@ -169,3 +169,44 @@ Phase resources:
 At 64 KiB both paths are capped by something other than the router inside the VM, most likely the driver container or the bridge.
 
 What these numbers support: for small and medium messages the router hop adds roughly 55–150 µs of median latency with one client. It cuts throughput by 30–50% at 32 clients, and the router uses about as much CPU as the node it fronts. They are not production measurements. Everything runs on one shared host over macOS loopback or a desktop VM's bridge, with no TLS, no real NICs, and no cross-host latency. Docker Desktop and OrbStack networking in particular is not representative of production networking.
+
+## Live transport investigation
+
+The live bulk throughput ceiling tracks shared VM upload capacity. Increasing backend count or changing WebSocket buffer sizes does not remove it. The [retained measurements](performance-transport-results.json) distinguish this transport constraint from relay CPU saturation.
+
+Measurements on 2026-10-10 use the live London VMs with two vCPUs and 4 GiB each. The probe derives from [benchmark source at 7bc0264](https://github.com/supabitapp/supacode-relay/blob/7bc0264536ba14a2934ff19beb406abde4e6b6c6/e2e/pathbench/main.go). Live revisions are `cdbb53b75a4fd1750d674c737afbbbf60c389a58` and `7127208224c9c012d86083c6817e7c80388c38ee`; their forwarding code is identical.
+
+These are observed rates, not a documented provider quota or a maximum production capacity. The guest does not expose the configuration behind the effective upload ceiling. A deployment occurred between measurement groups; each measured case kept one service process ID.
+
+### Controlled throughput measurements
+
+The relay on node-a forwards substantially faster when the transport stays on loopback. All cases use 64 KiB payloads, one client per driver, and four messages in flight. The first three rows use one four-second window; the remaining rows use two five-second repetitions.
+
+| Arrangement | Echo payload throughput | Median RTT | Source VM upload during measurement |
+| --- | --- | --- | --- |
+| Live node-a, both endpoints on its loopback | 253.1 MiB/s | 0.67 ms | No integration traffic |
+| Both endpoints on router VM, node-a integration, 4 KiB writer | 6.8 MiB/s | 35.6 ms | Separate wire capture unavailable |
+| Same path, 64 KiB writer | 7.1 MiB/s | 35.4 ms | Separate wire capture unavailable |
+| One destination, both endpoints on router VM | 6.9-7.0 MiB/s | 35.5-35.7 ms | 14.3-14.4 MiB/s |
+| Two simultaneous destinations, node-a and node-b | 7.1-7.3 MiB/s total | 69.4-71.0 ms per driver | 14.5-14.6 MiB/s total |
+| Client on router VM, echo host on node-a loopback | 13.9-14.0 MiB/s | 17.7-17.8 ms | 14.4 MiB/s |
+
+Two destinations share the same aggregate throughput instead of doubling it. Moving the echo host onto the node halves outbound traffic through the source VM and doubles received payload throughput. This locates the shared constraint on the source transport rather than an individual relay node's forwarding capacity.
+
+Independent ordinary HTTPS transfers reproduce the asymmetry: a 32 MiB download reaches 84.2 MiB/s, while a 64 MiB upload reaches 13.9 MiB/s. During sustained upload, the VM interface transmits about 14.4-14.7 MiB/s. The upload uses the documented [speed-test API](https://github.com/cloudflare/speedtest/blob/main/README.md).
+
+The echo workload sends each payload twice from the source VM: once from the client, and once from the echo host. An effective upload rate near 14 MiB/s therefore produces an echo payload rate near half that value. Actual one-way application traffic has a different accounting factor.
+
+### Queueing and practical improvements
+
+More queued data increases delay once the transport reaches its throughput ceiling. With a single 64 KiB client, reducing the window from four messages to one cuts median RTT from 35.6 ms to 11.8 ms. Payload throughput falls from 7.0 MiB/s to 5.1-5.2 MiB/s.
+
+The queue model also fits the earlier bulk ramp: 32 clients with four 64 KiB messages outstanding can hold 8 MiB of echo payload in flight. At the observed shared echo rate, draining that amount takes roughly a second. This is an explanatory estimate, not a measurement of every socket's queue.
+
+For higher throughput, test a backend arrangement that avoids the constrained outbound hop, such as a colocated router and node using loopback. Confirm the result through the public TLS endpoint before changing deployment. Colocation trades separate VM failure isolation and resource budgets for fewer transport hops.
+
+For interactive latency, test paced sends and limits on queued bytes at the endpoints. The smaller-window experiment shows a throughput tradeoff, so reducing a window blindly is insufficient. Confirm provider egress capacity before adding CPU or backend nodes as a throughput remedy.
+
+The observed bulk limit persists with low CPU steal and no guest CPU throttling. Recorded node-a steal averages are below 6% in these controlled cases, and guest `cpu.stat` reports no throttled time. Higher steal in earlier small-message runs may still contribute to their latency variation.
+
+All 15 controlled relay cases finish with zero failed or corrupt messages. Plain HTTP to the integration redirects to HTTPS, so no plaintext integration throughput result is claimed. Temporary probes are removed; live services and directory streams remain active with no pending or closing pairs.
