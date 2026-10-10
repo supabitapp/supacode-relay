@@ -25,7 +25,7 @@ import (
 
 const deadline = 5 * time.Second
 
-var relayBin string
+var relayBin, probeBin string
 
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "supacode-relay-e2e")
@@ -46,6 +46,7 @@ func TestMain(m *testing.M) {
 		return out
 	}
 	relayBin = build("relay", "../cmd/relay")
+	probeBin = build("probe", "./docker/probe")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)

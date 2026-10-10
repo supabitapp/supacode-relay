@@ -3,7 +3,9 @@ package e2e
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"os/exec"
 	"sync"
 	"testing"
 
@@ -99,4 +101,16 @@ func TestClientReceivesNoRelayRecords(t *testing.T) {
 	first := message{websocket.BinaryMessage, []byte("first-from-host")}
 	send(t, host, first)
 	expectMessage(t, client, first)
+}
+
+func TestDeployProbeVerifiesPairs(t *testing.T) {
+	r := startRelay(t)
+	out, err := exec.Command(probeBin, "-mode", "smoke", "-url", r.base, "-n", "6").Output()
+	if err != nil {
+		t.Fatalf("probe failed: %v\n%s", err, out)
+	}
+	var result struct{ PairsVerified int }
+	if err := json.Unmarshal(out, &result); err != nil || result.PairsVerified != 6 {
+		t.Fatalf("probe result %s: %v", out, err)
+	}
 }
