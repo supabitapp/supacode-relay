@@ -68,12 +68,14 @@ Detailed node metrics remain private in the production deployment. Their `topHos
 
 ## Production on exe.dev
 
-`wss://supacode-relay.exe.xyz` runs as four VMs:
+`wss://relay.supacode.sh` runs as four VMs:
 
 | VM | Role | Listeners |
 | --- | --- | --- |
 | `supacode-relay` | router, the VM's public HTTPS port | `127.0.0.1:8080` public, `127.0.0.1:9090` private |
 | `supacode-relay-node-a`, `-b`, `-c` | relay nodes, all ports private | `127.0.0.1:8080` relay, `127.0.0.1:9090` health and metrics |
+
+Cloudflare has a DNS-only CNAME from `relay.supacode.sh` to `supacode-relay.exe.xyz`. The domain is registered with `ssh exe.dev domain add supacode-relay relay.supacode.sh`, and exe.dev manages its TLS certificate. Keep Cloudflare proxying off for this record, as required by [exe.dev's custom-domain setup](https://exe.dev/docs/cnames). SSH deployment continues to use the VM's `supacode-relay.exe.xyz` address.
 
 exe.dev has no private network between VMs. Traffic between them uses peer integrations, which are HTTPS proxies that inject a VM-scoped credential and attest the caller:
 

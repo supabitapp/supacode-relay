@@ -2,7 +2,7 @@
 
 A WebSocket relay that connects clients to hosts that aren't reachable directly. Hosts authenticate with an Ed25519 key, and the relay forwards messages between each client and its host without looking at them. Encryption and authorization are up to the endpoints.
 
-The public relay runs at `wss://supacode-relay.exe.xyz`. It's a router in front of three relay nodes. See [docs/multi-node.md](docs/multi-node.md).
+The public relay runs at `wss://relay.supacode.sh`. It's a router in front of three relay nodes. The original `wss://supacode-relay.exe.xyz` address also works. See [docs/multi-node.md](docs/multi-node.md).
 
 ## Development
 
@@ -61,7 +61,7 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 
 `GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including active and closing admission slots, configured data-buffer capacity, Go heap and allocation counters, and `topHosts`. `topHosts` lists the 20 hosts on the node that have relayed the most bytes since they registered, with the first 16 hex characters of each endpoint ID, its diagnostic `traceTag`, bytes relayed to and from the host, and open pairs. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
 
-The router exposes public stats at [https://supacode-relay.exe.xyz/metrics](https://supacode-relay.exe.xyz/metrics). See [router metrics](docs/multi-node.md#metrics) for the published fields and access limits.
+The router exposes public stats at [https://relay.supacode.sh/metrics](https://relay.supacode.sh/metrics). See [router metrics](docs/multi-node.md#metrics) for the published fields and access limits.
 
 ## Diagnostics
 
