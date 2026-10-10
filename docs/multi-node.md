@@ -33,7 +33,7 @@ nodes ── authenticated directory stream ──▶ router private :9090 (/hea
 
 **Half-closed clients.** When a node closes a proxied socket, the router forwards the FIN to the client and fully closes the client socket 2 s later if the client has not closed it. This stops a client that never closes from holding a router socket.
 
-**Logs.** Connection records use shared trace IDs and hashed endpoint and pair tags, so requests, directory changes, retries, byte flow, and closures can be matched across the router and nodes. See [Diagnostics](../README.md#diagnostics) for filtering commands. Neither binary logs URLs, keys, raw endpoint or connection IDs, tokens, nonces, or payloads. The router also passes everything it logs (including `net/http` and `httputil` messages) through a redactor that removes query strings and 64-hex runs.
+**Logs.** Connection records use shared trace IDs and hashed endpoint and pair tags, so requests, directory changes, retries, byte flow, and closures can be matched across the router and nodes. See [Diagnostics](diagnostics.md) for filtering commands. Neither binary logs URLs, keys, raw endpoint or connection IDs, tokens, nonces, or payloads. The router also passes everything it logs (including `net/http` and `httputil` messages) through a redactor that removes query strings and 64-hex runs.
 
 
 ## Router configuration
@@ -63,7 +63,7 @@ The router's public `GET /metrics` returns indented JSON with connection and req
 
 Public metrics use a separate limiter with the `ROUTER_ADMISSION_RATE` rate and burst. Polling consumes no WebSocket admission slots and remains available while the router drains. The private listener serves the same stats without this limiter. `/healthz` and `/v1/directory` remain private.
 
-Detailed node metrics remain private in the production deployment. Their `topHosts` entries contain endpoint prefixes, diagnostic tags, and per-host traffic counts. See [node metrics](../README.md#http).
+Detailed node metrics remain private in the production deployment. Their `topHosts` entries contain endpoint prefixes, diagnostic tags, and per-host traffic counts. See [node metrics](protocol.md#http).
 
 
 ## Production on exe.dev

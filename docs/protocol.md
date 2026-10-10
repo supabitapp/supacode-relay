@@ -1,0 +1,45 @@
+# Protocol
+
+1. The host opens `/v1/control?publicKey=B64` and answers the relay's challenge.
+2. A client opens `/v1/connect?endpointId=HEX`.
+3. The relay sends the host `{"type":"incoming","connectionId":"ID","token":"TOKEN"}`.
+4. The host opens `/v1/accept?endpointId=HEX&connectionId=ID&token=TOKEN`, and the two sockets are paired.
+5. When either side closes, the relay sends the host `{"type":"closed","connectionId":"ID"}`.
+
+Messages keep their order, boundaries, and text or binary type. Before acceptance the relay pauses application reads; early bytes wait in the socket buffers and arrive once the pair is ready.
+
+Each direction streams directly into a fixed WebSocket writer buffer. A slow receiver stops its sender through TCP backpressure. The configured data buffers total about 40 KiB per pair, plus framing, connection state, goroutine stacks and socket memory. They do not grow with message size or elapsed traffic. Pending, active and closing connections retain their admission slots until cleanup finishes.
+
+A blocked receiver is closed with 1013 after `RELAY_DELIVERY_TIMEOUT_MS`. Oversized or interrupted messages may forward partial fragments, but those fragments are never finalized into a successful shorter message. Close frames are attempted within a bounded deadline; an aborted or stalled transport can prevent their delivery. Control notifications and directory updates use separate bounded queues.
+
+`endpointId` is the lowercase hex SHA-256 of the host's 32-byte Ed25519 public key. Base64 values are unpadded Base64URL.
+
+## Authentication
+
+```text
+relay → host  {"type":"challenge","nonce":"B64"}
+host  → relay {"type":"authenticate","signature":"B64"}
+relay → host  {"type":"registered","endpointId":"HEX"}
+```
+
+The host signs `"supacode-relay-v1\n" + endpointId + "\n" + nonce`. A bad signature or a timeout closes the socket with 1008. If the same endpoint registers again and authenticates, the newer registration wins and the older control socket closes with 4001. A host that gets 4001 shouldn't reconnect automatically, because something else holding its key took over. After registering, the host must not send anything on the control socket, or the relay closes it.
+
+Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
+
+## Close codes
+
+| Code | Reason |
+| --- | --- |
+| peer's code | Forwarded from the other side |
+| 1001 | Peer disconnected or timed out, host went offline, relay is shutting down, or relay is draining (reconnect to land on another node) |
+| 1008 | Authentication failed or unexpected control message |
+| 1009 | Message larger than `RELAY_MAX_MESSAGE_BYTES` |
+| 1011 | Upgrade failed |
+| 1013 | Pair timeout, delivery timeout, or control queue full |
+| 4001 | Registration superseded by a newer one for the same endpoint |
+
+## HTTP
+
+`GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including active and closing admission slots, configured data-buffer capacity, Go heap and allocation counters, and `topHosts`. `topHosts` lists the 20 hosts on the node that have relayed the most bytes since they registered, with the first 16 hex characters of each endpoint ID, its diagnostic `traceTag`, bytes relayed to and from the host, and open pairs. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
+
+The router exposes public stats at [https://relay.supacode.sh/metrics](https://relay.supacode.sh/metrics). See [router metrics](multi-node.md#metrics) for the published fields and access limits.
