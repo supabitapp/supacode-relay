@@ -61,6 +61,8 @@ Treat `connectionId` as opaque. Behind a router it looks like `node-a.RANDOM`.
 
 `GET /healthz` returns 200, or 503 while shutting down. `GET /metrics` returns JSON counters, including active and closing admission slots, configured data-buffer capacity, Go heap and allocation counters, and `topHosts`. `topHosts` lists the 20 hosts on the node that have relayed the most bytes since they registered, with the first 16 hex characters of each endpoint ID, its diagnostic `traceTag`, bytes relayed to and from the host, and open pairs. Both move to `RELAY_PRIVATE_ADDR` when it's set. `relay healthcheck` and `relay metrics` query them locally.
 
+The router exposes public stats at [https://supacode-relay.exe.xyz/metrics](https://supacode-relay.exe.xyz/metrics). See [router metrics](docs/multi-node.md#metrics) for the published fields and access limits.
+
 ## Diagnostics
 
 Connection lifecycle logs are enabled by default and written as JSON to stderr. Follow `trace_id` across the router and node to see admission, directory lookup, upstream selection, upgrades, authentication, first-byte timing, pairing, and closure. `pair_tag` connects the client's and host's separate requests; `endpoint_tag` connects requests to registration and directory events. Close summaries include durations, close codes, and completed message and byte counts. Payloads, raw identifiers, credentials, and remote close-message contents are excluded.

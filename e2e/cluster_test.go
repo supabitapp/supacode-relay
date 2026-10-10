@@ -375,7 +375,7 @@ func TestClusterDrainReleasesHostsAndKeepsPairs(t *testing.T) {
 
 func TestClusterPublicSurface(t *testing.T) {
 	c := startCluster(t, []string{"node-a"})
-	for _, path := range []string{"/", "/healthz", "/metrics", "/v1/directory", "/v1/control/../healthz", "/v1/controlx", "/V1/control"} {
+	for _, path := range []string{"/", "/healthz", "/metrics/", "/v1/directory", "/v1/control/../healthz", "/v1/controlx", "/V1/control"} {
 		resp, err := http.Get("http://" + c.router.addr + path)
 		if err != nil {
 			t.Fatal(err)
@@ -385,7 +385,17 @@ func TestClusterPublicSurface(t *testing.T) {
 			t.Fatalf("public router %s: %d", path, resp.StatusCode)
 		}
 	}
-	resp, err := http.Post("http://"+c.router.addr+"/v1/control", "text/plain", nil)
+	resp, err := http.Get("http://" + c.router.addr + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metrics routerMetrics
+	err = json.NewDecoder(resp.Body).Decode(&metrics)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || err != nil || len(metrics.Nodes) != 1 || !metrics.Nodes[0].Ready {
+		t.Fatalf("public metrics: status %d, metrics %+v, error %v", resp.StatusCode, metrics, err)
+	}
+	resp, err = http.Post("http://"+c.router.addr+"/v1/control", "text/plain", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

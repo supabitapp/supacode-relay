@@ -112,10 +112,16 @@ func acceptFailures(hosts []*host) (int64, []string) {
 
 func TestPublicSurface(t *testing.T) {
 	st.baseline(t)
-	for _, path := range []string{"/", "/healthz", "/metrics", "/v1/directory", "/v1/control/../healthz", "/debug/pprof/", "/v1/accept/"} {
+	for _, path := range []string{"/", "/healthz", "/metrics/", "/v1/directory", "/v1/control/../healthz", "/debug/pprof/", "/v1/accept/"} {
 		if code := httpStatus(t, "GET", st.http+path, nil); code != 404 {
 			t.Fatalf("public %s: %d", path, code)
 		}
+	}
+	if code := httpStatus(t, "GET", st.http+"/metrics", nil); code != http.StatusOK {
+		t.Fatalf("public metrics: %d", code)
+	}
+	if code := httpStatus(t, "POST", st.http+"/metrics", nil); code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST metrics: %d", code)
 	}
 	hdr := http.Header{"Authorization": {"Bearer " + getenv("E2E_DIRECTORY_TOKEN", "compose-e2e-directory-token-change-me")}, "Connection": {"Upgrade"}, "Upgrade": {"websocket"}, "Sec-Websocket-Version": {"13"}, "Sec-Websocket-Key": {"dGhlIHNhbXBsZSBub25jZQ=="}}
 	if code := httpStatus(t, "GET", st.http+"/v1/directory", hdr); code != 404 {

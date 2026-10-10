@@ -197,6 +197,10 @@ func (rt *router) newProxy() *httputil.ReverseProxy {
 }
 
 func (rt *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/metrics" {
+		rt.handlePublicMetrics(w, r)
+		return
+	}
 	trace, request := diagnostics.Request(rt.events, r, diagnostics.RequestOptions{TrustedProxies: rt.cfg.trustedProxies})
 	r = request
 	response := &diagnostics.Response{ResponseWriter: w}

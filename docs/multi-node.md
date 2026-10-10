@@ -21,7 +21,7 @@ nodes ── authenticated directory stream ──▶ router private :9090 (/hea
 - Messages from a replaced session are ignored.
 - Cross-node ordering assumes node clock skew is smaller than the time a host takes to reconnect. Control routing prefers the current owner node (see below), so a re-registration usually lands on the same node, where ordering is exact.
 
-**Routing.** The router's public listener serves only `GET /v1/control`, `/v1/connect`, and `/v1/accept`. Every other path returns 404, and other methods on those paths return 405. Proxying uses `net/http/httputil.ReverseProxy`'s protocol-switch path. That path reads backend bytes through the transport's buffered reader first, so a challenge frame that arrives in the same TCP segment as the `101` response is delivered (tested with a raw backend that writes both in one `write`).
+**Routing.** The router's public listener serves `GET /metrics`, `/v1/control`, `/v1/connect`, and `/v1/accept`. Every other path returns 404, and other methods on those paths return 405. Proxying uses `net/http/httputil.ReverseProxy`'s protocol-switch path. That path reads backend bytes through the transport's buffered reader first, so a challenge frame that arrives in the same TCP segment as the `101` response is delivered (tested with a raw backend that writes both in one `write`).
 
 - Control: the current owner if it is healthy and not draining, otherwise the non-draining node with the fewest control sockets through this router. A dial failure, a response-header timeout, or a `503` (draining or full) is retried once on another node.
 - Connect: directory lookup. On a miss, the router runs a refresh: a `sync` barrier sent to every node stream, which the node acks after all earlier updates. Then it looks up again. If the node answers `404` or `503` before the upgrade, or the dial fails, the router refreshes and retries once. The request has no body and nothing has reached the client, so the retry is safe. Concurrent refreshes share barrier rounds. A round waits at most `ROUTER_REFRESH_TIMEOUT_MS`.
@@ -40,7 +40,7 @@ nodes ── authenticated directory stream ──▶ router private :9090 (/hea
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `ROUTER_ADDR` | `127.0.0.1:8080` | Public listener (protocol paths only) |
+| `ROUTER_ADDR` | `127.0.0.1:8080` | Public listener for protocol paths and `/metrics` |
 | `ROUTER_PRIVATE_ADDR` | `127.0.0.1:9090` | `/healthz` (200 once at least one node is ready, 503 while draining), `/metrics`, `/v1/directory` |
 | `ROUTER_PRIVATE_ALLOWED_PEERS` | empty | CIDRs allowed to connect to the private listener. Others are closed before any HTTP is read |
 | `ROUTER_DIRECTORY_TOKEN` / `ROUTER_DIRECTORY_TOKEN_FILE` | required | Shared directory secret, at least 16 characters |
@@ -56,6 +56,14 @@ nodes ── authenticated directory stream ──▶ router private :9090 (/hea
 | `ROUTER_DRAIN_TIMEOUT_MS` | 5000 | On SIGTERM, health reports 503 and new controls and connects get 503. Accepts are still allowed, and existing sockets are cut after this long |
 
 `relay-router healthcheck` and `relay-router metrics` work like the relay subcommands.
+
+## Metrics
+
+The router's public `GET /metrics` returns indented JSON with connection and request counts, node labels and readiness, memory use, errors, and configured connection limits. It exposes aggregate activity and operational state. Tokens, keys, client IPs, endpoint identifiers, registration identifiers, internal node URLs, and payloads are excluded. The response fields are defined by [`handleMetrics`](../cmd/router/main.go).
+
+Public metrics use a separate limiter with the `ROUTER_ADMISSION_RATE` rate and burst. Polling consumes no WebSocket admission slots and remains available while the router drains. The private listener serves the same stats without this limiter. `/healthz` and `/v1/directory` remain private.
+
+Detailed node metrics remain private in the production deployment. Their `topHosts` entries contain endpoint prefixes, diagnostic tags, and per-host traffic counts. See [node metrics](../README.md#http).
 
 
 ## Production on exe.dev
@@ -111,7 +119,7 @@ Platform note: on OrbStack, a container on `public` can reach addresses on the `
 
 | Test | What it proves |
 | --- | --- |
-| `TestPublicSurface` | Through the public router, `/`, `/healthz`, `/metrics`, `/v1/directory` (even with the token and upgrade headers), and path tricks return 404. From the public network, the router's private listener and every node listener are unreachable |
+| `TestPublicSurface` | Public `GET /metrics` returns 200 and `POST /metrics` returns 405. `/`, `/healthz`, `/v1/directory` (even with the token and upgrade headers), and path tricks return 404. From the public network, the router's private listener and every node listener are unreachable |
 | `TestPairingAcrossThreeNodes` | 12 hosts placed 4/4/4. 36 concurrent clients × 60 echoes, plus a 1000-message windowed stream per host with mixed text, binary, and sizes up to 4 KiB. No integrity failures and no failed accepts |
 | `TestDuplicateIdentityNewestWins` | The second registration of a key routes to the same node, the old one gets 4001, and traffic goes only to the newest |
 | `TestNodeGracefulDrain` | SIGTERM on a node. Its hosts re-register elsewhere, its active pairs keep exchanging, a delayed accept on the draining node succeeds, and hosts on other nodes are not disturbed |
