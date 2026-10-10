@@ -17,6 +17,7 @@
 | `RELAY_WRITE_TIMEOUT_MS` | `5000` | Deadline for control and close writes |
 | `RELAY_DELIVERY_TIMEOUT_MS` | `30000` | How long a write to a pair's receiver may stay blocked before the receiver is closed |
 | `RELAY_HEARTBEAT_MS` | `15000` | Ping interval |
+| `RELAY_HTTP_IDLE_TIMEOUT_MS` | `120000` | Idle time before a keep-alive HTTP connection on either listener is closed. Upgraded WebSockets are unaffected. Set it above any proxy's upstream keep-alive timeout |
 | `RELAY_ADMISSION_RATE` | `100` | Connection attempts per second per IP |
 | `RELAY_TRUSTED_PROXIES` | | CIDRs whose `X-Forwarded-For` is trusted |
 | `RELAY_CLIENT_IP_HEADER` | | Header carrying the client IP from a trusted proxy; otherwise use `X-Forwarded-For` |

@@ -83,8 +83,11 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("GET /v1/control", s.limitConnections(s.handleControl))
 	mux.HandleFunc("GET /v1/connect", s.limitConnections(s.handleConnect))
 	mux.HandleFunc("GET /v1/accept", s.limitConnections(s.handleAccept))
-	s.http = &http.Server{Handler: s.traceRequests(mux), ReadHeaderTimeout: 5 * time.Second}
-	s.private = &http.Server{Handler: admin, ReadHeaderTimeout: 5 * time.Second}
+	newServer := func(handler http.Handler) *http.Server {
+		return &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: cfg.HTTPIdleTimeout}
+	}
+	s.http = newServer(s.traceRequests(mux))
+	s.private = newServer(admin)
 	return s
 }
 

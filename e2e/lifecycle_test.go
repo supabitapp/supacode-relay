@@ -1,10 +1,12 @@
 package e2e
 
 import (
+	"bufio"
 	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -99,6 +101,45 @@ func TestHeartbeatCleanup(t *testing.T) {
 	if m := r.metrics(); m["activePairs"] != 1 || m["activeHosts"] != 1 {
 		t.Fatalf("unexpected metrics %v", m)
 	}
+}
+
+func TestIdleHTTPConnectionsExpireWithoutClosingWebSockets(t *testing.T) {
+	const idle = 300 * time.Millisecond
+	r := startRelay(t, fmt.Sprintf("RELAY_HTTP_IDLE_TIMEOUT_MS=%d", idle.Milliseconds()))
+	h := register(t, r)
+	client, host, _ := pairUp(t, r, h)
+
+	conn, err := net.Dial("tcp", r.addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := io.WriteString(conn, "GET /healthz HTTP/1.1\r\nHost: relay\r\n\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	reader := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(reader, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.Close {
+		t.Fatal("relay did not keep the connection alive")
+	}
+	start := time.Now()
+	_ = conn.SetReadDeadline(time.Now().Add(deadline))
+	if n, err := reader.Read(make([]byte, 1)); n != 0 || err != io.EOF {
+		t.Fatalf("idle keep-alive connection: n=%d err=%v", n, err)
+	}
+	if elapsed := time.Since(start); elapsed < idle/2 {
+		t.Fatalf("idle connection closed after %s, before the %s timeout", elapsed, idle)
+	}
+
+	m := message{websocket.BinaryMessage, randomBytes(64)}
+	send(t, client, m)
+	expectMessage(t, host, m)
+	send(t, host, m)
+	expectMessage(t, client, m)
 }
 
 func TestAbruptDisconnects(t *testing.T) {

@@ -18,7 +18,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if c.Addr != "127.0.0.1:8080" || c.MaxMessageBytes != (32<<20)-14 || c.MaxClients != 20000 || c.Heartbeat != 15*time.Second || c.AdmissionRate != 100 || c.admissionBurst() != 100 || c.MaxConnections != 16384 || c.MaxConnectionsPerIP != 512 {
 		t.Fatalf("unexpected defaults %+v", c)
 	}
-	if c.MaxQueueBytes != 1<<20 || c.MaxClientsPerHost != 256 || c.MaxPendingPerHost != 64 || c.WriteTimeout != 5*time.Second || c.DeliveryTimeout != 30*time.Second {
+	if c.MaxQueueBytes != 1<<20 || c.MaxClientsPerHost != 256 || c.MaxPendingPerHost != 64 || c.WriteTimeout != 5*time.Second || c.DeliveryTimeout != 30*time.Second || c.HTTPIdleTimeout != 2*time.Minute {
 		t.Fatalf("unexpected queue, per-host or timeout defaults %+v", c)
 	}
 }
@@ -40,6 +40,7 @@ func TestLoadConfigRejectsInvalidValues(t *testing.T) {
 		"RELAY_WRITE_TIMEOUT_MS":      "-5",
 		"RELAY_DELIVERY_TIMEOUT_MS":   "0",
 		"RELAY_HEARTBEAT_MS":          "1e3",
+		"RELAY_HTTP_IDLE_TIMEOUT_MS":  "0",
 		"RELAY_ADMISSION_RATE":        "0",
 		"RELAY_TRUSTED_PROXIES":       "10.0.0.0/99",
 		"RELAY_ALLOWED_PEERS":         "nope",

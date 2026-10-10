@@ -26,6 +26,7 @@ type Config struct {
 	WriteTimeout        time.Duration
 	DeliveryTimeout     time.Duration
 	Heartbeat           time.Duration
+	HTTPIdleTimeout     time.Duration
 	AdmissionRate       float64
 	TrustedProxies      []netip.Prefix
 	ClientIPHeader      string
@@ -84,6 +85,7 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		{"RELAY_WRITE_TIMEOUT_MS", 5000, &c.WriteTimeout},
 		{"RELAY_DELIVERY_TIMEOUT_MS", 30000, &c.DeliveryTimeout},
 		{"RELAY_HEARTBEAT_MS", 15000, &c.Heartbeat},
+		{"RELAY_HTTP_IDLE_TIMEOUT_MS", 120000, &c.HTTPIdleTimeout},
 	}
 	for _, f := range durations {
 		n, err := positiveInt(getenv, f.name, f.def)
