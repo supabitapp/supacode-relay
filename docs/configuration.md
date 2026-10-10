@@ -7,8 +7,8 @@
 | `RELAY_MAX_QUEUE_BYTES` | `1048576` | Bytes queued per host control connection |
 | `RELAY_MAX_QUEUE_MESSAGES` | `256` | Notifications queued per host control connection |
 | `RELAY_MAX_CLIENTS` | `20000` | Pairs across the relay |
-| `RELAY_MAX_CLIENTS_PER_HOST` | `256` | Pairs per host |
-| `RELAY_MAX_PENDING_PER_HOST` | `64` | Pairs per host waiting to be accepted |
+| `RELAY_MAX_CLIENTS_PER_HOST` | `64` | Pairs per host. Matches the Supacode host's 64-pair cap; above it, extra clients wait for the pair timeout (1013) instead of getting 503 |
+| `RELAY_MAX_PENDING_PER_HOST` | `64` | Pairs per host waiting to be accepted. Must not exceed `RELAY_MAX_CLIENTS_PER_HOST`, and takes effect only below it |
 | `RELAY_MAX_HOSTS` | `20000` | Connected hosts |
 | `RELAY_MAX_CONNS` | `16384` | Concurrent protocol connections, including authentication and pairing |
 | `RELAY_MAX_CONNS_PER_IP` | `512` | Concurrent protocol connections per client IP |

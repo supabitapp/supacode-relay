@@ -60,7 +60,7 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		{"RELAY_MAX_QUEUE_BYTES", 1 << 20, &c.MaxQueueBytes},
 		{"RELAY_MAX_QUEUE_MESSAGES", 256, &c.MaxQueueMessages},
 		{"RELAY_MAX_CLIENTS", 20000, &c.MaxClients},
-		{"RELAY_MAX_CLIENTS_PER_HOST", 256, &c.MaxClientsPerHost},
+		{"RELAY_MAX_CLIENTS_PER_HOST", 64, &c.MaxClientsPerHost},
 		{"RELAY_MAX_PENDING_PER_HOST", 64, &c.MaxPendingPerHost},
 		{"RELAY_MAX_HOSTS", 20000, &c.MaxHosts},
 		{"RELAY_MAX_CONNS", 16384, &c.MaxConnections},

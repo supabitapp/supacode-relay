@@ -9,4 +9,4 @@ journalctl -u supacode-relay --since "10 minutes ago" -o cat |
   jq -R 'fromjson? | select(.endpoint_tag == "HOST_TRACE_TAG")'
 ```
 
-An `endpoint not found` rejection identifies a host that is offline; a pending pair closed for `pair timeout` identifies a host that never accepted; an active pair's peer failure and close summary identify where forwarding ended. These logs observe the outer relay connection. The encrypted application's own HTTP responses and errors remain opaque.
+An `endpoint not found` rejection identifies a host that is offline; a pending pair closed for `pair timeout` identifies a host that never accepted, for example because it was at capacity; an active pair's peer failure and close summary identify where forwarding ended. These logs observe the outer relay connection. The encrypted application's own HTTP responses and errors remain opaque.
