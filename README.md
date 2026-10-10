@@ -1,12 +1,23 @@
 # Supacode relay
 
-Connects Supacode clients to hosts that have no open ports. Both sides dial out to the relay, which pairs them and forwards their end-to-end encrypted traffic without reading it.
+An end-to-end encrypted relay for Supacode. It connects clients to hosts that have no open ports, and it only ever sees ciphertext.
 
 ```mermaid
 flowchart LR
-  client["Client: phone, browser, desktop"] <--> relay["Relay"]
-  relay <--> host["Supacode host"]
+  client["Client: phone, browser, desktop"] <-->|ciphertext| relay["Relay: cannot decrypt"]
+  relay <-->|ciphertext| host["Supacode host"]
+  client -.-|"end-to-end encrypted"| host
 ```
+
+## End-to-end encrypted
+
+Supacode encrypts traffic inside the client and the host, so the relay forwards bytes it can neither read nor forge:
+
+- Each connection agrees on fresh keys with X25519. The host signs the exchange with its Ed25519 identity key, and the client checks it against the key in its pairing link, so the relay cannot pose as the host.
+- Every frame is sealed with ChaCha20-Poly1305 and numbered. A modified, replayed, or reordered frame is rejected.
+- The relay still sees connection metadata: IP addresses, the host's endpoint ID, timing, and byte counts.
+
+The handshake and cipher live in Supacode's [`packages/shared/src/relay/protocol.ts`](https://github.com/supabitapp/supacode-next/blob/main/packages/shared/src/relay/protocol.ts).
 
 ## Use
 
