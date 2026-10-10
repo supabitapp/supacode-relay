@@ -1,0 +1,26 @@
+[
+  {
+    "implementation": "go",
+    "passed": true,
+    "tests": [
+      "TestMessageTypesOrderingAndEarlyData",
+      "TestRejectsBadAuthentication",
+      "TestAcceptTokenCannotBeReusedOrGuessed",
+      "TestNewRegistrationSupersedesOld",
+      "TestHostOfflineClosesPair"
+    ],
+    "command": "RELAY_SPIKE_URL=<loopback URL> go test -race -count=1 -json ./spikes/rust-relay"
+  },
+  {
+    "implementation": "rust",
+    "passed": true,
+    "tests": [
+      "TestMessageTypesOrderingAndEarlyData",
+      "TestRejectsBadAuthentication",
+      "TestAcceptTokenCannotBeReusedOrGuessed",
+      "TestNewRegistrationSupersedesOld",
+      "TestHostOfflineClosesPair"
+    ],
+    "command": "RELAY_SPIKE_URL=<loopback URL> go test -race -count=1 -json ./spikes/rust-relay"
+  }
+]

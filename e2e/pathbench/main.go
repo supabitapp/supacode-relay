@@ -32,18 +32,20 @@ import (
 const token = "pathbench-directory-token-0123456789"
 
 var (
-	directURL = flag.String("direct", "", "ws base URL of a relay node reached directly")
-	routedURL = flag.String("routed", "", "ws base URL of a router in front of relay nodes")
-	spawnBins = flag.Bool("spawn", false, "start a router and one node on loopback and measure both paths")
-	relayBin  = flag.String("relay-bin", "bin/relay", "relay binary for -spawn")
-	routerBin = flag.String("router-bin", "bin/relay-router", "router binary for -spawn")
-	pathSel   = flag.String("path", "both", "direct, routed, or both")
-	payloads  = flag.String("payloads", "64,1024,65536", "payload sizes in bytes")
-	clients   = flag.String("clients", "1,32", "concurrent client counts")
-	inflight  = flag.Int("inflight", 4, "messages in flight per client")
-	warmup    = flag.Duration("warmup", 2*time.Second, "warmup per case")
-	duration  = flag.Duration("duration", 5*time.Second, "measurement window per case")
-	hostCount = flag.Int("hosts", 4, "echo hosts per path")
+	directURL    = flag.String("direct", "", "ws base URL of a relay node reached directly")
+	routedURL    = flag.String("routed", "", "ws base URL of a router in front of relay nodes")
+	spawnBins    = flag.Bool("spawn", false, "start a router and one node on loopback and measure both paths")
+	relayBin     = flag.String("relay-bin", "bin/relay", "relay binary for -spawn")
+	routerBin    = flag.String("router-bin", "bin/relay-router", "router binary for -spawn")
+	pathSel      = flag.String("path", "both", "direct, routed, or both")
+	payloads     = flag.String("payloads", "64,1024,65536", "payload sizes in bytes")
+	clients      = flag.String("clients", "1,32", "concurrent client counts")
+	inflight     = flag.Int("inflight", 4, "messages in flight per client")
+	warmup       = flag.Duration("warmup", 2*time.Second, "warmup per case")
+	duration     = flag.Duration("duration", 5*time.Second, "measurement window per case")
+	hostCount    = flag.Int("hosts", 4, "echo hosts per path")
+	directPID    = flag.Int("direct-pid", 0, "relay process ID to sample when using -direct without -spawn")
+	sampleDriver = flag.Bool("sample-driver", false, "sample CPU and memory of the benchmark driver")
 )
 
 type dist struct {
@@ -87,6 +89,9 @@ func main() {
 		}
 	}()
 	pids := map[string]int{}
+	if *directPID > 0 {
+		pids["node"] = *directPID
+	}
 	if *spawnBins {
 		var err error
 		procs, err = spawnLocal(pids)
@@ -107,7 +112,10 @@ func main() {
 			fail(fmt.Errorf("%s hosts: %w", p.name, err))
 		}
 		tg := &target{name: p.name, base: p.base, hosts: hosts, pids: map[string]int{}}
-		if pid, ok := pids["node"]; ok {
+		if *sampleDriver {
+			tg.pids["driver"] = os.Getpid()
+		}
+		if pid, ok := pids["node"]; ok && (*spawnBins || p.name == "direct") {
 			tg.pids["node"] = pid
 		}
 		if pid, ok := pids["router"]; ok && p.name == "routed" {
@@ -302,14 +310,19 @@ func run(tg *target, size, n int) (result, error) {
 	mStart := (*warmup).Nanoseconds()
 	mEnd := (*warmup + *duration).Nanoseconds()
 	stopAt := base.Add(*warmup + *duration)
-	samplers := make(chan map[string]*sampler, 1)
+	measurements := make(chan map[string]usage, 1)
 	go func() {
 		time.Sleep(*warmup)
 		m := map[string]*sampler{}
 		for name, pid := range tg.pids {
 			m[name] = startSampler(pid)
 		}
-		samplers <- m
+		time.Sleep(*duration)
+		sampled := map[string]usage{}
+		for name, sampler := range m {
+			sampled[name] = sampler.stop()
+		}
+		measurements <- sampled
 	}()
 	for _, c := range cs {
 		wg.Add(1)
@@ -319,12 +332,7 @@ func run(tg *target, size, n int) (result, error) {
 		}()
 	}
 	wg.Wait()
-	for name, s := range <-samplers {
-		if res.Processes == nil {
-			res.Processes = map[string]usage{}
-		}
-		res.Processes[name] = s.stop()
-	}
+	res.Processes = <-measurements
 	var rtts []int64
 	var bytesIn int64
 	for _, c := range cs {

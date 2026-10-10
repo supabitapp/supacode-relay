@@ -53,6 +53,7 @@ flowchart LR
 - [Diagnostics](docs/diagnostics.md)
 - [Multi-node relay](docs/multi-node.md)
 - [Development](docs/development.md)
+- [Rust relay spike](spikes/rust-relay/README.md)
 
 ## License
 

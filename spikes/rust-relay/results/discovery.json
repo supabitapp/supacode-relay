@@ -1,0 +1,640 @@
+{
+  "measuredAtUTC": "2026-10-10T12:45:23.430723+00:00",
+  "baselineCommit": "8aa1e491c38d4827413a89926314823e895bd0f2",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "machine": "arm64",
+  "logicalCPUs": 18,
+  "go": "go version go1.27.1 darwin/arm64",
+  "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "workers": 4,
+  "rounds": 3,
+  "warmupSec": 2,
+  "durationSec": 3,
+  "hosts": 4,
+  "inflightPerClient": 4,
+  "results": [
+    {
+      "path": "direct",
+      "payloadBytes": 64,
+      "clients": 1,
+      "messagesInWindow": 187038,
+      "messagesPerSec": 62346,
+      "payloadMiBPerSec": 3.8,
+      "rttMicros": {
+        "p50": 54.6,
+        "p99": 130.5,
+        "max": 2470.6
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 122.8,
+          "rssPeakMiB": 24.8
+        },
+        "node": {
+          "cpuPercentOfOneCore": 94.6,
+          "rssPeakMiB": 19
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 64,
+      "clients": 1,
+      "messagesInWindow": 179299,
+      "messagesPerSec": 59766.3,
+      "payloadMiBPerSec": 3.6,
+      "rttMicros": {
+        "p50": 55.7,
+        "p99": 131.5,
+        "max": 14963.7
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 119.5,
+          "rssPeakMiB": 24
+        },
+        "node": {
+          "cpuPercentOfOneCore": 63.3,
+          "rssPeakMiB": 3.1
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 64,
+      "clients": 32,
+      "messagesInWindow": 234540,
+      "messagesPerSec": 78180,
+      "payloadMiBPerSec": 4.8,
+      "rttMicros": {
+        "p50": 1531.3,
+        "p99": 2931.5,
+        "max": 13028
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 363.3,
+          "rssPeakMiB": 25.9
+        },
+        "node": {
+          "cpuPercentOfOneCore": 188.5,
+          "rssPeakMiB": 3.9
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 64,
+      "clients": 32,
+      "messagesInWindow": 203822,
+      "messagesPerSec": 67940.7,
+      "payloadMiBPerSec": 4.1,
+      "rttMicros": {
+        "p50": 1726.9,
+        "p99": 5262.1,
+        "max": 16801.1
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 304.6,
+          "rssPeakMiB": 25.5
+        },
+        "node": {
+          "cpuPercentOfOneCore": 199.6,
+          "rssPeakMiB": 21
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 64,
+      "clients": 128,
+      "messagesInWindow": 221387,
+      "messagesPerSec": 73795.7,
+      "payloadMiBPerSec": 4.5,
+      "rttMicros": {
+        "p50": 6518.5,
+        "p99": 11119.2,
+        "max": 12828
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 353.3,
+          "rssPeakMiB": 34
+        },
+        "node": {
+          "cpuPercentOfOneCore": 223.3,
+          "rssPeakMiB": 32
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 64,
+      "clients": 128,
+      "messagesInWindow": 221588,
+      "messagesPerSec": 73862.7,
+      "payloadMiBPerSec": 4.5,
+      "rttMicros": {
+        "p50": 6488.5,
+        "p99": 11055.9,
+        "max": 25390.8
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 352.8,
+          "rssPeakMiB": 35
+        },
+        "node": {
+          "cpuPercentOfOneCore": 183.4,
+          "rssPeakMiB": 5.6
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1024,
+      "clients": 1,
+      "messagesInWindow": 130428,
+      "messagesPerSec": 43476,
+      "payloadMiBPerSec": 42.5,
+      "rttMicros": {
+        "p50": 63.4,
+        "p99": 276.5,
+        "max": 30349.8
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 113.2,
+          "rssPeakMiB": 20.6
+        },
+        "node": {
+          "cpuPercentOfOneCore": 56.3,
+          "rssPeakMiB": 3.1
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1024,
+      "clients": 1,
+      "messagesInWindow": 156073,
+      "messagesPerSec": 52024.3,
+      "payloadMiBPerSec": 50.8,
+      "rttMicros": {
+        "p50": 62.7,
+        "p99": 163.9,
+        "max": 2314.6
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 125.5,
+          "rssPeakMiB": 21.8
+        },
+        "node": {
+          "cpuPercentOfOneCore": 91.2,
+          "rssPeakMiB": 18.8
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1024,
+      "clients": 32,
+      "messagesInWindow": 219867,
+      "messagesPerSec": 73289,
+      "payloadMiBPerSec": 71.6,
+      "rttMicros": {
+        "p50": 1668.1,
+        "p99": 2786.9,
+        "max": 13695.9
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 392.5,
+          "rssPeakMiB": 26.9
+        },
+        "node": {
+          "cpuPercentOfOneCore": 218,
+          "rssPeakMiB": 20.4
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1024,
+      "clients": 32,
+      "messagesInWindow": 263140,
+      "messagesPerSec": 87713.3,
+      "payloadMiBPerSec": 85.7,
+      "rttMicros": {
+        "p50": 1382.2,
+        "p99": 2637.2,
+        "max": 6431.2
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 417.9,
+          "rssPeakMiB": 28.5
+        },
+        "node": {
+          "cpuPercentOfOneCore": 183.4,
+          "rssPeakMiB": 5.5
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1024,
+      "clients": 128,
+      "messagesInWindow": 219375,
+      "messagesPerSec": 73125,
+      "payloadMiBPerSec": 71.4,
+      "rttMicros": {
+        "p50": 6579.2,
+        "p99": 10944,
+        "max": 31088
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 384.1,
+          "rssPeakMiB": 34
+        },
+        "node": {
+          "cpuPercentOfOneCore": 185.2,
+          "rssPeakMiB": 11.8
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1024,
+      "clients": 128,
+      "messagesInWindow": 225820,
+      "messagesPerSec": 75273.3,
+      "payloadMiBPerSec": 73.5,
+      "rttMicros": {
+        "p50": 6569.8,
+        "p99": 10695.8,
+        "max": 13193.1
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 438,
+          "rssPeakMiB": 33.5
+        },
+        "node": {
+          "cpuPercentOfOneCore": 218.8,
+          "rssPeakMiB": 30.7
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 65536,
+      "clients": 1,
+      "messagesInWindow": 18580,
+      "messagesPerSec": 6193.3,
+      "payloadMiBPerSec": 387.1,
+      "rttMicros": {
+        "p50": 500.6,
+        "p99": 1958,
+        "max": 16618.8
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 237.3,
+          "rssPeakMiB": 38.8
+        },
+        "node": {
+          "cpuPercentOfOneCore": 116.5,
+          "rssPeakMiB": 18.2
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 65536,
+      "clients": 1,
+      "messagesInWindow": 23543,
+      "messagesPerSec": 7847.7,
+      "payloadMiBPerSec": 490.5,
+      "rttMicros": {
+        "p50": 416.1,
+        "p99": 1003.4,
+        "max": 5344
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 259.2,
+          "rssPeakMiB": 20.7
+        },
+        "node": {
+          "cpuPercentOfOneCore": 74.8,
+          "rssPeakMiB": 3.7
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 65536,
+      "clients": 32,
+      "messagesInWindow": 21715,
+      "messagesPerSec": 7238.3,
+      "payloadMiBPerSec": 452.4,
+      "rttMicros": {
+        "p50": 16578.8,
+        "p99": 41054.3,
+        "max": 73845.8
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 463.1,
+          "rssPeakMiB": 31.3
+        },
+        "node": {
+          "cpuPercentOfOneCore": 162.3,
+          "rssPeakMiB": 12.4
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 65536,
+      "clients": 32,
+      "messagesInWindow": 20748,
+      "messagesPerSec": 6916,
+      "payloadMiBPerSec": 432.3,
+      "rttMicros": {
+        "p50": 17004,
+        "p99": 30625.3,
+        "max": 85926.7
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 487.6,
+          "rssPeakMiB": 30
+        },
+        "node": {
+          "cpuPercentOfOneCore": 206.7,
+          "rssPeakMiB": 20.7
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 65536,
+      "clients": 128,
+      "messagesInWindow": 20016,
+      "messagesPerSec": 6672,
+      "payloadMiBPerSec": 417,
+      "rttMicros": {
+        "p50": 57457.2,
+        "p99": 482795.1,
+        "max": 1001360.6
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 388,
+          "rssPeakMiB": 45.5
+        },
+        "node": {
+          "cpuPercentOfOneCore": 159.8,
+          "rssPeakMiB": 30.2
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 65536,
+      "clients": 128,
+      "messagesInWindow": 24821,
+      "messagesPerSec": 8273.7,
+      "payloadMiBPerSec": 517.1,
+      "rttMicros": {
+        "p50": 59597.2,
+        "p99": 78695.1,
+        "max": 96750.2
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 535.5,
+          "rssPeakMiB": 43.9
+        },
+        "node": {
+          "cpuPercentOfOneCore": 171.8,
+          "rssPeakMiB": 34.8
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1048576,
+      "clients": 1,
+      "messagesInWindow": 2355,
+      "messagesPerSec": 785,
+      "payloadMiBPerSec": 785,
+      "rttMicros": {
+        "p50": 4720.3,
+        "p99": 9392.9,
+        "max": 22665.7
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 255.4,
+          "rssPeakMiB": 31.1
+        },
+        "node": {
+          "cpuPercentOfOneCore": 90.8,
+          "rssPeakMiB": 17.1
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1048576,
+      "clients": 1,
+      "messagesInWindow": 1681,
+      "messagesPerSec": 560.3,
+      "payloadMiBPerSec": 560.3,
+      "rttMicros": {
+        "p50": 6047,
+        "p99": 12594,
+        "max": 43415
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 232.8,
+          "rssPeakMiB": 32.2
+        },
+        "node": {
+          "cpuPercentOfOneCore": 121.7,
+          "rssPeakMiB": 13.9
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1048576,
+      "clients": 32,
+      "messagesInWindow": 1761,
+      "messagesPerSec": 587,
+      "payloadMiBPerSec": 587,
+      "rttMicros": {
+        "p50": 153148.4,
+        "p99": 960103,
+        "max": 3087149.4
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 171,
+          "rssPeakMiB": 151.3
+        },
+        "node": {
+          "cpuPercentOfOneCore": 116.3,
+          "rssPeakMiB": 18
+        }
+      },
+      "implementation": "go",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1048576,
+      "clients": 32,
+      "messagesInWindow": 2108,
+      "messagesPerSec": 702.7,
+      "payloadMiBPerSec": 702.7,
+      "rttMicros": {
+        "p50": 146431.8,
+        "p99": 697914.3,
+        "max": 1205193.3
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 196.9,
+          "rssPeakMiB": 141.6
+        },
+        "node": {
+          "cpuPercentOfOneCore": 113.2,
+          "rssPeakMiB": 173.4
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    },
+    {
+      "path": "direct",
+      "payloadBytes": 1048576,
+      "clients": 128,
+      "messagesInWindow": 1788,
+      "messagesPerSec": 596,
+      "payloadMiBPerSec": 596,
+      "rttMicros": {
+        "p50": 103522.6,
+        "p99": 815075.6,
+        "max": 1431714.2
+      },
+      "failures": 169,
+      "corrupt": 0,
+      "processes": {
+        "driver": {
+          "cpuPercentOfOneCore": 198,
+          "rssPeakMiB": 280.8
+        },
+        "node": {
+          "cpuPercentOfOneCore": 109.9,
+          "rssPeakMiB": 329.8
+        }
+      },
+      "implementation": "rust",
+      "round": 1
+    }
+  ],
+  "incomplete": true,
+  "note": "Initial run stopped when Rust hit failures at 1 MiB and 128 clients. The failed result was recovered from the benchmark output. A complete follow-up retains failures and continues all cases."
+}
