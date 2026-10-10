@@ -58,12 +58,9 @@ type RequestOptions struct {
 
 func Request(log *slog.Logger, r *http.Request, options RequestOptions) (*Trace, *http.Request) {
 	trace := New(log, Route(r.URL.Path))
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if ip, err := netip.ParseAddr(host); options.InheritTrace && err == nil && admission.IsTrusted(ip.Unmap(), options.TrustedProxies) {
-		if id := r.Header.Get(Header); validTraceID.MatchString(id) {
-			trace.id = id
-			trace.log = log.With("trace_id", id, "route", Route(r.URL.Path))
-		}
+	if id := r.Header.Get(Header); options.InheritTrace && validTraceID.MatchString(id) {
+		trace.id = id
+		trace.log = log.With("trace_id", id, "route", Route(r.URL.Path))
 	}
 	trace = trace.With("client_tag", Tag(admission.ClientIP(r, options.TrustedProxies, options.ClientIPHeader).String()))
 	query := r.URL.Query()

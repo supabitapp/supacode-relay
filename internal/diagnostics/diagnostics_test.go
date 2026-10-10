@@ -30,7 +30,7 @@ func TestTraceCorrelationAndSensitiveValues(t *testing.T) {
 		if trusted {
 			peers = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
 		}
-		trace, enriched := Request(log, request, RequestOptions{TrustedProxies: peers, InheritTrace: true})
+		trace, enriched := Request(log, request, RequestOptions{TrustedProxies: peers, InheritTrace: trusted})
 		if trusted != (trace.ID() == incoming) || From(enriched).ID() != trace.ID() {
 			t.Fatalf("incorrect trace trust or context propagation: trusted=%v", trusted)
 		}

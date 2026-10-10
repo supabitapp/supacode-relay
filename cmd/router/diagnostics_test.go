@@ -133,3 +133,52 @@ func TestProxiedResponsesKeepOneTraceAndTheForwardedClientTag(t *testing.T) {
 		})
 	}
 }
+
+func TestDirectoryInheritsAuthenticatedTracesWithoutAnAllowList(t *testing.T) {
+	const suppliedTrace = "ABCDabcd1234-_56"
+	for _, test := range []struct {
+		name          string
+		authenticated bool
+		status        int
+	}{
+		{"unauthorized", false, http.StatusUnauthorized},
+		{"authenticated", true, http.StatusSwitchingProtocols},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rt, _, logs := testRouter(t, nil)
+			private := httptest.NewServer(rt.private())
+			t.Cleanup(private.Close)
+			headers := http.Header{diagnostics.Header: {suppliedTrace}}
+			if test.authenticated {
+				headers.Set("Authorization", "Bearer "+testToken)
+			}
+			ws, response, err := dial(t, "ws"+strings.TrimPrefix(private.URL, "http"), directory.Path, headers)
+			if test.authenticated && err != nil || !test.authenticated && err == nil {
+				t.Fatalf("unexpected directory authentication: %v", err)
+			}
+			if ws != nil {
+				defer ws.Close()
+			}
+			if response == nil || response.StatusCode != test.status {
+				t.Fatalf("unexpected directory response: %v", response)
+			}
+			trace := response.Header.Get(diagnostics.Header)
+			if len(trace) != 16 || (trace == suppliedTrace) != test.authenticated {
+				t.Fatalf("directory trace was not gated on authentication: %q", trace)
+			}
+			found := false
+			for _, line := range strings.Split(logs.String(), "\n") {
+				var record map[string]any
+				if json.Unmarshal([]byte(line), &record) == nil && record["msg"] == "directory.request.begin" {
+					found = true
+					if record["trace_id"] != trace {
+						t.Fatalf("directory logs lost the authenticated trace: %v", record)
+					}
+				}
+			}
+			if !found {
+				t.Fatal("missing directory diagnostic")
+			}
+		})
+	}
+}

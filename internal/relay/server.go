@@ -92,7 +92,7 @@ func (s *Server) traceRequests(next http.Handler) http.Handler {
 		trace, request := diagnostics.Request(s.events, r, diagnostics.RequestOptions{
 			TrustedProxies: s.cfg.TrustedProxies,
 			ClientIPHeader: s.cfg.ClientIPHeader,
-			InheritTrace:   true,
+			InheritTrace:   s.cfg.Clustered() && admission.IsTrusted(admission.ClientIP(r, nil, ""), s.cfg.TrustedProxies),
 		})
 		trace.Event("request.begin")
 		response := &diagnostics.Response{ResponseWriter: w}

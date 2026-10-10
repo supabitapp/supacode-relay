@@ -144,12 +144,13 @@ func validNodeAddr(addr string) bool {
 }
 
 func (rt *router) handleDirectory(w http.ResponseWriter, r *http.Request) {
-	trace, request := diagnostics.Request(rt.events, r, diagnostics.RequestOptions{TrustedProxies: rt.cfg.privatePeers, InheritTrace: true})
+	authorized := rt.authorized(r)
+	trace, request := diagnostics.Request(rt.events, r, diagnostics.RequestOptions{InheritTrace: authorized})
 	r = request
 	w.Header().Set(diagnostics.Header, trace.ID())
 	trace.Event("directory.request.begin")
 	defer trace.Event("directory.request.end")
-	if !rt.authorized(r) {
+	if !authorized {
 		trace.Event("directory.auth.failed", "status", http.StatusUnauthorized)
 		rt.directoryRejected.Add(1)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
