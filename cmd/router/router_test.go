@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/supabitapp/supacode-relay/internal/admission"
 	"github.com/supabitapp/supacode-relay/internal/directory"
 )
 
@@ -431,7 +433,7 @@ func TestRouterAdmissionLimits(t *testing.T) {
 	}
 }
 
-func TestPublicListenerServesOnlyProtocolPaths(t *testing.T) {
+func TestPublicListenerSurface(t *testing.T) {
 	rt, _, _ := testRouter(t, nil)
 	for _, c := range []struct {
 		method, path string
@@ -439,7 +441,10 @@ func TestPublicListenerServesOnlyProtocolPaths(t *testing.T) {
 	}{
 		{"GET", "/", 404},
 		{"GET", "/healthz", 404},
-		{"GET", "/metrics", 404},
+		{"GET", "/metrics", 200},
+		{"POST", "/metrics", 405},
+		{"GET", "/metrics/", 404},
+		{"GET", "/METRICS", 404},
 		{"GET", directory.Path, 404},
 		{"GET", "/v1/control/../healthz", 404},
 		{"GET", "/v1/control/", 404},
@@ -564,18 +569,52 @@ func TestHalfClosedClientIsReleased(t *testing.T) {
 
 func TestMetricsExposeNoIdentifiers(t *testing.T) {
 	rt, _, _ := testRouter(t, nil)
-	s := addNode(t, rt, "node-a", "http://node-a:8080", directory.Registration{EndpointID: endpointA, RegistrationID: "regsecret", Version: 1})
-	_ = s
-	w := httptest.NewRecorder()
-	rt.private().ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
-	body := w.Body.String()
-	for _, leak := range []string{endpointA, "regsecret", "node-a:8080"} {
-		if strings.Contains(body, leak) {
-			t.Fatalf("metrics leaked %q: %s", leak, body)
+	addNode(t, rt, "node-a", "http://node-a:8080", directory.Registration{EndpointID: endpointA, RegistrationID: "regsecret", Version: 1})
+	for name, handler := range map[string]http.Handler{"private": rt.private(), "public": rt} {
+		t.Run(name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			request := httptest.NewRequest("GET", "/metrics", nil)
+			request.RemoteAddr = "203.0.113.77:12345"
+			handler.ServeHTTP(w, request)
+			body := w.Body.String()
+			for _, leak := range []string{endpointA[:16], "regsecret", "node-a:8080", testToken, "203.0.113.77", "topHosts", "traceTag"} {
+				if strings.Contains(body, leak) {
+					t.Fatalf("metrics leaked %q: %s", leak, body)
+				}
+			}
+			var m map[string]any
+			if err := json.Unmarshal(w.Body.Bytes(), &m); w.Code != http.StatusOK || err != nil || m["endpoints"] != float64(1) {
+				t.Fatalf("metrics %d %s %v", w.Code, body, err)
+			}
+		})
+	}
+}
+
+func TestPublicMetricsDoNotConsumeConnectionAdmission(t *testing.T) {
+	rt, _, _ := testRouter(t, map[string]string{"ROUTER_ADMISSION_RATE": "0.000001", "ROUTER_MAX_CONNS": "1"})
+	ip := netip.MustParseAddr("203.0.113.77")
+	if rt.gate.Acquire(ip) != admission.Admitted {
+		t.Fatal("failed to fill connection admission")
+	}
+	t.Cleanup(func() { rt.gate.Release(ip) })
+	rt.draining.Store(true)
+	for _, want := range []int{http.StatusOK, http.StatusTooManyRequests} {
+		request := httptest.NewRequest("GET", "/metrics", nil)
+		request.RemoteAddr = net.JoinHostPort(ip.String(), "12345")
+		w := httptest.NewRecorder()
+		rt.ServeHTTP(w, request)
+		if w.Code != want {
+			t.Fatalf("metrics status %d, want %d", w.Code, want)
 		}
 	}
-	var m map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil || m["endpoints"] != float64(1) {
-		t.Fatalf("metrics %s %v", body, err)
+	if !rt.limiter.Allow(ip, time.Now()) {
+		t.Fatal("metrics polling consumed WebSocket admission")
+	}
+	private := httptest.NewRecorder()
+	request := httptest.NewRequest("GET", "/metrics", nil)
+	request.RemoteAddr = net.JoinHostPort(ip.String(), "12345")
+	rt.private().ServeHTTP(private, request)
+	if private.Code != http.StatusOK {
+		t.Fatalf("private metrics status %d", private.Code)
 	}
 }

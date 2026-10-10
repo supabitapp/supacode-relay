@@ -28,16 +28,17 @@ import (
 )
 
 type router struct {
-	cfg      config
-	log      *log.Logger
-	events   *slog.Logger
-	table    *directory.Table
-	limiter  *admission.Limiter
-	gate     *admission.Gate
-	proxy    *httputil.ReverseProxy
-	upgrader websocket.Upgrader
-	draining atomic.Bool
-	sessions atomic.Uint64
+	cfg            config
+	log            *log.Logger
+	events         *slog.Logger
+	table          *directory.Table
+	limiter        *admission.Limiter
+	metricsLimiter *admission.Limiter
+	gate           *admission.Gate
+	proxy          *httputil.ReverseProxy
+	upgrader       websocket.Upgrader
+	draining       atomic.Bool
+	sessions       atomic.Uint64
 
 	requests          [3]atomic.Int64
 	active            [3]atomic.Int64
@@ -79,15 +80,16 @@ func (r redactingWriter) Write(p []byte) (int, error) {
 
 func newRouter(cfg config, logOut io.Writer) *router {
 	rt := &router{
-		cfg:      cfg,
-		log:      log.New(redactingWriter{logOut}, "", log.LstdFlags),
-		events:   diagnostics.Logger(redactingWriter{logOut}, "router", ""),
-		table:    directory.NewTable(cfg.acceptGrace),
-		limiter:  admission.NewLimiter(cfg.admissionRate, cfg.admissionBurst),
-		gate:     admission.NewGate(cfg.maxConns, cfg.maxConnsPerIP),
-		upgrader: websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096},
-		streams:  map[string]*stream{},
-		controls: map[string]int{},
+		cfg:            cfg,
+		log:            log.New(redactingWriter{logOut}, "", log.LstdFlags),
+		events:         diagnostics.Logger(redactingWriter{logOut}, "router", ""),
+		table:          directory.NewTable(cfg.acceptGrace),
+		limiter:        admission.NewLimiter(cfg.admissionRate, cfg.admissionBurst),
+		metricsLimiter: admission.NewLimiter(cfg.admissionRate, cfg.admissionBurst),
+		gate:           admission.NewGate(cfg.maxConns, cfg.maxConnsPerIP),
+		upgrader:       websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096},
+		streams:        map[string]*stream{},
+		controls:       map[string]int{},
 	}
 	rt.proxy = rt.newProxy()
 	return rt
@@ -111,6 +113,20 @@ func (rt *router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	default:
 		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "nodes": nodes})
 	}
+}
+
+func (rt *router) handlePublicMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	ip := admission.ClientIP(r, rt.cfg.trustedProxies, "")
+	if !rt.metricsLimiter.Allow(ip, time.Now()) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
+		return
+	}
+	rt.handleMetrics(w, r)
 }
 
 func (rt *router) handleMetrics(w http.ResponseWriter, _ *http.Request) {
