@@ -14,3 +14,5 @@ Requires Go 1.25 or later.
 The container suite checks the public surface, pairing and ordered streaming across 12 hosts, duplicate identity replacement, graceful restart and abrupt restart, per-client limits, and log privacy. It removes its containers and network on completion. Set `E2E_KEEP=1` to retain them, `E2E_SKIP_BUILD=1` to use existing images, or `E2E_RELAY_PORT` to change the published port.
 
 The benchmark accepts `-url` for an existing relay or `-spawn` for a local process. Payload sizes, client counts, message window, and measurement duration are configurable. Verify payloads and stop on failed echoes when testing a live service; the retained [transport measurements](multi-node.md#live-transport-investigation) explain why sender bandwidth and queued data affect results.
+
+The [fuzz and memory experiments](fuzz-testing.md) describe bounded fuzz campaigns, generated lifecycle checks, and opt-in isolated memory churn. Fixed fuzz seeds run with `make test`.

@@ -46,6 +46,7 @@ Run one relay behind the TLS proxy. Hosts register and clients connect to that s
 - [Deployment](docs/deployment.md)
 - [Performance measurements](docs/multi-node.md#live-transport-investigation)
 - [Development](docs/development.md)
+- [Fuzz and memory experiments](docs/fuzz-testing.md)
 
 ## License
 
