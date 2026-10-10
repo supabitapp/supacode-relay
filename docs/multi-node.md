@@ -210,3 +210,38 @@ For interactive latency, test paced sends and limits on queued bytes at the endp
 The observed bulk limit persists with low CPU steal and no guest CPU throttling. Recorded node-a steal averages are below 6% in these controlled cases, and guest `cpu.stat` reports no throttled time. Higher steal in earlier small-message runs may still contribute to their latency variation.
 
 All 15 controlled relay cases finish with zero failed or corrupt messages. Plain HTTP to the integration redirects to HTTPS, so no plaintext integration throughput result is claimed. Temporary probes are removed; live services and directory streams remain active with no pending or closing pairs.
+
+## Public TLS colocation measurements
+
+A colocated router and relay node improve throughput and latency in these public TLS workloads. A control on the same VM also improves when the backend uses loopback rather than an HTTPS integration. The [retained results](performance-colocation-results.json) include all 42 measured cases, resource counters, binary hashes, and cleanup verification.
+
+The 2026-10-10 test uses a temporary London VM with two vCPUs and 4 GiB, matching the live VMs. Copies of the live binaries run the router and node with a separate test directory and token. The node advertises its loopback listener to the router.
+
+Both the client and echo host run on the same external Mac for every case. All measured connect and accept traffic uses public WSS with certificate verification. SSH forwards carry host registration only, pinning the live path to node-a and the temporary path to its test node.
+
+Each variant uses four echo hosts, a three-second warmup, an eight-second measurement window, and three repetitions. The variants alternate order between repetitions. Table values are medians of the three run-level measurements, including each run's p99. Pair setup is paced at 40 per second.
+
+| Payload | Clients | Messages in flight per client | Live RTT p50 / p99 | Colocated RTT p50 / p99 | Live echo rate | Colocated echo rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 KiB | 1 | 4 | 19.69 / 29.69 ms | 13.10 / 18.21 ms | 199 msg/s | 302 msg/s |
+| 1 KiB | 8 | 4 | 18.74 / 48.48 ms | 11.70 / 18.31 ms | 1,419 msg/s | 2,661 msg/s |
+| 1 KiB | 32 | 4 | 75.98 / 100.11 ms | 16.58 / 37.54 ms | 1,914 msg/s | 7,284 msg/s |
+| 64 KiB | 1 | 4 | 53.02 / 86.53 ms | 19.67 / 31.29 ms | 4.6 MiB/s | 12.3 MiB/s |
+| 64 KiB | 8 | 1 | 96.40 / 152.65 ms | 33.85 / 57.57 ms | 5.2 MiB/s | 14.4 MiB/s |
+
+Scheduling conditions differ between the live and temporary VMs. With 32 small-message clients, the live router reports 27.7-30.6% CPU steal; the temporary VM reports 3.9-5.5%. The live comparison therefore combines the deployment arrangement with scheduling differences.
+
+The additional control holds the VM and public endpoint fixed. Two identical node binaries register with its router: one advertises loopback, and the other advertises an HTTPS peer integration targeting that same VM. Registration pins each workload to the intended node.
+
+| Payload | Clients | Messages in flight per client | Integration RTT p50 / p99 | Loopback RTT p50 / p99 | Integration echo rate | Loopback echo rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 KiB | 32 | 4 | 43.53 / 80.85 ms | 16.56 / 35.79 ms | 2,623 msg/s | 7,226 msg/s |
+| 64 KiB | 8 | 1 | 83.91 / 117.10 ms | 33.67 / 51.75 ms | 6.1 MiB/s | 14.6 MiB/s |
+
+This control supports removing the HTTPS integration from the backend path without requiring a different VM placement. It does not reproduce every cross-VM latency component, and reported CPU steal still varies between the two paths. The combined router and node CPU averages stay below 53% of one core in the colocated windows.
+
+The bulk control's integration path transmits a median 12.6 MiB/s through the guest's `eth0`; loopback transmits less than 0.01 MiB/s there. Public proxy traffic reaches the application through loopback, so `eth0` excludes that traffic. These counters support avoiding the guest's outbound integration path; they do not measure total public bandwidth.
+
+All 42 cases have zero failed or corrupt messages, and service process IDs stay fixed during each case. This bounded comparison does not establish maximum capacity, long-duration behavior, or failover behavior. Colocation also shares the CPU budget and failure domain of one VM.
+
+The temporary VM, peer integration, and generated peer credential are deleted and verified absent. Test collectors and SSH forwards are removed. The live router remains active with all three nodes ready; node-a has no remaining test hosts, pending pairs, or closing pairs.
