@@ -83,7 +83,10 @@ func openUser(s *state, index int) (*user, error) {
 			select {
 			case <-h.Done:
 				return
-			case e := <-h.Events:
+			case e, ok := <-h.Events:
+				if !ok {
+					return
+				}
 				if e.Type == "incoming" {
 					ws, _, err := h.Accept(e)
 					if err != nil {

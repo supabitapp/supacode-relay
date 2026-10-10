@@ -90,25 +90,34 @@ func Register(base string, priv ed25519.PrivateKey) (*Host, error) {
 
 func (h *Host) read() {
 	defer close(h.Done)
+	defer close(h.Events)
+	defer h.Control.Close()
 	for {
 		var ev Event
 		if err := h.Control.ReadJSON(&ev); err != nil {
 			h.Err = err
 			return
 		}
-		h.Events <- ev
+		select {
+		case h.Events <- ev:
+		default:
+			h.Err = errors.New("control event queue full")
+			return
+		}
 	}
 }
 
 func (h *Host) Next(timeout time.Duration) (Event, error) {
 	select {
-	case ev := <-h.Events:
-		return ev, nil
+	case ev, ok := <-h.Events:
+		if ok {
+			return ev, nil
+		}
 	case <-h.Done:
-		return Event{}, fmt.Errorf("control closed: %w", h.Err)
 	case <-time.After(timeout):
 		return Event{}, errors.New("timed out waiting for control event")
 	}
+	return Event{}, fmt.Errorf("control closed: %w", h.Err)
 }
 
 func (h *Host) Accept(ev Event) (*websocket.Conn, *http.Response, error) {
