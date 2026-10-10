@@ -130,6 +130,7 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 		close(r.exited)
 	}()
 	t.Cleanup(r.stop)
+	t.Cleanup(r.expectReleased)
 	timeout := time.After(10 * time.Second)
 	for r.addr == "" || (wantPrivate && r.privAddr == "") {
 		select {
@@ -192,7 +193,8 @@ func (r *relay) stop() {
 
 func (r *relay) get(path string) (int, []byte) {
 	r.t.Helper()
-	resp, err := http.Get("http://" + r.adminAddr() + path)
+	client := http.Client{Timeout: deadline}
+	resp, err := client.Get("http://" + r.adminAddr() + path)
 	if err != nil {
 		r.t.Fatal(err)
 	}
@@ -216,6 +218,30 @@ func (r *relay) metrics() map[string]float64 {
 		}
 	}
 	return out
+}
+
+var resourceGauges = []string{
+	"activeHosts", "activePairs", "pendingPairs", "clientSlots",
+	"controlConnections", "openSockets", "openConnections", "openConnectionIPs",
+}
+
+func (r *relay) expectReleased() {
+	select {
+	case <-r.exited:
+		return
+	default:
+	}
+	if r.t.Failed() {
+		return
+	}
+	r.waitMetrics("released resources", func(m map[string]float64) bool {
+		for _, name := range resourceGauges {
+			if v, ok := m[name]; !ok || v != 0 {
+				return false
+			}
+		}
+		return true
+	})
 }
 
 func (r *relay) waitMetrics(desc string, pred func(map[string]float64) bool) map[string]float64 {
