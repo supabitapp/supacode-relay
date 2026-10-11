@@ -1,0 +1,142 @@
+{
+  "spawned": true,
+  "warmupSec": 2,
+  "durationSec": 5,
+  "inflightPerClient": 4,
+  "hosts": 4,
+  "relay": {
+    "label": "typescript-relay-bun-1.4.2",
+    "command": [
+      "bun",
+      "dist/relay.js"
+    ]
+  },
+  "driver": {
+    "runtime": "bun",
+    "runtimeVersion": "1.4.2",
+    "nodeCompatVersion": "v26.3.0",
+    "cpus": 18
+  },
+  "results": [
+    {
+      "payloadBytes": 64,
+      "clients": 1,
+      "messagesInWindow": 175544,
+      "messagesPerSec": 35108.8,
+      "payloadMiBPerSec": 2.1,
+      "rttMicros": {
+        "p50": 84.5,
+        "p99": 963.7,
+        "max": 69063.8
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "relay": {
+          "cpuPercentOfOneCore": 64.4,
+          "rssPeakMiB": 42.7
+        }
+      }
+    },
+    {
+      "payloadBytes": 64,
+      "clients": 32,
+      "messagesInWindow": 612181,
+      "messagesPerSec": 122436.2,
+      "payloadMiBPerSec": 7.5,
+      "rttMicros": {
+        "p50": 945.6,
+        "p99": 2340.6,
+        "max": 7425.8
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "relay": {
+          "cpuPercentOfOneCore": 104.8,
+          "rssPeakMiB": 44.2
+        }
+      }
+    },
+    {
+      "payloadBytes": 1024,
+      "clients": 1,
+      "messagesInWindow": 250807,
+      "messagesPerSec": 50161.4,
+      "payloadMiBPerSec": 49,
+      "rttMicros": {
+        "p50": 64.7,
+        "p99": 202.9,
+        "max": 4123.8
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "relay": {
+          "cpuPercentOfOneCore": 88.6,
+          "rssPeakMiB": 48.6
+        }
+      }
+    },
+    {
+      "payloadBytes": 1024,
+      "clients": 32,
+      "messagesInWindow": 551607,
+      "messagesPerSec": 110321.4,
+      "payloadMiBPerSec": 107.7,
+      "rttMicros": {
+        "p50": 1035.6,
+        "p99": 2624,
+        "max": 6441.3
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "relay": {
+          "cpuPercentOfOneCore": 102.1,
+          "rssPeakMiB": 51.8
+        }
+      }
+    },
+    {
+      "payloadBytes": 65536,
+      "clients": 1,
+      "messagesInWindow": 42769,
+      "messagesPerSec": 8553.8,
+      "payloadMiBPerSec": 534.6,
+      "rttMicros": {
+        "p50": 345.8,
+        "p99": 1542.9,
+        "max": 4584.6
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "relay": {
+          "cpuPercentOfOneCore": 68.1,
+          "rssPeakMiB": 57.3
+        }
+      }
+    },
+    {
+      "payloadBytes": 65536,
+      "clients": 32,
+      "messagesInWindow": 71961,
+      "messagesPerSec": 14392.2,
+      "payloadMiBPerSec": 899.5,
+      "rttMicros": {
+        "p50": 8318.7,
+        "p99": 13981.3,
+        "max": 19838.3
+      },
+      "failures": 0,
+      "corrupt": 0,
+      "processes": {
+        "relay": {
+          "cpuPercentOfOneCore": 79.3,
+          "rssPeakMiB": 62.3
+        }
+      }
+    }
+  ]
+}
