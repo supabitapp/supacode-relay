@@ -1,5 +1,7 @@
 # TypeScript relay spike
 
+The results below are exploratory macOS runs and are unsuitable for the final cross-language chart. That chart requires the coordinator's sequential Linux/arm64 runs with one unchanged Go driver. See the [Linux handoff](LINUX.md) for portable Node and Bun relay wrappers, runtime pins, and compatibility checks.
+
 This directory contains a runnable WebSocket relay and a benchmark driver that exercise the protocol in [docs/protocol.md](../../docs/protocol.md). The spike is isolated from the production Go relay. It covers host registration and Ed25519 challenge authentication, client connect, host accept, binary and text message forwarding, pair timeout, close notification, payload sizes, concurrency, warmup, measurement, sequence validation, and process sampling.
 
 The benchmark sends four binary messages in flight per client. Each message carries a sequence number, a monotonic send timestamp, and random payload bytes. It reports messages per second, payload MiB per second, RTT p50 and p99 in microseconds, failures, corruption, relay CPU as a percentage of one core, and peak relay RSS. Results count only the measurement window after warmup. The checked-in JSON files are the complete machine-readable output:
