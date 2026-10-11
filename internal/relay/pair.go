@@ -3,11 +3,13 @@ package relay
 import (
 	"crypto/subtle"
 	"net/http"
+	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 
+	"github.com/supabitapp/supacode-relay/internal/admission"
 	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 )
 
@@ -37,6 +39,7 @@ type pair struct {
 	ready      chan struct{}
 	done       chan struct{}
 	client     *peer
+	clientKey  netip.Addr
 	hostPeer   *peer
 	refs       int
 	trace      *diagnostics.Trace
@@ -47,6 +50,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.URL.Query().Get("endpointId")
+	clientKey := admission.ClientKey(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader))
 	s.mu.Lock()
 	h := s.hosts[id]
 	if h == nil {
@@ -64,20 +68,27 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		s.reject(w, r, http.StatusServiceUnavailable, "client capacity reached")
 		return
 	}
+	if h.clientCounts[clientKey] >= s.cfg.MaxClientsPerHostPerIP {
+		s.mu.Unlock()
+		s.reject(w, r, http.StatusTooManyRequests, "client capacity for host reached")
+		return
+	}
 	p := &pair{
-		s:     s,
-		refs:  1,
-		id:    randomB64(16),
-		token: randomB64(32),
-		host:  h,
-		ready: make(chan struct{}),
-		done:  make(chan struct{}),
+		s:         s,
+		refs:      1,
+		id:        randomB64(16),
+		token:     randomB64(32),
+		host:      h,
+		clientKey: clientKey,
+		ready:     make(chan struct{}),
+		done:      make(chan struct{}),
 	}
 	p.trace = diagnostics.From(r).With("pair_tag", diagnostics.Tag(p.id))
 	h.pairs[p.id] = p
 	s.pairs[p.id] = p
 	h.pending++
 	h.clientSlots++
+	h.clientCounts[clientKey]++
 	s.clientSlots++
 	s.pending++
 	p.timer = time.AfterFunc(s.cfg.PairTimeout, p.expire)
@@ -247,6 +258,10 @@ func (p *pair) releaseSlot() {
 	if last {
 		p.s.clientSlots--
 		p.host.clientSlots--
+		p.host.clientCounts[p.clientKey]--
+		if p.host.clientCounts[p.clientKey] == 0 {
+			delete(p.host.clientCounts, p.clientKey)
+		}
 	}
 	p.s.mu.Unlock()
 	if last {

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
@@ -90,7 +91,8 @@ func benchmark() error {
 	}
 	pids := map[string]int{}
 	if *spawnRelay {
-		process, address, err := spawn(*relayBin, "RELAY_ADDR=127.0.0.1:0", "RELAY_PRIVATE_ADDR=", "RELAY_ADMISSION_RATE=1000000", "RELAY_MAX_CONNS=100000", "RELAY_MAX_CONNS_PER_IP=100000")
+		clientLimit := cmp.Or(os.Getenv("RELAY_MAX_CLIENTS_PER_HOST_PER_IP"), os.Getenv("RELAY_MAX_CLIENTS_PER_HOST"), "64")
+		process, address, err := spawn(*relayBin, "RELAY_ADDR=127.0.0.1:0", "RELAY_PRIVATE_ADDR=", "RELAY_ADMISSION_RATE=1000000", "RELAY_MAX_CONNS=100000", "RELAY_MAX_CONNS_PER_IP=100000", "RELAY_MAX_CLIENTS_PER_HOST_PER_IP="+clientLimit)
 		if process != nil {
 			defer func() {
 				_ = process.Process.Signal(syscall.SIGTERM)

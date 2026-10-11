@@ -25,7 +25,7 @@ Supacode uses the public relay at `wss://relay.supacode.sh`. To use your own, se
 
 ## Run
 
-With Go 1.25 or later, `make run` listens on `127.0.0.1:8080`. With Docker:
+With Go 1.27.2 or later, `make run` listens on `127.0.0.1:8080`. With Docker:
 
 ```sh
 docker build -t supacode-relay .
