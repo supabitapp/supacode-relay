@@ -1,0 +1,119 @@
+{
+  "go": {
+    "commit": "060472bfeb8f3d97c460613d197431a4306661a1",
+    "repository": "https://github.com/supabitapp/supacode-relay.git",
+    "paths": [
+      "go.mod",
+      "go.sum",
+      "cmd/relay",
+      "internal",
+      "e2e/bench",
+      "e2e/docker/probe",
+      "docs/protocol.md"
+    ],
+    "archiveSha256": "50337fa21124d5ddc82928bcbbde30ea10b306add826b054c7db64be5cbb4558",
+    "filesSha256": {
+      "cmd/relay/main.go": "f527e0d95b582d7ec9d294dbe4da0cfa2ca9528a1449788b61237dd5ac456636",
+      "docs/protocol.md": "667221e5008d47ae7badf7a78080feabfb721057c84923b0bdfd8d695101afbd",
+      "e2e/bench/main.go": "663f7af8868e19ad75541b19653f84b32ca46228fd67388dce28fb7209eea851",
+      "e2e/docker/probe/main.go": "a51a44a2282c5857cfbe5f86c9c4c06f581fe272a9e1007c81b51fd5e17daeb9",
+      "go.mod": "a62a46aff293bb92c376a1add32c41802d9685627134b5ec97052c7797155103",
+      "go.sum": "a2afb399af0ecf65771bcda9c0bd583fb3b18b95f2065852a25d980574beddb8",
+      "internal/admission/admission.go": "7a901e072a01eeeed22f7158320620e626db4b7073dfe2988d6642fac25449fe",
+      "internal/admission/admission_fuzz_test.go": "119b1224fd7f6f043cb88876fd7678fa9b16788a50cd849fb9d9ba57c5e78d50",
+      "internal/admission/admission_test.go": "78f260b2d42f0678939c3b4478e84f666d4b6090b8d820ad468b0edf859b08b0",
+      "internal/diagnostics/command.go": "60f5a460a39f8dcbbf9d50eef7e47ea55639f0e39ac93a58618fd93e0b12bc1c",
+      "internal/diagnostics/diagnostics.go": "e19eb1c037359eccec645bf516f7b43343afaeb97e4d2e73cb6c877327f5a97c",
+      "internal/diagnostics/diagnostics_test.go": "b831a1e4be7e6bffb9c15de7574bb275e8abc92e216bf46d012544e11fadec0a",
+      "internal/diagnostics/identity.go": "cb5b55ff346c824e10ce3d73af8534c20b91f1a28fafcc0ce6342830e27690db",
+      "internal/endpoint/endpoint.go": "5dfe4aace1a1c4322b978992417d8ade8a863dce3139945fbf7f4f0f9efe3466",
+      "internal/endpoint/endpoint_test.go": "56cdbcc9e540081161c343374624d9bf9136cfc5f1923a0ae9a7fabbd0723f20",
+      "internal/healthcheck/healthcheck.go": "ffe7f94f7cc06c9ed40a8b12abc7ea7a4a031843951d12b69bbb41cce3c9722a",
+      "internal/healthcheck/healthcheck_test.go": "c528d086834727f7abf05a4b68e34b69dfc4024b4023a3a60161be11b3c7d1eb",
+      "internal/relay/config.go": "944ed63004b9f80a3f8af844ad878720fc72f2b2d8e45a6084e7e2ce620d50b2",
+      "internal/relay/config_test.go": "d4d65d422d31732bae50c4a5f3ef3db8aaa936f3c509a5ea245616bc450f7ab6",
+      "internal/relay/control.go": "6a9440e25d570d1c7a81ff4800a987a5152f36892b996781cd14696f35165b69",
+      "internal/relay/control_fuzz_test.go": "5d5d949c11674a21400e054380f4de8da4b7ba51cf731428161f9cac59606d80",
+      "internal/relay/control_test.go": "adda6aadc2e1cd121413b27858a218b24d6b50ec12a3b3237bb9edbc261b7e20",
+      "internal/relay/http_test.go": "ce9fa1a1f1e2e287044647c901d96d9f29f33c604da1f2031ced00b8e728ed51",
+      "internal/relay/lifecycle_fuzz_test.go": "d3f049e217497ce4bfb76ec4bf7f34ad80b1e5768549684f91ebd78c045a0500",
+      "internal/relay/memory_spike_test.go": "06de1b23b34b63b2c0b0fc9a3fb1d6535fc05fa2501f71b3b73232e7183bcad3",
+      "internal/relay/pair.go": "9b59886d1c65115dd42b03c5727ff3bdb4ef82074abf5734aaad7fe439eee9e7",
+      "internal/relay/pair_test.go": "952818bc77d81b0ba206718e6a57691e52442be72bde010d87dbf5baac5c9de4",
+      "internal/relay/peer.go": "0613d20eeba42da05161e536c64897e32899f664478c876fbfec2605c2914560",
+      "internal/relay/queue.go": "ad0add312e9291145baf686720aefa0e68138c012e4ccf6a8c109a6f5d3d0f97",
+      "internal/relay/queue_fuzz_test.go": "509fdf6da8eeeac2142359a19fdbbb87d546a925c3e3f7fac9e8ac13df5edec5",
+      "internal/relay/server.go": "b486047a460ed2684fd76d372bbf201f11927e28a1c440b4d92f5a8dc11c9fe9",
+      "internal/relay/server_test.go": "111694aeb376e7a065471172d59fa0167cc52c6f4b74911e746620c1da178040",
+      "internal/relay/shutdown.go": "0192392f1a868a87d676fada35d22c256f3fd833ed52854a1c3e9bc9b94ce6a1"
+    }
+  },
+  "rust": {
+    "commit": "3597a1b05fd751aeb6840d5a00029fdb5953d880",
+    "repository": "https://github.com/supabitapp/supacode-relay.git",
+    "paths": [
+      "spikes/rust-relay/Cargo.toml",
+      "spikes/rust-relay/Cargo.lock",
+      "spikes/rust-relay/src"
+    ],
+    "archiveSha256": "c02a919896838bba4ecd011a93098d95280b0c384ccefb4e04bf12ba8ce7b1a0",
+    "filesSha256": {
+      "spikes/rust-relay/Cargo.lock": "393f771231b2d74801c8896d296d52ad1d273efe760982378ddca2a3d78c8664",
+      "spikes/rust-relay/Cargo.toml": "0226c8a64ecaed0167f6628b67a5c254aed2abd8cbfda5d8a2e619ed1ef3c6b3",
+      "spikes/rust-relay/src/bin/rust-bench.rs": "b5ce54add496586b0496490f7a1cfabb9e3e30bbb34a6a13af2a03548a1f9e1b",
+      "spikes/rust-relay/src/bin/rust-relay.rs": "de0030ef2d5cdb7ec7422d9e91f1422c24d1ea4ed52549c57cbfaa6b324e07e4",
+      "spikes/rust-relay/src/lib.rs": "152bd0f62371ad9babe776cc01f4014072499430c1822744a2ed48e607b71c40"
+    }
+  },
+  "typescript": {
+    "commit": "179636592711210d3961b556c4ff40c8edcb95d7",
+    "repository": "https://github.com/supabitapp/supacode-relay.git",
+    "paths": [
+      "spikes/typescript-relay"
+    ],
+    "archiveSha256": "c9ff35bcb0b6228974d828a9ba61e9573b454cda7ee54233bb591dbc8b6fd4f4",
+    "filesSha256": {
+      "spikes/typescript-relay/.gitignore": "790e3169bc19b046fe55ba1da6d13b976c28363c8c00462a2195fe5faf260910",
+      "spikes/typescript-relay/LINUX.md": "acca31c90b8f3642360534490349c834b7a761d1e213e005ed1c1b5beaeb919d",
+      "spikes/typescript-relay/README.md": "91a33472887e1feff676e1fb7ed35fa4259d12b7789a3bece5a767232ac5b56c",
+      "spikes/typescript-relay/package-lock.json": "60db050aed78232eb8fb4eece11f404da4e6be8d9d8d82265db5bb3657a61387",
+      "spikes/typescript-relay/package.json": "7b41519ae563c72a10af8d336009fb9983f485d5ede92df823928fb8be50b6ec",
+      "spikes/typescript-relay/results/bun.json": "1ae61f16e8c1397f90706377322c811b731be20f2f5fc10c80124aa1c2126548",
+      "spikes/typescript-relay/results/go-driver-against-typescript.json": "02733f1316781e145eca2e91902e5fc8b9dd80d45c4ab238ec42081648a61b48",
+      "spikes/typescript-relay/results/go-driver-control.json": "3f6481fcffcac36fe071a570b0635f96314fb4261c4b982e4c63874259d85126",
+      "spikes/typescript-relay/results/go.json": "f80244b03e87b991c311e3e2becc09ef17fdd6c8842f1d252c0f72843cb7d078",
+      "spikes/typescript-relay/results/node.json": "7efae6f7efb846e97a18c662e433ff4ccc0518b26e3594873eea83bfac967ba9",
+      "spikes/typescript-relay/run-bun.sh": "e82384c38336b8c352687a2b2bc4154f87998e61a906d301d0042a8947f6dc89",
+      "spikes/typescript-relay/run-node.sh": "336e0c130e615f77bf5583ccc4f7a372dcaa200e49ff7a4d84b366a91e2a52b3",
+      "spikes/typescript-relay/src/bench.ts": "806451b86d9425f79b9658c1537871606b3a21f7c10c0c3302d24fb11b6264be",
+      "spikes/typescript-relay/src/relay.ts": "dee2adb4ecaf55f3dbbcee370e7a6065bf64711f17ad8fedcd021cb016174e7a",
+      "spikes/typescript-relay/tsconfig.json": "5b21a4fa093fd60a78e7264518ead185303e62da9c4b3c9a50e0050dc400c0da"
+    }
+  },
+  "elixir": {
+    "commit": "cc4f0949c6bb87730542139d75fad2d5844a1f85",
+    "repository": "https://github.com/supabitapp/supacode-relay.git",
+    "paths": [
+      "spikes/elixir-relay"
+    ],
+    "archiveSha256": "1cae06c193fc9d2f8361831176c16e6f74589e30ee395355aea53f423ea8a50d",
+    "filesSha256": {
+      "spikes/elixir-relay/.gitignore": "89495707ddef9c4d018e1b146d68d2e77a2e15f2cb650104dd0427f07b116c33",
+      "spikes/elixir-relay/Dockerfile": "172f57ed00873e27a66df00592ec4dad94870df7dabf368b626be15ca1b9e1f4",
+      "spikes/elixir-relay/README.md": "620f809add64b62122822913796a8c95af045950cef3e66da14b3af5b3503893",
+      "spikes/elixir-relay/bench/results/elixir.json": "57b65655fae92d828933ec6ca728bb603c924e5b790fe817bd5ee3a69c781f3a",
+      "spikes/elixir-relay/bench/results/go.json": "e91a18922ef3fc761406da9369264b04a22f5212bec8ff3a560d44c3f3b4f54b",
+      "spikes/elixir-relay/bench/results/metadata.json": "f6d5aaf37add13e3552e439c164416b72ee4bdbf8eb7e5d0ff5524d9d943636d",
+      "spikes/elixir-relay/bench/results/runtime.txt": "d95728485db7b3d7d9447f5ef379e2c103fa99507ea796e847f1c539b90c725e",
+      "spikes/elixir-relay/bench/run-relay.sh": "3db7cfacd91f673c2bee4301bdd7c2c39c861543175fd23f0af3aeb2ba45dde4",
+      "spikes/elixir-relay/bench/run.sh": "15219a5ec88cebadc68ef84b72e380e3ba8569ea17615cd1dcdf7c75691961ad",
+      "spikes/elixir-relay/lib/relay_spike/application.ex": "ff0d9cef1b7ae31e9849532cff9f660f2330ed449b4a18344f15012c1ae75298",
+      "spikes/elixir-relay/lib/relay_spike/http.ex": "9664f3c5519978fb670b7409f433423e7152b45f479a1798f63ec242b3d8331b",
+      "spikes/elixir-relay/lib/relay_spike/listener.ex": "fdd65bbd7730e3b2936ca9e20c56da98960e6ad43d51a12ad996f30ea58e1c99",
+      "spikes/elixir-relay/lib/relay_spike/store.ex": "8395963a3c7b25b3b4e1892351c40a137076c63b74c9d7e6d42cee1230c2fe7b",
+      "spikes/elixir-relay/lib/relay_spike/web_socket.ex": "12cac7ace94a2ffd585a624a7158b7f98f1b53a7175c1dec1e9b1f244a937c55",
+      "spikes/elixir-relay/mix.exs": "1217c952962c8d7a9ac501b063bc937d290eebd981f2d766cc16a19deeeb3c8d",
+      "spikes/elixir-relay/mix.lock": "24e0b90dcb57485ec59fb7fe8e30a7d3f51131a4a31b9106508dccc52db8db5c"
+    }
+  }
+}

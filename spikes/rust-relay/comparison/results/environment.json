@@ -1,0 +1,66 @@
+{
+  "platform": "Linux-7.0.14-orbstack-00380-ga7e0a2dc9535-aarch64-with-glibc2.36",
+  "osRelease": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+  "cpuAffinity": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "lscpu": "Architecture:                            aarch64\nCPU op-mode(s):                          64-bit\nByte Order:                              Little Endian\nCPU(s):                                  18\nOn-line CPU(s) list:                     0-17\nVendor ID:                               Apple\nModel name:                              -\nModel:                                   0\nThread(s) per core:                      1\nCore(s) per cluster:                     18\nSocket(s):                               -\nCluster(s):                              1\nStepping:                                0x0\nCPU(s) scaling MHz:                      100%\nCPU max MHz:                             2000.0000\nCPU min MHz:                             2000.0000\nBogoMIPS:                                48.00\nFlags:                                   fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp rpres sme smei16i64 smef64f64 smei8i32 smef16f32 smeb16f32 smef32f32 ebf16 sme2 sme2p1 smei16i32 smebi32i32 smeb16b16 smef16f16\nL1d cache:                               2.3 MiB (18 instances)\nL1i cache:                               3.4 MiB (18 instances)\nL2 cache:                                48 MiB (3 instances)\nL3 cache:                                64 MiB (1 instance)\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; CSV2, but not BHB\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected",
+  "cgroup": {
+    "cpu.max": "400000 100000",
+    "cpu.stat": "usage_usec 88203339\nuser_usec 80465299\nsystem_usec 7738039\nnice_usec 0\nnr_periods 335\nnr_throttled 1\nthrottled_usec 277\nnr_bursts 0\nburst_usec 0",
+    "cpu.pressure": null,
+    "cpuset.cpus.effective": "0-3",
+    "memory.max": "4294967296",
+    "memory.swap.max": "0",
+    "memory.current": "303284224",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "environment": {
+    "PATH": "/opt/node/bin:/opt/bun-linux-aarch64:/opt/rust/bin:/usr/local/go/bin:/root/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "LANG": "C.UTF-8",
+    "GOMAXPROCS": null,
+    "GOGC": null,
+    "GOMEMLIMIT": null,
+    "NODE_OPTIONS": null,
+    "ERL_FLAGS": null,
+    "ELIXIR_ERL_OPTIONS": null,
+    "TOKIO_WORKER_THREADS": null
+  },
+  "versions": {
+    "go": "go version go1.25.1 linux/arm64",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: aarch64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "node": "v22.20.0",
+    "bun": "1.3.0",
+    "bunRevision": "1.3.0+b0a6feca5",
+    "elixir": "Erlang/OTP 27 [erts-15.2.7.13] [source] [64-bit] [smp:18:4] [ds:18:4:10] [async-threads:1] [jit]\n\nElixir 1.18.4 (compiled with Erlang/OTP 27)",
+    "otp": "27",
+    "otpExact": "27.3.4.18",
+    "ps": "ps from procps-ng 4.0.2",
+    "typescript": "Version 5.9.3"
+  },
+  "executables": {
+    "go": "/usr/local/go/bin/go",
+    "rustc": "/opt/rust/bin/rustc",
+    "cargo": "/opt/rust/bin/cargo",
+    "node": "/opt/node/bin/node",
+    "bun": "/opt/bun-linux-aarch64/bun",
+    "elixir": "/usr/local/bin/elixir",
+    "erl": "/usr/local/bin/erl",
+    "ps": "/usr/bin/ps"
+  },
+  "downloadSha256": "06907b9c088ce62305bc1530e5c1ae1510245114645768f7750c349c5b6fe667  node-v22.20.0-linux-arm64.tar.xz\n094c9c36531911c5cc7dd6ab2d3069ab8dcd744d6239b0bda1387b243dfc391e  rust-1.95.0-aarch64-unknown-linux-gnu.tar.xz\n68b7dcd86a35e7d5e156b37e4cef4b4ab6d6b37fd2179570c0e815f13890febd  bun.zip\n",
+  "binarySha256": {
+    "/work/bin/relay-bench": "dc3c1bebbb5f2205781ee9f3010e2d69eb9e03931a9f441d88fc2a87c407f86f",
+    "/work/bin/relay-probe": "af7c38bfdfb060334d01e916067ff60b8685c45eb30ff66dfb3b2ecf6ccedda7",
+    "/work/bin/go-relay": "14bff0cc59646f47e242b2ed1693b0022acb6d215250850b87ad22446a9d1e18",
+    "/work/bin/rust-relay": "3b84e428e48507f731b77ea2749fa7a01dddd2965d1a50ea0b2a65234dddf6bd",
+    "/opt/node/bin/node": "840d5ee21241ce964443ace2e1dd8224c84e51379b6202e3e93cc716325df356",
+    "/opt/bun-linux-aarch64/bun": "1a8ae4e8b713c01658d7cd102f1c92622f06e97be8c15d2ad51297389418c29f",
+    "/work/typescript/dist/relay.js": "288bce1e9f8fe75048c33b939d9bfa5489112329c66abbe3ca087f949cce8c82"
+  },
+  "driverBuild": "/work/bin/relay-bench: go1.25.1\n\tpath\tgithub.com/supabitapp/supacode-relay/e2e/bench\n\tmod\tgithub.com/supabitapp/supacode-relay\t(devel)\t\n\tdep\tgithub.com/gorilla/websocket\tv1.5.3\th1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=linux\n\tbuild\tGOARM64=v8.0"
+}

@@ -77,7 +77,7 @@ cargo --version
 
 The recorded host was Darwin `27.0` build `26A425`, arm64, 18 logical CPUs, and 48 GiB RAM. It had Go `1.27.1`, Rust `1.95.0`, and Cargo `1.95.0`. Build both implementations, then run the Go driver with `-spawn -relay-bin /tmp/supacode-relay-go` and the Rust driver with `--spawn --relay-bin spikes/rust-relay/target/release/rust-relay`, using the same matrix, `warmup=2s`, `duration=5s`, `inflight=4`, and `hosts=4`. The machine-readable captures in `results/` include the exact driver settings and per-case process samples. The benchmark runs each implementation in a fresh relay process, sequentially, on loopback.
 
-The primary comparison used each implementation's native driver. Values are messages/sec; RTT is p50/p99 microseconds; CPU is percent of one core and RSS is peak MiB.
+The table below is a preliminary native-driver comparison from the earlier local macOS spike. It is retained as historical evidence and is not the final cross-language result because each implementation used its own driver and host conditions. The final FAIR comparison uses the unchanged Go driver, one Linux/arm64 container, three rotated repeats, and all five relays; see [`comparison/README.md`](comparison/README.md) and [`comparison/results/aggregate.json`](comparison/results/aggregate.json). Values are messages/sec; RTT is p50/p99 microseconds; CPU is percent of one core and RSS is peak MiB.
 
 | Payload | Clients | Go msg/s | Rust msg/s | Go RTT | Rust RTT | Go CPU/RSS | Rust CPU/RSS |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

@@ -1,0 +1,2099 @@
+{
+  "schema": "relay-common-comparison/v1",
+  "matrix": {
+    "payloadBytes": [
+      64,
+      1024,
+      65536
+    ],
+    "clients": [
+      1,
+      32
+    ],
+    "hosts": 4,
+    "inflightPerClient": 4,
+    "warmupSec": 2,
+    "durationSec": 5,
+    "repeats": 3,
+    "compression": false,
+    "tls": false,
+    "transport": "loopback"
+  },
+  "measurementNotes": {
+    "cpu": "relay process ps elapsed CPU time, percent of one core; Linux ps time has one-second resolution and is approximate over five seconds",
+    "rss": "relay process peak RSS sampled by the unchanged Go driver",
+    "summary": "min, median, and max across the three rotated-order repeats"
+  },
+  "measurements": [
+    {
+      "implementation": "elixir",
+      "payloadBytes": 64,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 40040.6,
+          "payloadMiBPerSec": 2.4,
+          "rttP50Micros": 83.6,
+          "rttP99Micros": 281,
+          "cpuPercentOfOneCore": 79.9,
+          "rssPeakMiB": 80.4,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 39427.4,
+          "payloadMiBPerSec": 2.4,
+          "rttP50Micros": 85.9,
+          "rttP99Micros": 259,
+          "cpuPercentOfOneCore": 79.9,
+          "rssPeakMiB": 81.4,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 39985.6,
+          "payloadMiBPerSec": 2.4,
+          "rttP50Micros": 84.9,
+          "rttP99Micros": 231.8,
+          "cpuPercentOfOneCore": 79.9,
+          "rssPeakMiB": 82.1,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 39427.4,
+          "median": 39985.6,
+          "max": 40040.6
+        },
+        "payloadMiBPerSec": {
+          "min": 2.4,
+          "median": 2.4,
+          "max": 2.4
+        },
+        "rttP50Micros": {
+          "min": 83.6,
+          "median": 84.9,
+          "max": 85.9
+        },
+        "rttP99Micros": {
+          "min": 231.8,
+          "median": 259,
+          "max": 281
+        },
+        "cpuPercentOfOneCore": {
+          "min": 79.9,
+          "median": 79.9,
+          "max": 79.9
+        },
+        "rssPeakMiB": {
+          "min": 80.4,
+          "median": 81.4,
+          "max": 82.1
+        }
+      }
+    },
+    {
+      "implementation": "elixir",
+      "payloadBytes": 64,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 113287,
+          "payloadMiBPerSec": 6.9,
+          "rttP50Micros": 998.5,
+          "rttP99Micros": 3671.2,
+          "cpuPercentOfOneCore": 199.8,
+          "rssPeakMiB": 86.3,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 110701,
+          "payloadMiBPerSec": 6.8,
+          "rttP50Micros": 1040.8,
+          "rttP99Micros": 3455.7,
+          "cpuPercentOfOneCore": 179.8,
+          "rssPeakMiB": 88,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 125693.6,
+          "payloadMiBPerSec": 7.7,
+          "rttP50Micros": 932.6,
+          "rttP99Micros": 3124.2,
+          "cpuPercentOfOneCore": 179.7,
+          "rssPeakMiB": 88.6,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 110701,
+          "median": 113287,
+          "max": 125693.6
+        },
+        "payloadMiBPerSec": {
+          "min": 6.8,
+          "median": 6.9,
+          "max": 7.7
+        },
+        "rttP50Micros": {
+          "min": 932.6,
+          "median": 998.5,
+          "max": 1040.8
+        },
+        "rttP99Micros": {
+          "min": 3124.2,
+          "median": 3455.7,
+          "max": 3671.2
+        },
+        "cpuPercentOfOneCore": {
+          "min": 179.7,
+          "median": 179.8,
+          "max": 199.8
+        },
+        "rssPeakMiB": {
+          "min": 86.3,
+          "median": 88,
+          "max": 88.6
+        }
+      }
+    },
+    {
+      "implementation": "elixir",
+      "payloadBytes": 1024,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 28924.8,
+          "payloadMiBPerSec": 28.2,
+          "rttP50Micros": 106.5,
+          "rttP99Micros": 520.8,
+          "cpuPercentOfOneCore": 79.8,
+          "rssPeakMiB": 85.6,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 28301.6,
+          "payloadMiBPerSec": 27.6,
+          "rttP50Micros": 107.7,
+          "rttP99Micros": 474.6,
+          "cpuPercentOfOneCore": 79.9,
+          "rssPeakMiB": 86,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 30119.6,
+          "payloadMiBPerSec": 29.4,
+          "rttP50Micros": 101.5,
+          "rttP99Micros": 375.3,
+          "cpuPercentOfOneCore": 79.9,
+          "rssPeakMiB": 86.4,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 28301.6,
+          "median": 28924.8,
+          "max": 30119.6
+        },
+        "payloadMiBPerSec": {
+          "min": 27.6,
+          "median": 28.2,
+          "max": 29.4
+        },
+        "rttP50Micros": {
+          "min": 101.5,
+          "median": 106.5,
+          "max": 107.7
+        },
+        "rttP99Micros": {
+          "min": 375.3,
+          "median": 474.6,
+          "max": 520.8
+        },
+        "cpuPercentOfOneCore": {
+          "min": 79.8,
+          "median": 79.9,
+          "max": 79.9
+        },
+        "rssPeakMiB": {
+          "min": 85.6,
+          "median": 86,
+          "max": 86.4
+        }
+      }
+    },
+    {
+      "implementation": "elixir",
+      "payloadBytes": 1024,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 68336.6,
+          "payloadMiBPerSec": 66.7,
+          "rttP50Micros": 1622.6,
+          "rttP99Micros": 6436,
+          "cpuPercentOfOneCore": 179.8,
+          "rssPeakMiB": 92.1,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 72621.6,
+          "payloadMiBPerSec": 70.9,
+          "rttP50Micros": 1490.9,
+          "rttP99Micros": 6414.3,
+          "cpuPercentOfOneCore": 159.8,
+          "rssPeakMiB": 92.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 78656.6,
+          "payloadMiBPerSec": 76.8,
+          "rttP50Micros": 1416.1,
+          "rttP99Micros": 5911.6,
+          "cpuPercentOfOneCore": 179.8,
+          "rssPeakMiB": 93.2,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 68336.6,
+          "median": 72621.6,
+          "max": 78656.6
+        },
+        "payloadMiBPerSec": {
+          "min": 66.7,
+          "median": 70.9,
+          "max": 76.8
+        },
+        "rttP50Micros": {
+          "min": 1416.1,
+          "median": 1490.9,
+          "max": 1622.6
+        },
+        "rttP99Micros": {
+          "min": 5911.6,
+          "median": 6414.3,
+          "max": 6436
+        },
+        "cpuPercentOfOneCore": {
+          "min": 159.8,
+          "median": 179.8,
+          "max": 179.8
+        },
+        "rssPeakMiB": {
+          "min": 92.1,
+          "median": 92.9,
+          "max": 93.2
+        }
+      }
+    },
+    {
+      "implementation": "elixir",
+      "payloadBytes": 65536,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 1144.8,
+          "payloadMiBPerSec": 71.6,
+          "rttP50Micros": 1464.3,
+          "rttP99Micros": 11468.8,
+          "cpuPercentOfOneCore": 39.2,
+          "rssPeakMiB": 105.8,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1407,
+          "payloadMiBPerSec": 87.9,
+          "rttP50Micros": 1374.8,
+          "rttP99Micros": 10645.8,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 107,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1515.4,
+          "payloadMiBPerSec": 94.7,
+          "rttP50Micros": 1135.4,
+          "rttP99Micros": 9333.5,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 105.7,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1144.8,
+          "median": 1407,
+          "max": 1515.4
+        },
+        "payloadMiBPerSec": {
+          "min": 71.6,
+          "median": 87.9,
+          "max": 94.7
+        },
+        "rttP50Micros": {
+          "min": 1135.4,
+          "median": 1374.8,
+          "max": 1464.3
+        },
+        "rttP99Micros": {
+          "min": 9333.5,
+          "median": 10645.8,
+          "max": 11468.8
+        },
+        "cpuPercentOfOneCore": {
+          "min": 20,
+          "median": 39.2,
+          "max": 40
+        },
+        "rssPeakMiB": {
+          "min": 105.7,
+          "median": 105.8,
+          "max": 107
+        }
+      }
+    },
+    {
+      "implementation": "elixir",
+      "payloadBytes": 65536,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 1893.2,
+          "payloadMiBPerSec": 118.3,
+          "rttP50Micros": 57518.9,
+          "rttP99Micros": 174911.5,
+          "cpuPercentOfOneCore": 39.4,
+          "rssPeakMiB": 136.5,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 2112.4,
+          "payloadMiBPerSec": 132,
+          "rttP50Micros": 51573.6,
+          "rttP99Micros": 156634.5,
+          "cpuPercentOfOneCore": 39.5,
+          "rssPeakMiB": 140.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 2262.8,
+          "payloadMiBPerSec": 141.4,
+          "rttP50Micros": 48614,
+          "rttP99Micros": 142219.1,
+          "cpuPercentOfOneCore": 39.4,
+          "rssPeakMiB": 141,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1893.2,
+          "median": 2112.4,
+          "max": 2262.8
+        },
+        "payloadMiBPerSec": {
+          "min": 118.3,
+          "median": 132,
+          "max": 141.4
+        },
+        "rttP50Micros": {
+          "min": 48614,
+          "median": 51573.6,
+          "max": 57518.9
+        },
+        "rttP99Micros": {
+          "min": 142219.1,
+          "median": 156634.5,
+          "max": 174911.5
+        },
+        "cpuPercentOfOneCore": {
+          "min": 39.4,
+          "median": 39.4,
+          "max": 39.5
+        },
+        "rssPeakMiB": {
+          "min": 136.5,
+          "median": 140.9,
+          "max": 141
+        }
+      }
+    },
+    {
+      "implementation": "go",
+      "payloadBytes": 64,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 83103.6,
+          "payloadMiBPerSec": 5.1,
+          "rttP50Micros": 33.6,
+          "rttP99Micros": 102,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 13.4,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 80862,
+          "payloadMiBPerSec": 4.9,
+          "rttP50Micros": 33.6,
+          "rttP99Micros": 141.8,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 13,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 83112,
+          "payloadMiBPerSec": 5.1,
+          "rttP50Micros": 34.3,
+          "rttP99Micros": 108.5,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 12.9,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 80862,
+          "median": 83103.6,
+          "max": 83112
+        },
+        "payloadMiBPerSec": {
+          "min": 4.9,
+          "median": 5.1,
+          "max": 5.1
+        },
+        "rttP50Micros": {
+          "min": 33.6,
+          "median": 33.6,
+          "max": 34.3
+        },
+        "rttP99Micros": {
+          "min": 102,
+          "median": 108.5,
+          "max": 141.8
+        },
+        "cpuPercentOfOneCore": {
+          "min": 59.9,
+          "median": 59.9,
+          "max": 59.9
+        },
+        "rssPeakMiB": {
+          "min": 12.9,
+          "median": 13,
+          "max": 13.4
+        }
+      }
+    },
+    {
+      "implementation": "go",
+      "payloadBytes": 64,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 219041.2,
+          "payloadMiBPerSec": 13.4,
+          "rttP50Micros": 445.7,
+          "rttP99Micros": 3816,
+          "cpuPercentOfOneCore": 119.8,
+          "rssPeakMiB": 14.3,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 237358.2,
+          "payloadMiBPerSec": 14.5,
+          "rttP50Micros": 417.4,
+          "rttP99Micros": 3584.2,
+          "cpuPercentOfOneCore": 120,
+          "rssPeakMiB": 14.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 219692,
+          "payloadMiBPerSec": 13.4,
+          "rttP50Micros": 463.7,
+          "rttP99Micros": 3265.8,
+          "cpuPercentOfOneCore": 119.9,
+          "rssPeakMiB": 15.1,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 219041.2,
+          "median": 219692,
+          "max": 237358.2
+        },
+        "payloadMiBPerSec": {
+          "min": 13.4,
+          "median": 13.4,
+          "max": 14.5
+        },
+        "rttP50Micros": {
+          "min": 417.4,
+          "median": 445.7,
+          "max": 463.7
+        },
+        "rttP99Micros": {
+          "min": 3265.8,
+          "median": 3584.2,
+          "max": 3816
+        },
+        "cpuPercentOfOneCore": {
+          "min": 119.8,
+          "median": 119.9,
+          "max": 120
+        },
+        "rssPeakMiB": {
+          "min": 14.3,
+          "median": 14.9,
+          "max": 15.1
+        }
+      }
+    },
+    {
+      "implementation": "go",
+      "payloadBytes": 1024,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 54701,
+          "payloadMiBPerSec": 53.4,
+          "rttP50Micros": 40,
+          "rttP99Micros": 214.8,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 14.1,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 54194.2,
+          "payloadMiBPerSec": 52.9,
+          "rttP50Micros": 41,
+          "rttP99Micros": 216.9,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 14.2,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 56108.4,
+          "payloadMiBPerSec": 54.8,
+          "rttP50Micros": 39.7,
+          "rttP99Micros": 214.2,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 14,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 54194.2,
+          "median": 54701,
+          "max": 56108.4
+        },
+        "payloadMiBPerSec": {
+          "min": 52.9,
+          "median": 53.4,
+          "max": 54.8
+        },
+        "rttP50Micros": {
+          "min": 39.7,
+          "median": 40,
+          "max": 41
+        },
+        "rttP99Micros": {
+          "min": 214.2,
+          "median": 214.8,
+          "max": 216.9
+        },
+        "cpuPercentOfOneCore": {
+          "min": 40,
+          "median": 40,
+          "max": 40
+        },
+        "rssPeakMiB": {
+          "min": 14,
+          "median": 14.1,
+          "max": 14.2
+        }
+      }
+    },
+    {
+      "implementation": "go",
+      "payloadBytes": 1024,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 121971.2,
+          "payloadMiBPerSec": 119.1,
+          "rttP50Micros": 659.5,
+          "rttP99Micros": 5972.9,
+          "cpuPercentOfOneCore": 79.8,
+          "rssPeakMiB": 15.1,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 98616.8,
+          "payloadMiBPerSec": 96.3,
+          "rttP50Micros": 791.2,
+          "rttP99Micros": 7969.2,
+          "cpuPercentOfOneCore": 79.9,
+          "rssPeakMiB": 14.7,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 133500,
+          "payloadMiBPerSec": 130.4,
+          "rttP50Micros": 604.1,
+          "rttP99Micros": 5779,
+          "cpuPercentOfOneCore": 80,
+          "rssPeakMiB": 14.4,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 98616.8,
+          "median": 121971.2,
+          "max": 133500
+        },
+        "payloadMiBPerSec": {
+          "min": 96.3,
+          "median": 119.1,
+          "max": 130.4
+        },
+        "rttP50Micros": {
+          "min": 604.1,
+          "median": 659.5,
+          "max": 791.2
+        },
+        "rttP99Micros": {
+          "min": 5779,
+          "median": 5972.9,
+          "max": 7969.2
+        },
+        "cpuPercentOfOneCore": {
+          "min": 79.8,
+          "median": 79.9,
+          "max": 80
+        },
+        "rssPeakMiB": {
+          "min": 14.4,
+          "median": 14.7,
+          "max": 15.1
+        }
+      }
+    },
+    {
+      "implementation": "go",
+      "payloadBytes": 65536,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 1572.6,
+          "payloadMiBPerSec": 98.3,
+          "rttP50Micros": 925.4,
+          "rttP99Micros": 8214.3,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 13.8,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1547.6,
+          "payloadMiBPerSec": 96.7,
+          "rttP50Micros": 1017,
+          "rttP99Micros": 8680.9,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 14.7,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1589.2,
+          "payloadMiBPerSec": 99.3,
+          "rttP50Micros": 892.5,
+          "rttP99Micros": 8655.4,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 13.2,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1547.6,
+          "median": 1572.6,
+          "max": 1589.2
+        },
+        "payloadMiBPerSec": {
+          "min": 96.7,
+          "median": 98.3,
+          "max": 99.3
+        },
+        "rttP50Micros": {
+          "min": 892.5,
+          "median": 925.4,
+          "max": 1017
+        },
+        "rttP99Micros": {
+          "min": 8214.3,
+          "median": 8655.4,
+          "max": 8680.9
+        },
+        "cpuPercentOfOneCore": {
+          "min": 20,
+          "median": 20,
+          "max": 20
+        },
+        "rssPeakMiB": {
+          "min": 13.2,
+          "median": 13.8,
+          "max": 14.7
+        }
+      }
+    },
+    {
+      "implementation": "go",
+      "payloadBytes": 65536,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 1742.6,
+          "payloadMiBPerSec": 108.9,
+          "rttP50Micros": 61111,
+          "rttP99Micros": 200969.3,
+          "cpuPercentOfOneCore": 19.7,
+          "rssPeakMiB": 13.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1804.4,
+          "payloadMiBPerSec": 112.8,
+          "rttP50Micros": 59480.7,
+          "rttP99Micros": 186483.5,
+          "cpuPercentOfOneCore": 19.8,
+          "rssPeakMiB": 14.2,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1803.8,
+          "payloadMiBPerSec": 112.7,
+          "rttP50Micros": 59636.3,
+          "rttP99Micros": 180055.7,
+          "cpuPercentOfOneCore": 19.6,
+          "rssPeakMiB": 13.8,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1742.6,
+          "median": 1803.8,
+          "max": 1804.4
+        },
+        "payloadMiBPerSec": {
+          "min": 108.9,
+          "median": 112.7,
+          "max": 112.8
+        },
+        "rttP50Micros": {
+          "min": 59480.7,
+          "median": 59636.3,
+          "max": 61111
+        },
+        "rttP99Micros": {
+          "min": 180055.7,
+          "median": 186483.5,
+          "max": 200969.3
+        },
+        "cpuPercentOfOneCore": {
+          "min": 19.6,
+          "median": 19.7,
+          "max": 19.8
+        },
+        "rssPeakMiB": {
+          "min": 13.8,
+          "median": 13.9,
+          "max": 14.2
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "payloadBytes": 64,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 72121,
+          "payloadMiBPerSec": 4.4,
+          "rttP50Micros": 37.2,
+          "rttP99Micros": 132.9,
+          "cpuPercentOfOneCore": 39.6,
+          "rssPeakMiB": 4.2,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 72489.6,
+          "payloadMiBPerSec": 4.4,
+          "rttP50Micros": 36.4,
+          "rttP99Micros": 132.4,
+          "cpuPercentOfOneCore": 39.6,
+          "rssPeakMiB": 4.2,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 68962.2,
+          "payloadMiBPerSec": 4.2,
+          "rttP50Micros": 37.4,
+          "rttP99Micros": 168.4,
+          "cpuPercentOfOneCore": 59.5,
+          "rssPeakMiB": 4.3,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 68962.2,
+          "median": 72121,
+          "max": 72489.6
+        },
+        "payloadMiBPerSec": {
+          "min": 4.2,
+          "median": 4.4,
+          "max": 4.4
+        },
+        "rttP50Micros": {
+          "min": 36.4,
+          "median": 37.2,
+          "max": 37.4
+        },
+        "rttP99Micros": {
+          "min": 132.4,
+          "median": 132.9,
+          "max": 168.4
+        },
+        "cpuPercentOfOneCore": {
+          "min": 39.6,
+          "median": 39.6,
+          "max": 59.5
+        },
+        "rssPeakMiB": {
+          "min": 4.2,
+          "median": 4.2,
+          "max": 4.3
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "payloadBytes": 64,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 238603.8,
+          "payloadMiBPerSec": 14.6,
+          "rttP50Micros": 429,
+          "rttP99Micros": 2538.5,
+          "cpuPercentOfOneCore": 79.3,
+          "rssPeakMiB": 12.8,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 232866.2,
+          "payloadMiBPerSec": 14.2,
+          "rttP50Micros": 430.6,
+          "rttP99Micros": 2793.3,
+          "cpuPercentOfOneCore": 79.2,
+          "rssPeakMiB": 12.7,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 239945.6,
+          "payloadMiBPerSec": 14.6,
+          "rttP50Micros": 426,
+          "rttP99Micros": 2485.4,
+          "cpuPercentOfOneCore": 79.3,
+          "rssPeakMiB": 12.8,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 232866.2,
+          "median": 238603.8,
+          "max": 239945.6
+        },
+        "payloadMiBPerSec": {
+          "min": 14.2,
+          "median": 14.6,
+          "max": 14.6
+        },
+        "rttP50Micros": {
+          "min": 426,
+          "median": 429,
+          "max": 430.6
+        },
+        "rttP99Micros": {
+          "min": 2485.4,
+          "median": 2538.5,
+          "max": 2793.3
+        },
+        "cpuPercentOfOneCore": {
+          "min": 79.2,
+          "median": 79.3,
+          "max": 79.3
+        },
+        "rssPeakMiB": {
+          "min": 12.7,
+          "median": 12.8,
+          "max": 12.8
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "payloadBytes": 1024,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 50166.2,
+          "payloadMiBPerSec": 49,
+          "rttP50Micros": 41.8,
+          "rttP99Micros": 264,
+          "cpuPercentOfOneCore": 39.7,
+          "rssPeakMiB": 12.5,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 48317,
+          "payloadMiBPerSec": 47.2,
+          "rttP50Micros": 43.4,
+          "rttP99Micros": 319.4,
+          "cpuPercentOfOneCore": 39.6,
+          "rssPeakMiB": 10.4,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 46389.2,
+          "payloadMiBPerSec": 45.3,
+          "rttP50Micros": 44.3,
+          "rttP99Micros": 344.6,
+          "cpuPercentOfOneCore": 39.7,
+          "rssPeakMiB": 12.1,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 46389.2,
+          "median": 48317,
+          "max": 50166.2
+        },
+        "payloadMiBPerSec": {
+          "min": 45.3,
+          "median": 47.2,
+          "max": 49
+        },
+        "rttP50Micros": {
+          "min": 41.8,
+          "median": 43.4,
+          "max": 44.3
+        },
+        "rttP99Micros": {
+          "min": 264,
+          "median": 319.4,
+          "max": 344.6
+        },
+        "cpuPercentOfOneCore": {
+          "min": 39.6,
+          "median": 39.7,
+          "max": 39.7
+        },
+        "rssPeakMiB": {
+          "min": 10.4,
+          "median": 12.1,
+          "max": 12.5
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "payloadBytes": 1024,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 133259.6,
+          "payloadMiBPerSec": 130.1,
+          "rttP50Micros": 584.7,
+          "rttP99Micros": 6005.1,
+          "cpuPercentOfOneCore": 59.5,
+          "rssPeakMiB": 14.7,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 137289.4,
+          "payloadMiBPerSec": 134.1,
+          "rttP50Micros": 537.4,
+          "rttP99Micros": 5955.3,
+          "cpuPercentOfOneCore": 59.5,
+          "rssPeakMiB": 14.5,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 124804,
+          "payloadMiBPerSec": 121.9,
+          "rttP50Micros": 648.8,
+          "rttP99Micros": 6390.5,
+          "cpuPercentOfOneCore": 59.5,
+          "rssPeakMiB": 15,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 124804,
+          "median": 133259.6,
+          "max": 137289.4
+        },
+        "payloadMiBPerSec": {
+          "min": 121.9,
+          "median": 130.1,
+          "max": 134.1
+        },
+        "rttP50Micros": {
+          "min": 537.4,
+          "median": 584.7,
+          "max": 648.8
+        },
+        "rttP99Micros": {
+          "min": 5955.3,
+          "median": 6005.1,
+          "max": 6390.5
+        },
+        "cpuPercentOfOneCore": {
+          "min": 59.5,
+          "median": 59.5,
+          "max": 59.5
+        },
+        "rssPeakMiB": {
+          "min": 14.5,
+          "median": 14.7,
+          "max": 15
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "payloadBytes": 65536,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 1552.2,
+          "payloadMiBPerSec": 97,
+          "rttP50Micros": 921.4,
+          "rttP99Micros": 8717.3,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 14.6,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1527.8,
+          "payloadMiBPerSec": 95.5,
+          "rttP50Micros": 1002,
+          "rttP99Micros": 8988.2,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 14.1,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1589,
+          "payloadMiBPerSec": 99.3,
+          "rttP50Micros": 844.8,
+          "rttP99Micros": 9187.4,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 13.9,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1527.8,
+          "median": 1552.2,
+          "max": 1589
+        },
+        "payloadMiBPerSec": {
+          "min": 95.5,
+          "median": 97,
+          "max": 99.3
+        },
+        "rttP50Micros": {
+          "min": 844.8,
+          "median": 921.4,
+          "max": 1002
+        },
+        "rttP99Micros": {
+          "min": 8717.3,
+          "median": 8988.2,
+          "max": 9187.4
+        },
+        "cpuPercentOfOneCore": {
+          "min": 20,
+          "median": 20,
+          "max": 20
+        },
+        "rssPeakMiB": {
+          "min": 13.9,
+          "median": 14.1,
+          "max": 14.6
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "payloadBytes": 65536,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 1767.8,
+          "payloadMiBPerSec": 110.5,
+          "rttP50Micros": 59663.1,
+          "rttP99Micros": 182287.2,
+          "cpuPercentOfOneCore": 19.8,
+          "rssPeakMiB": 38.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1699.2,
+          "payloadMiBPerSec": 106.2,
+          "rttP50Micros": 62107.8,
+          "rttP99Micros": 190543.2,
+          "cpuPercentOfOneCore": 19.7,
+          "rssPeakMiB": 35.7,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1725,
+          "payloadMiBPerSec": 107.8,
+          "rttP50Micros": 61767.4,
+          "rttP99Micros": 181665.5,
+          "cpuPercentOfOneCore": 19.8,
+          "rssPeakMiB": 40.3,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1699.2,
+          "median": 1725,
+          "max": 1767.8
+        },
+        "payloadMiBPerSec": {
+          "min": 106.2,
+          "median": 107.8,
+          "max": 110.5
+        },
+        "rttP50Micros": {
+          "min": 59663.1,
+          "median": 61767.4,
+          "max": 62107.8
+        },
+        "rttP99Micros": {
+          "min": 181665.5,
+          "median": 182287.2,
+          "max": 190543.2
+        },
+        "cpuPercentOfOneCore": {
+          "min": 19.7,
+          "median": 19.8,
+          "max": 19.8
+        },
+        "rssPeakMiB": {
+          "min": 35.7,
+          "median": 38.9,
+          "max": 40.3
+        }
+      }
+    },
+    {
+      "implementation": "typescript-bun",
+      "payloadBytes": 64,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 81623.6,
+          "payloadMiBPerSec": 5,
+          "rttP50Micros": 34.2,
+          "rttP99Micros": 114,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 68.8,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 74694.2,
+          "payloadMiBPerSec": 4.6,
+          "rttP50Micros": 34.5,
+          "rttP99Micros": 181.2,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 66.1,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 86010.4,
+          "payloadMiBPerSec": 5.2,
+          "rttP50Micros": 33.5,
+          "rttP99Micros": 88.5,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 66.7,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 74694.2,
+          "median": 81623.6,
+          "max": 86010.4
+        },
+        "payloadMiBPerSec": {
+          "min": 4.6,
+          "median": 5,
+          "max": 5.2
+        },
+        "rttP50Micros": {
+          "min": 33.5,
+          "median": 34.2,
+          "max": 34.5
+        },
+        "rttP99Micros": {
+          "min": 88.5,
+          "median": 114,
+          "max": 181.2
+        },
+        "cpuPercentOfOneCore": {
+          "min": 40,
+          "median": 40,
+          "max": 40
+        },
+        "rssPeakMiB": {
+          "min": 66.1,
+          "median": 66.7,
+          "max": 68.8
+        }
+      }
+    },
+    {
+      "implementation": "typescript-bun",
+      "payloadBytes": 64,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 179191.6,
+          "payloadMiBPerSec": 10.9,
+          "rttP50Micros": 572.7,
+          "rttP99Micros": 3651.4,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 71.2,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 179963,
+          "payloadMiBPerSec": 11,
+          "rttP50Micros": 571.1,
+          "rttP99Micros": 4004.7,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 74.7,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 189657.6,
+          "payloadMiBPerSec": 11.6,
+          "rttP50Micros": 531.1,
+          "rttP99Micros": 4185.8,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 76,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 179191.6,
+          "median": 179963,
+          "max": 189657.6
+        },
+        "payloadMiBPerSec": {
+          "min": 10.9,
+          "median": 11,
+          "max": 11.6
+        },
+        "rttP50Micros": {
+          "min": 531.1,
+          "median": 571.1,
+          "max": 572.7
+        },
+        "rttP99Micros": {
+          "min": 3651.4,
+          "median": 4004.7,
+          "max": 4185.8
+        },
+        "cpuPercentOfOneCore": {
+          "min": 59.9,
+          "median": 59.9,
+          "max": 59.9
+        },
+        "rssPeakMiB": {
+          "min": 71.2,
+          "median": 74.7,
+          "max": 76
+        }
+      }
+    },
+    {
+      "implementation": "typescript-bun",
+      "payloadBytes": 1024,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 48600.4,
+          "payloadMiBPerSec": 47.5,
+          "rttP50Micros": 41.2,
+          "rttP99Micros": 421.8,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 70.4,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 48999,
+          "payloadMiBPerSec": 47.9,
+          "rttP50Micros": 40.8,
+          "rttP99Micros": 437.2,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 74.2,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 52446,
+          "payloadMiBPerSec": 51.2,
+          "rttP50Micros": 39.3,
+          "rttP99Micros": 339.5,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 75,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 48600.4,
+          "median": 48999,
+          "max": 52446
+        },
+        "payloadMiBPerSec": {
+          "min": 47.5,
+          "median": 47.9,
+          "max": 51.2
+        },
+        "rttP50Micros": {
+          "min": 39.3,
+          "median": 40.8,
+          "max": 41.2
+        },
+        "rttP99Micros": {
+          "min": 339.5,
+          "median": 421.8,
+          "max": 437.2
+        },
+        "cpuPercentOfOneCore": {
+          "min": 20,
+          "median": 20,
+          "max": 20
+        },
+        "rssPeakMiB": {
+          "min": 70.4,
+          "median": 74.2,
+          "max": 75
+        }
+      }
+    },
+    {
+      "implementation": "typescript-bun",
+      "payloadBytes": 1024,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 94152.2,
+          "payloadMiBPerSec": 91.9,
+          "rttP50Micros": 814.3,
+          "rttP99Micros": 7347.2,
+          "cpuPercentOfOneCore": 60,
+          "rssPeakMiB": 82.5,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 80800.4,
+          "payloadMiBPerSec": 78.9,
+          "rttP50Micros": 1030.4,
+          "rttP99Micros": 7422.9,
+          "cpuPercentOfOneCore": 60,
+          "rssPeakMiB": 82.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 94261.4,
+          "payloadMiBPerSec": 92.1,
+          "rttP50Micros": 829.8,
+          "rttP99Micros": 7374.9,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 79.2,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 80800.4,
+          "median": 94152.2,
+          "max": 94261.4
+        },
+        "payloadMiBPerSec": {
+          "min": 78.9,
+          "median": 91.9,
+          "max": 92.1
+        },
+        "rttP50Micros": {
+          "min": 814.3,
+          "median": 829.8,
+          "max": 1030.4
+        },
+        "rttP99Micros": {
+          "min": 7347.2,
+          "median": 7374.9,
+          "max": 7422.9
+        },
+        "cpuPercentOfOneCore": {
+          "min": 40,
+          "median": 60,
+          "max": 60
+        },
+        "rssPeakMiB": {
+          "min": 79.2,
+          "median": 82.5,
+          "max": 82.9
+        }
+      }
+    },
+    {
+      "implementation": "typescript-bun",
+      "payloadBytes": 65536,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 1473.8,
+          "payloadMiBPerSec": 92.1,
+          "rttP50Micros": 1033.6,
+          "rttP99Micros": 9485.1,
+          "cpuPercentOfOneCore": 0,
+          "rssPeakMiB": 82.5,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1460.8,
+          "payloadMiBPerSec": 91.3,
+          "rttP50Micros": 1160.6,
+          "rttP99Micros": 9290.1,
+          "cpuPercentOfOneCore": 0,
+          "rssPeakMiB": 85.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1441.6,
+          "payloadMiBPerSec": 90.1,
+          "rttP50Micros": 1244.7,
+          "rttP99Micros": 9438,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 82.3,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1441.6,
+          "median": 1460.8,
+          "max": 1473.8
+        },
+        "payloadMiBPerSec": {
+          "min": 90.1,
+          "median": 91.3,
+          "max": 92.1
+        },
+        "rttP50Micros": {
+          "min": 1033.6,
+          "median": 1160.6,
+          "max": 1244.7
+        },
+        "rttP99Micros": {
+          "min": 9290.1,
+          "median": 9438,
+          "max": 9485.1
+        },
+        "cpuPercentOfOneCore": {
+          "min": 0,
+          "median": 0,
+          "max": 20
+        },
+        "rssPeakMiB": {
+          "min": 82.3,
+          "median": 82.5,
+          "max": 85.9
+        }
+      }
+    },
+    {
+      "implementation": "typescript-bun",
+      "payloadBytes": 65536,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 1594.6,
+          "payloadMiBPerSec": 99.7,
+          "rttP50Micros": 67642.3,
+          "rttP99Micros": 209507.5,
+          "cpuPercentOfOneCore": 0,
+          "rssPeakMiB": 89.4,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1535.8,
+          "payloadMiBPerSec": 96,
+          "rttP50Micros": 69172.5,
+          "rttP99Micros": 209020.2,
+          "cpuPercentOfOneCore": 19.7,
+          "rssPeakMiB": 90.8,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1619,
+          "payloadMiBPerSec": 101.2,
+          "rttP50Micros": 65591,
+          "rttP99Micros": 201077.9,
+          "cpuPercentOfOneCore": 19.7,
+          "rssPeakMiB": 95,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1535.8,
+          "median": 1594.6,
+          "max": 1619
+        },
+        "payloadMiBPerSec": {
+          "min": 96,
+          "median": 99.7,
+          "max": 101.2
+        },
+        "rttP50Micros": {
+          "min": 65591,
+          "median": 67642.3,
+          "max": 69172.5
+        },
+        "rttP99Micros": {
+          "min": 201077.9,
+          "median": 209020.2,
+          "max": 209507.5
+        },
+        "cpuPercentOfOneCore": {
+          "min": 0,
+          "median": 19.7,
+          "max": 19.7
+        },
+        "rssPeakMiB": {
+          "min": 89.4,
+          "median": 90.8,
+          "max": 95
+        }
+      }
+    },
+    {
+      "implementation": "typescript-node",
+      "payloadBytes": 64,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 69296,
+          "payloadMiBPerSec": 4.2,
+          "rttP50Micros": 45,
+          "rttP99Micros": 142.2,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 77.1,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 59448.2,
+          "payloadMiBPerSec": 3.6,
+          "rttP50Micros": 47.6,
+          "rttP99Micros": 240.3,
+          "cpuPercentOfOneCore": 39.9,
+          "rssPeakMiB": 78.9,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 67059.8,
+          "payloadMiBPerSec": 4.1,
+          "rttP50Micros": 45.4,
+          "rttP99Micros": 167.7,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 74.9,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 59448.2,
+          "median": 67059.8,
+          "max": 69296
+        },
+        "payloadMiBPerSec": {
+          "min": 3.6,
+          "median": 4.1,
+          "max": 4.2
+        },
+        "rttP50Micros": {
+          "min": 45,
+          "median": 45.4,
+          "max": 47.6
+        },
+        "rttP99Micros": {
+          "min": 142.2,
+          "median": 167.7,
+          "max": 240.3
+        },
+        "cpuPercentOfOneCore": {
+          "min": 39.9,
+          "median": 40,
+          "max": 40
+        },
+        "rssPeakMiB": {
+          "min": 74.9,
+          "median": 77.1,
+          "max": 78.9
+        }
+      }
+    },
+    {
+      "implementation": "typescript-node",
+      "payloadBytes": 64,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 125006.2,
+          "payloadMiBPerSec": 7.6,
+          "rttP50Micros": 852.1,
+          "rttP99Micros": 4621.7,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 88.3,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 120747.6,
+          "payloadMiBPerSec": 7.4,
+          "rttP50Micros": 850,
+          "rttP99Micros": 4929,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 82.8,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 134589.4,
+          "payloadMiBPerSec": 8.2,
+          "rttP50Micros": 830.3,
+          "rttP99Micros": 3793.8,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 97.8,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 120747.6,
+          "median": 125006.2,
+          "max": 134589.4
+        },
+        "payloadMiBPerSec": {
+          "min": 7.4,
+          "median": 7.6,
+          "max": 8.2
+        },
+        "rttP50Micros": {
+          "min": 830.3,
+          "median": 850,
+          "max": 852.1
+        },
+        "rttP99Micros": {
+          "min": 3793.8,
+          "median": 4621.7,
+          "max": 4929
+        },
+        "cpuPercentOfOneCore": {
+          "min": 59.9,
+          "median": 59.9,
+          "max": 59.9
+        },
+        "rssPeakMiB": {
+          "min": 82.8,
+          "median": 88.3,
+          "max": 97.8
+        }
+      }
+    },
+    {
+      "implementation": "typescript-node",
+      "payloadBytes": 1024,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 43226.4,
+          "payloadMiBPerSec": 42.2,
+          "rttP50Micros": 56.3,
+          "rttP99Micros": 365.1,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 105.1,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 38917.4,
+          "payloadMiBPerSec": 38,
+          "rttP50Micros": 58,
+          "rttP99Micros": 514.9,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 85,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 42041,
+          "payloadMiBPerSec": 41.1,
+          "rttP50Micros": 56.1,
+          "rttP99Micros": 437.7,
+          "cpuPercentOfOneCore": 40,
+          "rssPeakMiB": 102.1,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 38917.4,
+          "median": 42041,
+          "max": 43226.4
+        },
+        "payloadMiBPerSec": {
+          "min": 38,
+          "median": 41.1,
+          "max": 42.2
+        },
+        "rttP50Micros": {
+          "min": 56.1,
+          "median": 56.3,
+          "max": 58
+        },
+        "rttP99Micros": {
+          "min": 365.1,
+          "median": 437.7,
+          "max": 514.9
+        },
+        "cpuPercentOfOneCore": {
+          "min": 40,
+          "median": 40,
+          "max": 40
+        },
+        "rssPeakMiB": {
+          "min": 85,
+          "median": 102.1,
+          "max": 105.1
+        }
+      }
+    },
+    {
+      "implementation": "typescript-node",
+      "payloadBytes": 1024,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 73395.2,
+          "payloadMiBPerSec": 71.7,
+          "rttP50Micros": 1273.3,
+          "rttP99Micros": 7154,
+          "cpuPercentOfOneCore": 60,
+          "rssPeakMiB": 106.5,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 64538.8,
+          "payloadMiBPerSec": 63,
+          "rttP50Micros": 1411.2,
+          "rttP99Micros": 7895,
+          "cpuPercentOfOneCore": 59.9,
+          "rssPeakMiB": 101.4,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 72421.6,
+          "payloadMiBPerSec": 70.7,
+          "rttP50Micros": 1260.9,
+          "rttP99Micros": 7111.7,
+          "cpuPercentOfOneCore": 60,
+          "rssPeakMiB": 102.9,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 64538.8,
+          "median": 72421.6,
+          "max": 73395.2
+        },
+        "payloadMiBPerSec": {
+          "min": 63,
+          "median": 70.7,
+          "max": 71.7
+        },
+        "rttP50Micros": {
+          "min": 1260.9,
+          "median": 1273.3,
+          "max": 1411.2
+        },
+        "rttP99Micros": {
+          "min": 7111.7,
+          "median": 7154,
+          "max": 7895
+        },
+        "cpuPercentOfOneCore": {
+          "min": 59.9,
+          "median": 60,
+          "max": 60
+        },
+        "rssPeakMiB": {
+          "min": 101.4,
+          "median": 102.9,
+          "max": 106.5
+        }
+      }
+    },
+    {
+      "implementation": "typescript-node",
+      "payloadBytes": 65536,
+      "clients": 1,
+      "repeats": [
+        {
+          "messagesPerSec": 1290.4,
+          "payloadMiBPerSec": 80.7,
+          "rttP50Micros": 1498.4,
+          "rttP99Micros": 10683.7,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 135.8,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1252,
+          "payloadMiBPerSec": 78.3,
+          "rttP50Micros": 1692,
+          "rttP99Micros": 10428.3,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 128.2,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1209.6,
+          "payloadMiBPerSec": 75.6,
+          "rttP50Micros": 1808.7,
+          "rttP99Micros": 11515.3,
+          "cpuPercentOfOneCore": 20,
+          "rssPeakMiB": 131.1,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1209.6,
+          "median": 1252,
+          "max": 1290.4
+        },
+        "payloadMiBPerSec": {
+          "min": 75.6,
+          "median": 78.3,
+          "max": 80.7
+        },
+        "rttP50Micros": {
+          "min": 1498.4,
+          "median": 1692,
+          "max": 1808.7
+        },
+        "rttP99Micros": {
+          "min": 10428.3,
+          "median": 10683.7,
+          "max": 11515.3
+        },
+        "cpuPercentOfOneCore": {
+          "min": 20,
+          "median": 20,
+          "max": 20
+        },
+        "rssPeakMiB": {
+          "min": 128.2,
+          "median": 131.1,
+          "max": 135.8
+        }
+      }
+    },
+    {
+      "implementation": "typescript-node",
+      "payloadBytes": 65536,
+      "clients": 32,
+      "repeats": [
+        {
+          "messagesPerSec": 1641.6,
+          "payloadMiBPerSec": 102.6,
+          "rttP50Micros": 67642.6,
+          "rttP99Micros": 194676.5,
+          "cpuPercentOfOneCore": 39.3,
+          "rssPeakMiB": 161.7,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1620.6,
+          "payloadMiBPerSec": 101.3,
+          "rttP50Micros": 68079,
+          "rttP99Micros": 201807.5,
+          "cpuPercentOfOneCore": 19.6,
+          "rssPeakMiB": 163,
+          "failures": 0,
+          "corrupt": 0
+        },
+        {
+          "messagesPerSec": 1608.4,
+          "payloadMiBPerSec": 100.5,
+          "rttP50Micros": 69526.7,
+          "rttP99Micros": 194985.3,
+          "cpuPercentOfOneCore": 19.7,
+          "rssPeakMiB": 168.9,
+          "failures": 0,
+          "corrupt": 0
+        }
+      ],
+      "summary": {
+        "messagesPerSec": {
+          "min": 1608.4,
+          "median": 1620.6,
+          "max": 1641.6
+        },
+        "payloadMiBPerSec": {
+          "min": 100.5,
+          "median": 101.3,
+          "max": 102.6
+        },
+        "rttP50Micros": {
+          "min": 67642.6,
+          "median": 68079,
+          "max": 69526.7
+        },
+        "rttP99Micros": {
+          "min": 194676.5,
+          "median": 194985.3,
+          "max": 201807.5
+        },
+        "cpuPercentOfOneCore": {
+          "min": 19.6,
+          "median": 19.7,
+          "max": 39.3
+        },
+        "rssPeakMiB": {
+          "min": 161.7,
+          "median": 163,
+          "max": 168.9
+        }
+      }
+    }
+  ]
+}

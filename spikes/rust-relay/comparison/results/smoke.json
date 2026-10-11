@@ -1,0 +1,114 @@
+[
+  {
+    "implementation": "go",
+    "result": {
+      "mode": "smoke",
+      "pairsVerified": 4
+    },
+    "process": {
+      "pid": 4323,
+      "executable": "/work/bin/go-relay",
+      "command": [
+        "/work/bin/go-relay"
+      ],
+      "status": "Name:\tgo-relay\nUmask:\t0022\nState:\tS (sleeping)\nTgid:\t4323\nNgid:\t0\nPid:\t4323\nPPid:\t4322\nTracerPid:\t0\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nFDSize:\t64\nGroups:\t0 \nNStgid:\t4323\nNSpid:\t4323\nNSpgid:\t4323\nNSsid:\t4323\nKthread:\t0\nVmPeak:\t 1230580 kB\nVmSize:\t 1230580 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t    6568 kB\nVmRSS:\t    6568 kB\nRssAnon:\t    1440 kB\nRssFile:\t    5128 kB\nRssShmem:\t       0 kB\nVmData:\t   39868 kB\nVmStk:\t     132 kB\nVmExe:\t    2692 kB\nVmLib:\t       8 kB\nVmPTE:\t      84 kB\nVmSwap:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffff\nThreads:\t7\nSigQ:\t0/64272\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\tfffffffc3bba3a00\nSigIgn:\t0000000200000000\nSigCgt:\tfffffffd7fc1feff\nCapInh:\t0000000000000000\nCapPrm:\t00000000a80425fb\nCapEff:\t00000000a80425fb\nCapBnd:\t00000000a80425fb\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t2\nSeccomp_filters:\t1\nSpeculation_Store_Bypass:\tvulnerable\nSpeculationIndirectBranch:\tunknown\nCpus_allowed:\t0000f\nCpus_allowed_list:\t0-3\nMems_allowed:\t1\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t7\nnonvoluntary_ctxt_switches:\t6\n"
+    },
+    "sigtermExitCode": 0
+  },
+  {
+    "implementation": "rust",
+    "result": {
+      "mode": "smoke",
+      "pairsVerified": 4
+    },
+    "process": {
+      "pid": 4336,
+      "executable": "/work/bin/rust-relay",
+      "command": [
+        "/work/bin/rust-relay"
+      ],
+      "status": "Name:\trust-relay\nUmask:\t0022\nState:\tS (sleeping)\nTgid:\t4336\nNgid:\t0\nPid:\t4336\nPPid:\t4322\nTracerPid:\t0\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nFDSize:\t64\nGroups:\t0 \nNStgid:\t4336\nNSpid:\t4336\nNSpgid:\t4336\nNSsid:\t4336\nKthread:\t0\nVmPeak:\t  341180 kB\nVmSize:\t  275664 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t    3220 kB\nVmRSS:\t    3220 kB\nRssAnon:\t     376 kB\nRssFile:\t    2844 kB\nRssShmem:\t       0 kB\nVmData:\t    9032 kB\nVmStk:\t     132 kB\nVmExe:\t    1860 kB\nVmLib:\t    2348 kB\nVmPTE:\t      76 kB\nVmSwap:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffff\nThreads:\t5\nSigQ:\t0/64272\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000200001000\nSigCgt:\t0000000100000442\nCapInh:\t0000000000000000\nCapPrm:\t00000000a80425fb\nCapEff:\t00000000a80425fb\nCapBnd:\t00000000a80425fb\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t2\nSeccomp_filters:\t1\nSpeculation_Store_Bypass:\tvulnerable\nSpeculationIndirectBranch:\tunknown\nCpus_allowed:\t0000f\nCpus_allowed_list:\t0-3\nMems_allowed:\t1\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t1\nnonvoluntary_ctxt_switches:\t0\n"
+    },
+    "sigtermExitCode": -15
+  },
+  {
+    "implementation": "typescript-node",
+    "result": {
+      "mode": "smoke",
+      "pairsVerified": 4
+    },
+    "process": {
+      "pid": 4346,
+      "executable": "/opt/node/bin/node",
+      "command": [
+        "node",
+        "/work/typescript/dist/relay.js"
+      ],
+      "status": "Name:\tnode\nUmask:\t0022\nState:\tR (running)\nTgid:\t4346\nNgid:\t0\nPid:\t4346\nPPid:\t4322\nTracerPid:\t0\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nFDSize:\t64\nGroups:\t0 \nNStgid:\t4346\nNSpid:\t4346\nNSpgid:\t4346\nNSsid:\t4346\nKthread:\t0\nVmPeak:\t  812044 kB\nVmSize:\t  751388 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   72492 kB\nVmRSS:\t   71320 kB\nRssAnon:\t   24220 kB\nRssFile:\t   47100 kB\nRssShmem:\t       0 kB\nVmData:\t   68424 kB\nVmStk:\t     132 kB\nVmExe:\t   99328 kB\nVmLib:\t    4384 kB\nVmPTE:\t     780 kB\nVmSwap:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffff\nThreads:\t7\nSigQ:\t0/64272\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000201001000\nSigCgt:\t0000000100004602\nCapInh:\t0000000000000000\nCapPrm:\t00000000a80425fb\nCapEff:\t00000000a80425fb\nCapBnd:\t00000000a80425fb\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t2\nSeccomp_filters:\t1\nSpeculation_Store_Bypass:\tvulnerable\nSpeculationIndirectBranch:\tunknown\nCpus_allowed:\t0000f\nCpus_allowed_list:\t0-3\nMems_allowed:\t1\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t12\nnonvoluntary_ctxt_switches:\t14\n"
+    },
+    "sigtermExitCode": 0
+  },
+  {
+    "implementation": "typescript-bun",
+    "result": {
+      "mode": "smoke",
+      "pairsVerified": 4
+    },
+    "process": {
+      "pid": 4360,
+      "executable": "/opt/bun-linux-aarch64/bun",
+      "command": [
+        "bun",
+        "/work/typescript/dist/relay.js"
+      ],
+      "status": "Name:\tbun\nUmask:\t0022\nState:\tS (sleeping)\nTgid:\t4360\nNgid:\t0\nPid:\t4360\nPPid:\t4322\nTracerPid:\t0\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nFDSize:\t64\nGroups:\t0 \nNStgid:\t4360\nNSpid:\t4360\nNSpgid:\t4360\nNSsid:\t4360\nKthread:\t0\nVmPeak:\t134350048 kB\nVmSize:\t72171636 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   48572 kB\nVmRSS:\t   48572 kB\nRssAnon:\t   13448 kB\nRssFile:\t   35124 kB\nRssShmem:\t       0 kB\nVmData:\t71928008 kB\nVmStk:\t    1008 kB\nVmExe:\t   54928 kB\nVmLib:\t    2276 kB\nVmPTE:\t     284 kB\nVmSwap:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t0\nuntag_mask:\t0xffffffffffffff\nThreads:\t12\nSigQ:\t0/64272\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000201001000\nSigCgt:\t00000001200044ca\nCapInh:\t0000000000000000\nCapPrm:\t00000000a80425fb\nCapEff:\t00000000a80425fb\nCapBnd:\t00000000a80425fb\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t2\nSeccomp_filters:\t1\nSpeculation_Store_Bypass:\tvulnerable\nSpeculationIndirectBranch:\tunknown\nCpus_allowed:\t0000f\nCpus_allowed_list:\t0-3\nMems_allowed:\t1\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t22\nnonvoluntary_ctxt_switches:\t39\n"
+    },
+    "sigtermExitCode": 0
+  },
+  {
+    "implementation": "elixir",
+    "result": {
+      "mode": "smoke",
+      "pairsVerified": 4
+    },
+    "process": {
+      "pid": 4379,
+      "executable": "/work/elixir/_build/prod/rel/relay_spike/erts-15.2.7.13/bin/beam.smp",
+      "command": [
+        "/work/elixir/_build/prod/rel/relay_spike/erts-15.2.7.13/bin/beam.smp",
+        "--",
+        "-root",
+        "/work/elixir/_build/prod/rel/relay_spike",
+        "-bindir",
+        "/work/elixir/_build/prod/rel/relay_spike/erts-15.2.7.13/bin",
+        "-progname",
+        "erl",
+        "--",
+        "-home",
+        "/root",
+        "--",
+        "-noshell",
+        "-s",
+        "elixir",
+        "start_cli",
+        "-setcookie",
+        "SPMLT7SS2ZDWFZYS5PPNV77URICUB2S3CGEG3E32Y2TIANWWIZ5A====",
+        "-config",
+        "/work/elixir/_build/prod/rel/relay_spike/releases/0.1.0/sys",
+        "-boot",
+        "/work/elixir/_build/prod/rel/relay_spike/releases/0.1.0/start_clean",
+        "-boot_var",
+        "RELEASE_LIB",
+        "/work/elixir/_build/prod/rel/relay_spike/lib",
+        "--",
+        "--",
+        "-extra",
+        "--eval",
+        "Application.ensure_all_started(:relay_spike); Process.sleep(:infinity)",
+        "--"
+      ],
+      "status": "Name:\tbeam.smp\nUmask:\t0022\nState:\tS (sleeping)\nTgid:\t4379\nNgid:\t0\nPid:\t4379\nPPid:\t4322\nTracerPid:\t0\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nFDSize:\t64\nGroups:\t0 \nNStgid:\t4379\nNSpid:\t4379\nNSpgid:\t4379\nNSsid:\t4379\nKthread:\t0\nVmPeak:\t 4519296 kB\nVmSize:\t 4519296 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   75092 kB\nVmRSS:\t   75092 kB\nRssAnon:\t   56132 kB\nRssFile:\t    6896 kB\nRssShmem:\t   12064 kB\nVmData:\t  129880 kB\nVmStk:\t     132 kB\nVmExe:\t    4364 kB\nVmLib:\t   70204 kB\nVmPTE:\t     516 kB\nVmSwap:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffff\nThreads:\t52\nSigQ:\t0/64272\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000200011080\nSigCgt:\t0000000100004206\nCapInh:\t0000000000000000\nCapPrm:\t00000000a80425fb\nCapEff:\t00000000a80425fb\nCapBnd:\t00000000a80425fb\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t2\nSeccomp_filters:\t1\nSpeculation_Store_Bypass:\tvulnerable\nSpeculationIndirectBranch:\tunknown\nCpus_allowed:\t0000f\nCpus_allowed_list:\t0-3\nMems_allowed:\t1\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t55\nnonvoluntary_ctxt_switches:\t103\n"
+    },
+    "sigtermExitCode": 0
+  }
+]
