@@ -4,7 +4,7 @@ This directory contains an isolated OTP/Cowboy relay spike. It implements the pr
 
 The relay is supervised by `RelaySpike.Supervisor`; shared host and pair state lives in the `RelaySpike.Store` GenServer, while every control, client, and accepted host socket is a Cowboy WebSocket process. Forwarding uses process messages and keeps WebSocket message boundaries and text/binary type.
 
-The spike deliberately keeps scope below production parity. It omits admission token buckets, private metrics, bounded control queues, streaming fragment forwarding, delivery deadlines, detailed diagnostics, and the full production limit matrix. Pending application frames are discarded until a pair is accepted rather than held in transport buffers. These differences make the spike useful for an OTP process-model and throughput comparison, not a production replacement.
+The spike deliberately keeps scope below production parity. It omits admission token buckets, private metrics, bounded control queues, streaming fragment forwarding, delivery deadlines, detailed diagnostics, and the full production limit matrix. Pending application frames use a bounded 64-frame process queue until a pair is accepted; production relies on socket buffering and fixed forwarding buffers. These differences make the spike useful for an OTP process-model and throughput comparison, not a production replacement.
 
 ## Reproducible benchmark
 
