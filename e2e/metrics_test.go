@@ -62,24 +62,20 @@ func TestPublicMetricsExcludeHostDetails(t *testing.T) {
 	send(t, client, message{websocket.TextMessage, []byte("private-host-traffic")})
 	recv(t, host)
 	r.waitMetrics("forwarded traffic", func(m map[string]float64) bool { return m["forwardedBytes"] > 0 })
-	response, err := http.Get("http://" + r.addr + "/metrics")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	status, body := publicGet(t, r, "/metrics")
 	var metrics map[string]any
 	if err := json.Unmarshal(body, &metrics); err != nil {
 		t.Fatal(err)
 	}
-	if response.StatusCode != http.StatusOK || metrics["activeHosts"] != float64(1) || metrics["activePairs"] != float64(1) {
-		t.Fatalf("incorrect public metrics: %d %v", response.StatusCode, metrics)
+	if status != http.StatusOK || metrics["activeHosts"] != float64(1) || metrics["activePairs"] != float64(1) {
+		t.Fatalf("incorrect public metrics: %d %v", status, metrics)
 	}
 	if _, exists := metrics["topHosts"]; exists || strings.Contains(string(body), h.ID[:16]) {
 		t.Fatal("public metrics expose host details")
+	}
+	status, dashboard := publicGet(t, r, "/dashboard/stats")
+	if status != http.StatusOK || strings.Contains(string(dashboard), h.ID[:16]) {
+		t.Fatalf("public dashboard: %d\n%s", status, dashboard)
 	}
 	if private := topHosts(r); len(private) != 1 || private[0].Endpoint != h.ID[:16] {
 		t.Fatalf("missing private host details: %+v", private)
@@ -88,24 +84,34 @@ func TestPublicMetricsExcludeHostDetails(t *testing.T) {
 
 func TestPublicMetricsHaveAnIndependentAdmissionBudget(t *testing.T) {
 	r := startRelay(t, "RELAY_PRIVATE_ADDR=127.0.0.1:0", "RELAY_ADMISSION_RATE=1")
-	response, err := http.Get("http://" + r.addr + "/metrics")
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("public metrics: %d", response.StatusCode)
+	if status, _ := publicGet(t, r, "/metrics"); status != http.StatusOK {
+		t.Fatalf("public metrics: %d", status)
 	}
 	register(t, r)
-	response, err = http.Get("http://" + r.addr + "/metrics")
-	if err != nil {
-		t.Fatal(err)
+	if status, _ := publicGet(t, r, "/metrics"); status != http.StatusTooManyRequests {
+		t.Fatalf("public metrics limiter: %d", status)
 	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusTooManyRequests {
-		t.Fatalf("public metrics limiter: %d", response.StatusCode)
+	if status, _ := publicGet(t, r, "/dashboard/stats"); status != http.StatusTooManyRequests {
+		t.Fatalf("public dashboard limiter: %d", status)
+	}
+	if status, _ := publicGet(t, r, "/dashboard/static/dashboard.css"); status != http.StatusOK {
+		t.Fatalf("dashboard assets throttled: %d", status)
 	}
 	if code, _ := r.get("/metrics"); code != http.StatusOK {
 		t.Fatalf("private metrics throttled: %d", code)
 	}
+}
+
+func publicGet(t *testing.T, r *relay, path string) (int, []byte) {
+	t.Helper()
+	response, err := http.Get("http://" + r.addr + path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return response.StatusCode, body
 }

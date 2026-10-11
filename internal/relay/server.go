@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supacode-relay/internal/admission"
+	"github.com/supabitapp/supacode-relay/internal/dashboard"
 	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 )
 
@@ -28,15 +29,15 @@ const (
 )
 
 type Server struct {
-	cfg            Config
-	http           *http.Server
-	private        *http.Server
-	upgrader       websocket.Upgrader
-	limiter        *admission.Limiter
-	metricsLimiter *admission.Limiter
-	gate           *admission.Gate
-	events         *slog.Logger
-	draining       atomic.Bool
+	cfg           Config
+	http          *http.Server
+	private       *http.Server
+	upgrader      websocket.Upgrader
+	limiter       *admission.Limiter
+	publicLimiter *admission.Limiter
+	gate          *admission.Gate
+	events        *slog.Logger
+	draining      atomic.Bool
 
 	forwardedMessages   atomic.Int64
 	forwardedBytes      atomic.Int64
@@ -64,12 +65,12 @@ func New(cfg Config) *Server {
 			WriteBufferPool:  &sync.Pool{},
 			CheckOrigin:      func(*http.Request) bool { return true },
 		},
-		limiter:        admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
-		metricsLimiter: admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
-		gate:           admission.NewGate(cfg.MaxConnections, cfg.MaxConnectionsPerIP),
-		hosts:          map[string]*host{},
-		pairs:          map[string]*pair{},
-		conns:          map[*websocket.Conn]struct{}{},
+		limiter:       admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
+		publicLimiter: admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
+		gate:          admission.NewGate(cfg.MaxConnections, cfg.MaxConnectionsPerIP),
+		hosts:         map[string]*host{},
+		pairs:         map[string]*pair{},
+		conns:         map[*websocket.Conn]struct{}{},
 	}
 	admin := http.NewServeMux()
 	admin.HandleFunc("GET /healthz", s.handleHealth)
@@ -79,12 +80,15 @@ func New(cfg Config) *Server {
 		mux.Handle("GET /healthz", admin)
 		mux.Handle("GET /metrics", admin)
 	} else {
-		mux.HandleFunc("GET /metrics", s.handlePublicMetrics)
+		mux.Handle("GET /metrics", s.limitPublic(http.HandlerFunc(s.handlePublicMetrics)))
 	}
 	mux.HandleFunc("GET /v1/control", s.limitConnections(s.handleControl))
 	mux.HandleFunc("GET /v1/connect", s.limitConnections(s.handleConnect))
 	mux.HandleFunc("GET /v1/accept", s.limitConnections(s.handleAccept))
-	s.http = newHTTPServer(s.traceRequests(mux))
+	public := http.NewServeMux()
+	public.Handle("GET /dashboard/", http.StripPrefix("/dashboard", dashboard.New(s.dashboardStats, s.limitPublic)))
+	public.Handle("/", s.traceRequests(mux))
+	s.http = newHTTPServer(public)
 	s.private = newHTTPServer(admin)
 	return s
 }
@@ -141,12 +145,41 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	s.writeMetrics(w, true)
 }
 
-func (s *Server) handlePublicMetrics(w http.ResponseWriter, r *http.Request) {
-	if !s.metricsLimiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
-		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
-		return
-	}
+func (s *Server) handlePublicMetrics(w http.ResponseWriter, _ *http.Request) {
 	s.writeMetrics(w, false)
+}
+
+func (s *Server) limitPublic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.publicLimiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) dashboardStats() dashboard.Stats {
+	openConnections, _ := s.gate.Stats()
+	stats := dashboard.Stats{
+		Draining:            s.draining.Load(),
+		OpenConnections:     openConnections,
+		MaxHosts:            s.cfg.MaxHosts,
+		MaxClients:          s.cfg.MaxClients,
+		MaxConnections:      s.cfg.MaxConnections,
+		RejectedConnections: s.rejectedConnections.Load(),
+		ForwardedMessages:   s.forwardedMessages.Load(),
+		ForwardedBytes:      s.forwardedBytes.Load(),
+	}
+	s.mu.Lock()
+	stats.ActiveHosts = len(s.hosts)
+	stats.ActivePairs = s.active
+	stats.PendingPairs = s.pending
+	stats.ControlConnections = s.controls
+	stats.ClientSlots = s.clientSlots
+	stats.OpenSockets = len(s.conns)
+	s.mu.Unlock()
+	return stats
 }
 
 func (s *Server) writeMetrics(w http.ResponseWriter, detailed bool) {

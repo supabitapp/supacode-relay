@@ -1,0 +1,26 @@
+{{define "stats"}}
+<header>
+  <h1>Supacode relay</h1>
+  <p class="status{{if .Draining}} draining{{end}}">{{if .Draining}}Draining{{else}}Online{{end}}</p>
+</header>
+<p class="summary">
+  <span>{{.Time}}</span>
+  <span>Up {{.Uptime}} since {{.Started}}</span>
+</p>
+<div class="sections">
+{{- range .Sections}}
+  <section>
+    <h2>{{.Title}}</h2>
+    {{- range .Rows}}
+    <div class="row">
+      <span class="label">{{.Label}}</span>
+      <span class="value">{{.Value}}{{with .Detail}} <small>{{.}}</small>{{end}}</span>
+      {{- if .Meter}}
+      <meter min="0" max="1" low="0.7" high="0.9" optimum="0" value="{{.Level}}" aria-label="{{.Label}}"></meter>
+      {{- end}}
+    </div>
+    {{- end}}
+  </section>
+{{- end}}
+</div>
+{{end}}

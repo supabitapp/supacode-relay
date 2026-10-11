@@ -1,6 +1,8 @@
 package relay
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/supabitapp/supacode-relay/internal/dashboard"
 	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 )
 
@@ -76,5 +79,76 @@ func TestRelayIgnoresCallerTraceHeaders(t *testing.T) {
 		if len(trace) != 16 || trace == suppliedTrace {
 			t.Fatalf("incorrect relay trace: %q", trace)
 		}
+	}
+}
+
+func TestDashboardIsServedOutsideRequestTracing(t *testing.T) {
+	cfg, err := LoadConfig(env(map[string]string{"RELAY_PRIVATE_ADDR": "127.0.0.1:0"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(cfg)
+	s.events = diagnostics.Logger(io.Discard)
+	serve := func(path string) *httptest.ResponseRecorder {
+		response := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		return response
+	}
+	if response := serve("/dashboard"); response.Code/100 != 3 || response.Header().Get("Location") != "/dashboard/" {
+		t.Errorf("/dashboard: status %d location %q", response.Code, response.Header().Get("Location"))
+	}
+	for path, status := range map[string]int{
+		"/dashboard/":       http.StatusOK,
+		"/dashboard/stats":  http.StatusOK,
+		"/dashboard/static": http.StatusNotFound,
+		"/metrics":          http.StatusOK,
+	} {
+		response := serve(path)
+		traced := response.Header().Get(diagnostics.Header) != ""
+		if response.Code != status || traced != (path == "/metrics") {
+			t.Errorf("%s: status %d traced %v", path, response.Code, traced)
+		}
+	}
+}
+
+func TestDashboardStatsMatchMetrics(t *testing.T) {
+	cfg, err := LoadConfig(env(map[string]string{"RELAY_MAX_HOSTS": "7", "RELAY_MAX_CLIENTS": "9", "RELAY_MAX_CONNS": "11"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(cfg)
+	s.events = diagnostics.Logger(io.Discard)
+	listener := httptest.NewServer(s.http.Handler)
+	defer listener.Close()
+	openPair(t, registerHost(t, "ws"+strings.TrimPrefix(listener.URL, "http")))
+	response := httptest.NewRecorder()
+	s.handleMetrics(response, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	var metrics struct {
+		Draining                                                   bool
+		ActiveHosts, ActivePairs, PendingPairs, ControlConnections int
+		ClientSlots, OpenSockets, OpenConnections                  int
+		RejectedConnections, ForwardedMessages, ForwardedBytes     int64
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &metrics); err != nil {
+		t.Fatal(err)
+	}
+	want := dashboard.Stats{
+		Draining:            metrics.Draining,
+		ActiveHosts:         metrics.ActiveHosts,
+		ActivePairs:         metrics.ActivePairs,
+		PendingPairs:        metrics.PendingPairs,
+		ControlConnections:  metrics.ControlConnections,
+		ClientSlots:         metrics.ClientSlots,
+		OpenSockets:         metrics.OpenSockets,
+		OpenConnections:     metrics.OpenConnections,
+		MaxHosts:            7,
+		MaxClients:          9,
+		MaxConnections:      11,
+		RejectedConnections: metrics.RejectedConnections,
+		ForwardedMessages:   metrics.ForwardedMessages,
+		ForwardedBytes:      metrics.ForwardedBytes,
+	}
+	if got := s.dashboardStats(); got != want || got.ActiveHosts != 1 || got.ClientSlots != 1 {
+		t.Fatalf("dashboard stats = %+v, want %+v", got, want)
 	}
 }
