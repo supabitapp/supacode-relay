@@ -1,6 +1,7 @@
 package admission
 
 import (
+	"container/list"
 	"net"
 	"net/http"
 	"net/netip"
@@ -12,8 +13,9 @@ import (
 )
 
 const (
-	MaxEntries = 65536
-	IdleTTL    = time.Minute
+	MaxEntries  = 65536
+	IdleTTL     = time.Minute
+	expireBatch = 64
 )
 
 type Limiter struct {
@@ -21,12 +23,13 @@ type Limiter struct {
 	rate    rate.Limit
 	burst   int
 	entries map[netip.Addr]*limiterEntry
-	swept   time.Time
+	oldest  list.List
 }
 
 type limiterEntry struct {
-	lim  *rate.Limiter
-	seen time.Time
+	lim      *rate.Limiter
+	seen     time.Time
+	position *list.Element
 }
 
 func NewLimiter(r float64, burst int) *Limiter {
@@ -34,29 +37,36 @@ func NewLimiter(r float64, burst int) *Limiter {
 }
 
 func (l *Limiter) Allow(ip netip.Addr, now time.Time) bool {
+	ip = ClientKey(ip)
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if now.Sub(l.swept) > IdleTTL || len(l.entries) >= MaxEntries {
-		l.sweep(now)
-	}
+	l.expire(now)
 	e, ok := l.entries[ip]
 	if !ok {
 		if len(l.entries) >= MaxEntries {
 			return false
 		}
 		e = &limiterEntry{lim: rate.NewLimiter(l.rate, l.burst)}
+		e.position = l.oldest.PushBack(ip)
 		l.entries[ip] = e
 	}
 	e.seen = now
+	l.oldest.MoveToBack(e.position)
 	return e.lim.AllowN(now, 1)
 }
 
-func (l *Limiter) sweep(now time.Time) {
-	l.swept = now
-	for ip, e := range l.entries {
-		if now.Sub(e.seen) > IdleTTL {
-			delete(l.entries, ip)
+func (l *Limiter) expire(now time.Time) {
+	for range expireBatch {
+		position := l.oldest.Front()
+		if position == nil {
+			return
 		}
+		ip := position.Value.(netip.Addr)
+		if now.Sub(l.entries[ip].seen) <= IdleTTL {
+			return
+		}
+		delete(l.entries, ip)
+		l.oldest.Remove(position)
 	}
 }
 
@@ -87,6 +97,7 @@ func NewGate(max, perIP int) *Gate {
 }
 
 func (g *Gate) Acquire(ip netip.Addr) GateResult {
+	ip = ClientKey(ip)
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.total >= g.max {
@@ -101,6 +112,7 @@ func (g *Gate) Acquire(ip netip.Addr) GateResult {
 }
 
 func (g *Gate) Release(ip netip.Addr) {
+	ip = ClientKey(ip)
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.total--
@@ -115,6 +127,14 @@ func (g *Gate) Stats() (total, ips int) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.total, len(g.counts)
+}
+
+func ClientKey(ip netip.Addr) netip.Addr {
+	ip = ip.Unmap()
+	if ip.Is6() {
+		return netip.PrefixFrom(ip, 64).Masked().Addr()
+	}
+	return ip
 }
 
 func ClientIP(r *http.Request, trusted []netip.Prefix, header string) netip.Addr {

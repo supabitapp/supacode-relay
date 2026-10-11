@@ -11,27 +11,28 @@ import (
 )
 
 type Config struct {
-	Addr                string
-	MaxMessageBytes     int
-	MaxQueueBytes       int
-	MaxQueueMessages    int
-	MaxClients          int
-	MaxClientsPerHost   int
-	MaxPendingPerHost   int
-	MaxHosts            int
-	MaxConnections      int
-	MaxConnectionsPerIP int
-	AuthTimeout         time.Duration
-	PairTimeout         time.Duration
-	WriteTimeout        time.Duration
-	DeliveryTimeout     time.Duration
-	Heartbeat           time.Duration
-	AdmissionRate       float64
-	TrustedProxies      []netip.Prefix
-	ClientIPHeader      string
-	PrivateAddr         string
-	AllowedPeers        []netip.Prefix
-	PrivatePeers        []netip.Prefix
+	Addr                   string
+	MaxMessageBytes        int
+	MaxQueueBytes          int
+	MaxQueueMessages       int
+	MaxClients             int
+	MaxClientsPerHost      int
+	MaxClientsPerHostPerIP int
+	MaxPendingPerHost      int
+	MaxHosts               int
+	MaxConnections         int
+	MaxConnectionsPerIP    int
+	AuthTimeout            time.Duration
+	PairTimeout            time.Duration
+	WriteTimeout           time.Duration
+	DeliveryTimeout        time.Duration
+	Heartbeat              time.Duration
+	AdmissionRate          float64
+	TrustedProxies         []netip.Prefix
+	ClientIPHeader         string
+	PrivateAddr            string
+	AllowedPeers           []netip.Prefix
+	PrivatePeers           []netip.Prefix
 }
 
 func (c Config) pongTimeout() time.Duration {
@@ -61,6 +62,7 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		{"RELAY_MAX_QUEUE_MESSAGES", 256, &c.MaxQueueMessages},
 		{"RELAY_MAX_CLIENTS", 20000, &c.MaxClients},
 		{"RELAY_MAX_CLIENTS_PER_HOST", 64, &c.MaxClientsPerHost},
+		{"RELAY_MAX_CLIENTS_PER_HOST_PER_IP", 16, &c.MaxClientsPerHostPerIP},
 		{"RELAY_MAX_PENDING_PER_HOST", 64, &c.MaxPendingPerHost},
 		{"RELAY_MAX_HOSTS", 20000, &c.MaxHosts},
 		{"RELAY_MAX_CONNS", 16384, &c.MaxConnections},

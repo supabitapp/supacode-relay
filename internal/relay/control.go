@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,15 +24,16 @@ const (
 )
 
 type host struct {
-	id          string
-	ctrl        *peer
-	pairs       map[string]*pair
-	pending     int
-	clientSlots int
-	gone        bool
-	bytesIn     atomic.Int64
-	bytesOut    atomic.Int64
-	trace       *diagnostics.Trace
+	id           string
+	ctrl         *peer
+	pairs        map[string]*pair
+	pending      int
+	clientSlots  int
+	clientCounts map[netip.Addr]int
+	gone         bool
+	bytesIn      atomic.Int64
+	bytesOut     atomic.Int64
+	trace        *diagnostics.Trace
 }
 
 func (h *host) notify(v any) string {
@@ -97,7 +99,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 
 	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages), nil)
 	ctrl.trace = trace.With("peer", "control")
-	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}, trace: trace}
+	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}, clientCounts: map[netip.Addr]int{}, trace: trace}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()
 	if s.draining.Load() {

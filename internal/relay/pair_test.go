@@ -126,12 +126,16 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 	base := "ws" + strings.TrimPrefix(listener.URL, "http")
 	h, nextHost := registerHost(t, base), registerHost(t, base)
 	client, host := openPair(t, h)
+	s.mu.Lock()
+	hostState := s.hosts[h.ID]
+	s.mu.Unlock()
 	expectPairMessage(t, client, host)
 	h.Close()
 	waitForHandler(t, connect.entered, "connect terminal read")
 	waitForHandler(t, accept.entered, "accept terminal read")
 	expectClientCapacityReached(t, nextHost)
 	expectClosingPairMetrics(t, s, 1)
+	expectHostClientQuota(t, s, hostState, 1)
 	if len(logs.records("pair.closed")) != 0 {
 		t.Fatal("close summary was recorded before forwarding handlers finished")
 	}
@@ -139,18 +143,34 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 	waitForHandler(t, connect.returned, "connect handler exit")
 	expectClientCapacityReached(t, nextHost)
 	expectClosingPairMetrics(t, s, 1)
+	expectHostClientQuota(t, s, hostState, 1)
 	if len(logs.records("pair.closed")) != 0 {
 		t.Fatal("close summary was recorded while the host handler was still active")
 	}
 	accept.release()
 	waitForHandler(t, accept.returned, "accept handler exit")
 	expectClosingPairMetrics(t, s, 0)
+	expectHostClientQuota(t, s, hostState, 0)
 	closed := logs.records("pair.closed")
 	if len(closed) != 1 || closed[0]["bytes_to_host"] != float64(len("paired")) || closed[0]["messages_to_host"] != float64(1) {
 		t.Fatalf("missing final forwarding totals: %v", closed)
 	}
 	client, host = openPair(t, nextHost)
 	expectPairMessage(t, client, host)
+}
+
+func expectHostClientQuota(t *testing.T, s *Server, h *host, want int) {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(h.clientCounts) != want {
+		t.Fatalf("retained %d client quota entries, want %d", len(h.clientCounts), want)
+	}
+	for _, held := range h.clientCounts {
+		if held != want {
+			t.Fatalf("retained %d client quota slots, want %d", held, want)
+		}
+	}
 }
 
 func waitForHandler(t *testing.T, ch <-chan struct{}, milestone string) {

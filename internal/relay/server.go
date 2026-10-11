@@ -120,6 +120,7 @@ func (s *Server) Serve(ln net.Listener) error {
 		"pair_timeout_ms", s.cfg.PairTimeout.Milliseconds(), "delivery_timeout_ms", s.cfg.DeliveryTimeout.Milliseconds(),
 		"heartbeat_ms", s.cfg.Heartbeat.Milliseconds(), "max_hosts", s.cfg.MaxHosts,
 		"max_clients", s.cfg.MaxClients, "max_clients_per_host", s.cfg.MaxClientsPerHost,
+		"max_clients_per_host_per_ip", s.cfg.MaxClientsPerHostPerIP,
 		"max_pending_per_host", s.cfg.MaxPendingPerHost)
 	return s.http.Serve(admission.FilterListener(ln, s.cfg.AllowedPeers))
 }
