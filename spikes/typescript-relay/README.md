@@ -7,6 +7,8 @@ The benchmark sends four binary messages in flight per client. Each message carr
 - [`results/go.json`](results/go.json) is the original Go relay measured with the TypeScript driver.
 - [`results/node.json`](results/node.json) is the TypeScript relay and driver on Node 26.1.0.
 - [`results/bun.json`](results/bun.json) is the same compiled JavaScript on Bun 1.4.2.
+- [`results/go-driver-against-typescript.json`](results/go-driver-against-typescript.json) is the unchanged repository Go driver against the TypeScript relay.
+- [`results/go-driver-control.json`](results/go-driver-control.json) is the unchanged repository Go driver against the original Go relay.
 
 ## Setup
 
@@ -55,6 +57,50 @@ npm run bench -- --spawn --relay-bin /tmp/supacode-relay-go \
 ```
 
 The recorded run used macOS 27.0 on arm64 with 18 logical CPUs, Go 1.27.1 for the relay build, Node v26.1.0 for the baseline and Go comparison driver, and Bun 1.4.2 for the Bun run. The Go run uses the Node driver so the workload and measurement code stay the same. `runtime` and `runtimeVersion` in each JSON file identify the benchmark runtime; Bun's Node compatibility value is retained separately as `nodeCompatVersion`.
+
+## Validation with the repository Go driver
+
+These two result files come from the unchanged `e2e/bench/main.go` driver. Each command starts one fresh relay process with `-spawn`, runs all six cases, and shuts that relay down before the command exits. The driver supplies the relay process with `RELAY_ADDR=127.0.0.1:0`, `RELAY_PRIVATE_ADDR=`, `RELAY_ADMISSION_RATE=1000000`, `RELAY_MAX_CONNS=100000`, and `RELAY_MAX_CONNS_PER_IP=100000`.
+
+Run this validation block from the repository root. The TypeScript entrypoint needs an executable wrapper because the unchanged Go driver accepts one relay binary path:
+
+```sh
+cat >/tmp/supacode-relay-typescript-wrapper <<'SH'
+#!/bin/sh
+exec node /Users/khoi/.supacode/worktrees/supacode-relay/supacode-relay-spike-typescript/spikes/typescript-relay/dist/relay.js
+SH
+chmod +x /tmp/supacode-relay-typescript-wrapper
+go build -o /tmp/supacode-relay-go ./cmd/relay
+
+go run ./e2e/bench/main.go -spawn \
+  -relay-bin /tmp/supacode-relay-typescript-wrapper \
+  -payloads 64,1024,65536 -clients 1,32 -hosts 4 -inflight 4 \
+  -warmup 2s -duration 5s \
+  > spikes/typescript-relay/results/go-driver-against-typescript.json
+
+go run ./e2e/bench/main.go -spawn \
+  -relay-bin /tmp/supacode-relay-go \
+  -payloads 64,1024,65536 -clients 1,32 -hosts 4 -inflight 4 \
+  -warmup 2s -duration 5s \
+  > spikes/typescript-relay/results/go-driver-control.json
+```
+
+Both files contain six cases with `failures=0` and `corrupt=0` for every case. The recorded environment was macOS 27.0 arm64, Go 1.27.1, Node v26.1.0, and 18 logical CPUs. The existing Node and Bun result files were not changed by this validation.
+
+| Go driver target | payload | clients | messages/sec | MiB/sec | RTT p50/p99 us | CPU / RSS | failures/corrupt |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| TypeScript relay | 64 B | 1 | 53,493.8 | 3.3 | 62.7 / 156.6 | 75.1% / 79.3 MiB | 0 / 0 |
+| TypeScript relay | 64 B | 32 | 94,843.0 | 5.8 | 1,177.8 / 2,483.3 | 98.7% / 88.6 MiB | 0 / 0 |
+| TypeScript relay | 1,024 B | 1 | 40,891.4 | 39.9 | 74.8 / 223.0 | 74.5% / 92.9 MiB | 0 / 0 |
+| TypeScript relay | 1,024 B | 32 | 86,425.8 | 84.4 | 1,346.8 / 2,884.3 | 98.3% / 112.5 MiB | 0 / 0 |
+| TypeScript relay | 65,536 B | 1 | 6,867.4 | 429.2 | 495.9 / 1,151.1 | 101.5% / 249.6 MiB | 0 / 0 |
+| TypeScript relay | 65,536 B | 32 | 6,724.6 | 420.3 | 18,108.9 / 25,673.5 | 114.7% / 311.8 MiB | 0 / 0 |
+| Original Go relay | 64 B | 1 | 57,296.0 | 3.5 | 56.8 / 146.1 | 95.5% / 20.3 MiB | 0 / 0 |
+| Original Go relay | 64 B | 32 | 61,760.4 | 3.8 | 1,947.5 / 3,272.5 | 281.9% / 23.0 MiB | 0 / 0 |
+| Original Go relay | 1,024 B | 1 | 35,309.0 | 34.5 | 86.0 / 418.0 | 82.3% / 23.8 MiB | 0 / 0 |
+| Original Go relay | 1,024 B | 32 | 65,039.0 | 63.5 | 1,920.9 / 3,024.2 | 310.9% / 24.5 MiB | 0 / 0 |
+| Original Go relay | 65,536 B | 1 | 4,130.8 | 258.2 | 725.8 / 3,974.7 | 98.5% / 24.8 MiB | 0 / 0 |
+| Original Go relay | 65,536 B | 32 | 5,755.4 | 359.7 | 21,205.9 / 41,677.3 | 255.1% / 24.9 MiB | 0 / 0 |
 
 ## Semantic differences
 
