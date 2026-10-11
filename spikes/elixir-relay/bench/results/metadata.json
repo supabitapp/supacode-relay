@@ -1,0 +1,35 @@
+{
+  "image": "relay-spike-elixir:local",
+  "imageId": "sha256:e18697899b08c0027b57d25b062cd42578550aefbfd47546f9bae8b3f7c7301f",
+  "platform": "linux/arm64",
+  "dockerServer": "29.4.0",
+  "sourceRevision": "060472bfeb8f3d97c460613d197431a4306661a1",
+  "runtime": {
+    "imageDigest": "sha256:e18697899b08c0027b57d25b062cd42578550aefbfd47546f9bae8b3f7c7301f",
+    "elixir": "Erlang/OTP 27 [erts-15.2.7.13] [source] [64-bit] [smp:18:18] [ds:18:18:10] [async-threads:1] [jit]  Elixir 1.18.4 (compiled with Erlang/OTP 27) ",
+    "otp": "27",
+    "go": "go version go1.25.1 linux/arm64"
+  },
+  "matrix": {
+    "payloads": [
+      64,
+      1024,
+      65536
+    ],
+    "clients": [
+      1,
+      32
+    ],
+    "warmup": "2s",
+    "duration": "5s",
+    "inflightPerClient": 4
+  },
+  "commands": [
+    "./bench/run.sh",
+    "docker build --platform linux/arm64",
+    "go build -trimpath -o /tmp/relay ./cmd/relay",
+    "go build -trimpath -o /tmp/relay-bench ./e2e/bench",
+    "/tmp/relay-bench -spawn -relay-bin /tmp/relay",
+    "/tmp/relay-bench -spawn -relay-bin /work/bench/run-relay.sh"
+  ]
+}
