@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -217,5 +218,21 @@ func TestParseMeminfo(t *testing.T) {
 		if _, _, ok := parseMeminfo(invalid); ok {
 			t.Errorf("parseMeminfo(%q) succeeded", invalid)
 		}
+	}
+}
+
+func TestRejectionRowsListTheTotalThenEachReason(t *testing.T) {
+	got := rejectionRows(1495, map[string]int64{"rate limited": 3, "endpoint not found": 1489, "invalid token": 3})
+	want := []row{
+		{Label: "Total", Value: "1,495", Detail: "since start"},
+		{Label: "Endpoint not found", Value: "1,489"},
+		{Label: "Invalid token", Value: "3"},
+		{Label: "Rate limited", Value: "3"},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("rejectionRows = %+v, want %+v", got, want)
+	}
+	if got := rejectionRows(0, nil); !slices.Equal(got, []row{{Label: "Total", Value: "0", Detail: "since start"}}) {
+		t.Fatalf("no rejections = %+v", got)
 	}
 }

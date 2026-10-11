@@ -8,10 +8,13 @@ import (
 	"html/template"
 	"io/fs"
 	"log"
+	"maps"
 	"math"
 	"net/http"
 	"runtime"
 	"runtime/debug"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -34,20 +37,22 @@ var (
 )
 
 type Stats struct {
-	Draining            bool
-	ActiveHosts         int
-	ActivePairs         int
-	PendingPairs        int
-	ControlConnections  int
-	ClientSlots         int
-	OpenSockets         int
-	OpenConnections     int
-	MaxHosts            int
-	MaxClients          int
-	MaxConnections      int
-	RejectedConnections int64
-	ForwardedMessages   int64
-	ForwardedBytes      int64
+	Draining           bool
+	ActiveHosts        int
+	ActivePairs        int
+	PendingPairs       int
+	ControlConnections int
+	ClientSlots        int
+	OpenSockets        int
+	OpenConnections    int
+	MaxHosts           int
+	MaxClients         int
+	MaxConnections     int
+	ForwardedMessages  int64
+	ForwardedBytes     int64
+
+	RejectedConnections         int64
+	RejectedConnectionsByReason map[string]int64
 }
 
 type Dashboard struct {
@@ -205,18 +210,26 @@ func (d *Dashboard) build(previous, current sample) view {
 				{Label: "Active pairs", Value: formatCount(int64(relay.ActivePairs))},
 				{Label: "Pending pairs", Value: formatCount(int64(relay.PendingPairs))},
 				{Label: "Open sockets", Value: formatCount(int64(relay.OpenSockets))},
-				{Label: "Rejected connections", Value: formatCount(relay.RejectedConnections), Detail: "since start"},
 			}},
 			{"Capacity", []row{
 				capacity("Hosts", relay.ControlConnections, relay.MaxHosts),
 				capacity("Pairs", relay.ClientSlots, relay.MaxClients),
 				capacity("Connections", relay.OpenConnections, relay.MaxConnections),
 			}},
+			{"Rejections", rejectionRows(relay.RejectedConnections, relay.RejectedConnectionsByReason)},
 			{"Traffic", trafficRows(previous, current)},
 			{"CPU", cpuRows(previous, current)},
 			{"Memory", memoryRows(current)},
 		},
 	}
+}
+
+func rejectionRows(total int64, byReason map[string]int64) []row {
+	rows := []row{{Label: "Total", Value: formatCount(total), Detail: "since start"}}
+	for _, reason := range slices.Sorted(maps.Keys(byReason)) {
+		rows = append(rows, row{Label: strings.ToUpper(reason[:1]) + reason[1:], Value: formatCount(byReason[reason])})
+	}
+	return rows
 }
 
 func rateWindow(previous, current sample) (seconds float64, ok bool) {
