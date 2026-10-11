@@ -90,7 +90,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	trace.Event("control.challenge.sent")
 	_ = ws.SetReadDeadline(time.Now().Add(s.cfg.AuthTimeout))
 	if accepted, reason := verifyAuth(ws, pub, []byte(signaturePrefix+id+"\n"+nonce)); !accepted {
-		s.rejectedConnections.Add(1)
+		s.countRejection("authentication failed")
 		trace.Event("control.auth.failed", "reason", reason)
 		s.closeNow(ws, closeMsg{websocket.ClosePolicyViolation, "authentication failed"})
 		return

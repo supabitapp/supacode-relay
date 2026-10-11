@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"runtime"
@@ -39,10 +40,12 @@ type Server struct {
 	events        *slog.Logger
 	draining      atomic.Bool
 
-	forwardedMessages   atomic.Int64
-	forwardedBytes      atomic.Int64
-	rejectedConnections atomic.Int64
-	superseded          atomic.Int64
+	forwardedMessages atomic.Int64
+	forwardedBytes    atomic.Int64
+	superseded        atomic.Int64
+
+	rejectionsMu sync.Mutex
+	rejections   map[string]int64
 
 	mu          sync.Mutex
 	hosts       map[string]*host
@@ -68,6 +71,7 @@ func New(cfg Config) *Server {
 		limiter:       admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
 		publicLimiter: admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
 		gate:          admission.NewGate(cfg.MaxConnections, cfg.MaxConnectionsPerIP),
+		rejections:    map[string]int64{},
 		hosts:         map[string]*host{},
 		pairs:         map[string]*pair{},
 		conns:         map[*websocket.Conn]struct{}{},
@@ -162,15 +166,15 @@ func (s *Server) limitPublic(next http.Handler) http.Handler {
 func (s *Server) dashboardStats() dashboard.Stats {
 	openConnections, _ := s.gate.Stats()
 	stats := dashboard.Stats{
-		Draining:            s.draining.Load(),
-		OpenConnections:     openConnections,
-		MaxHosts:            s.cfg.MaxHosts,
-		MaxClients:          s.cfg.MaxClients,
-		MaxConnections:      s.cfg.MaxConnections,
-		RejectedConnections: s.rejectedConnections.Load(),
-		ForwardedMessages:   s.forwardedMessages.Load(),
-		ForwardedBytes:      s.forwardedBytes.Load(),
+		Draining:          s.draining.Load(),
+		OpenConnections:   openConnections,
+		MaxHosts:          s.cfg.MaxHosts,
+		MaxClients:        s.cfg.MaxClients,
+		MaxConnections:    s.cfg.MaxConnections,
+		ForwardedMessages: s.forwardedMessages.Load(),
+		ForwardedBytes:    s.forwardedBytes.Load(),
 	}
+	stats.RejectedConnections, stats.RejectedConnectionsByReason = s.rejectionCounts()
 	s.mu.Lock()
 	stats.ActiveHosts = len(s.hosts)
 	stats.ActivePairs = s.active
@@ -213,7 +217,7 @@ func (s *Server) writeMetrics(w http.ResponseWriter, detailed bool) {
 	m["supersededRegistrations"] = s.superseded.Load()
 	m["forwardedMessages"] = s.forwardedMessages.Load()
 	m["forwardedBytes"] = s.forwardedBytes.Load()
-	m["rejectedConnections"] = s.rejectedConnections.Load()
+	m["rejectedConnections"], m["rejectedConnectionsByReason"] = s.rejectionCounts()
 	m["rateLimiterEntries"] = s.limiter.Size()
 	m["goroutines"] = runtime.NumGoroutine()
 	m["draining"] = s.draining.Load()
@@ -261,9 +265,24 @@ func (s *Server) topHosts() []hostTraffic {
 }
 
 func (s *Server) reject(w http.ResponseWriter, r *http.Request, status int, msg string) {
-	s.rejectedConnections.Add(1)
+	s.countRejection(msg)
 	diagnostics.From(r).Event("request.rejected", "status", status, "reason", msg)
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func (s *Server) countRejection(reason string) {
+	s.rejectionsMu.Lock()
+	s.rejections[reason]++
+	s.rejectionsMu.Unlock()
+}
+
+func (s *Server) rejectionCounts() (total int64, byReason map[string]int64) {
+	s.rejectionsMu.Lock()
+	defer s.rejectionsMu.Unlock()
+	for _, n := range s.rejections {
+		total += n
+	}
+	return total, maps.Clone(s.rejections)
 }
 
 func (s *Server) admit(w http.ResponseWriter, r *http.Request, duringDrain bool) bool {

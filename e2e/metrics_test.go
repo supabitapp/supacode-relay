@@ -3,6 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"io"
+	"maps"
 	"net/http"
 	"strings"
 	"testing"
@@ -114,4 +115,32 @@ func publicGet(t *testing.T, r *relay, path string) (int, []byte) {
 		t.Fatal(err)
 	}
 	return response.StatusCode, body
+}
+
+func TestMetricsCountRejectionsByReason(t *testing.T) {
+	r := startRelay(t)
+	for _, request := range []struct {
+		path   string
+		status int
+	}{
+		{"/v1/connect?endpointId=" + strings.Repeat("ab", 32), http.StatusNotFound},
+		{"/v1/connect?endpointId=" + strings.Repeat("ab", 32), http.StatusNotFound},
+		{"/v1/control?publicKey=invalid", http.StatusBadRequest},
+	} {
+		if status, _ := publicGet(t, r, request.path); status != request.status {
+			t.Fatalf("%s: %d, want %d", request.path, status, request.status)
+		}
+	}
+	_, body := r.get("/metrics")
+	var metrics struct {
+		RejectedConnections         int64
+		RejectedConnectionsByReason map[string]int64
+	}
+	if err := json.Unmarshal(body, &metrics); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]int64{"endpoint not found": 2, "invalid publicKey": 1}
+	if metrics.RejectedConnections != 3 || !maps.Equal(metrics.RejectedConnectionsByReason, want) {
+		t.Fatalf("rejections: total %d, by reason %v", metrics.RejectedConnections, metrics.RejectedConnectionsByReason)
+	}
 }
