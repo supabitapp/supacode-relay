@@ -32,8 +32,8 @@ defmodule RelaySpike.WebSocket do
     with endpoint_id when is_binary(endpoint_id) <- Map.get(query, "endpointId"),
          id when is_binary(id) <- Map.get(query, "connectionId"),
          token when is_binary(token) <- Map.get(query, "token"),
-         :ok <- RelaySpike.Store.accept_pair(endpoint_id, id, token, self()) do
-      {:ok, Map.merge(state, %{phase: :active, role: :host, pair_id: id})}
+         {:ok, client_pid} <- RelaySpike.Store.accept_pair(endpoint_id, id, token, self()) do
+      {:ok, Map.merge(state, %{phase: :active, role: :host, pair_id: id, peer_pid: client_pid})}
     else
       _ -> {:reply, {:close, 1008, "invalid token"}, state}
     end
@@ -54,15 +54,10 @@ defmodule RelaySpike.WebSocket do
 
   def websocket_handle(_frame, %{phase: :pending} = state), do: {:ok, state}
 
-  def websocket_handle({type, data}, %{phase: :active} = state) when type in [:text, :binary] do
-    case peer(state) do
-      pid when is_pid(pid) ->
-        send(pid, {:relay_frame, type, data})
-        RelaySpike.Store |> send({:forwarded, byte_size(data)})
-        {:ok, state}
-
-      _ -> {:reply, {:close, 1001, "peer disconnected"}, state}
-    end
+  def websocket_handle({type, data}, %{phase: :active, peer_pid: peer_pid} = state) when type in [:text, :binary] do
+    send(peer_pid, {:relay_frame, type, data})
+    RelaySpike.Store |> send({:forwarded, byte_size(data)})
+    {:ok, state}
   end
 
   def websocket_handle(_frame, state) do
@@ -80,7 +75,7 @@ defmodule RelaySpike.WebSocket do
 
   def websocket_info({:pair_ready, peer_pid}, state) do
     Enum.each(state.pending_frames, fn {type, data} -> send(peer_pid, {:relay_frame, type, data}) end)
-    {:ok, %{state | phase: :active, pending_frames: []}}
+    {:ok, Map.merge(state, %{phase: :active, pending_frames: [], peer_pid: peer_pid})}
   end
   def websocket_info({:peer_closed, code, reason}, state), do: {:reply, {:close, code, reason}, state}
   def websocket_info({:relay_frame, type, data}, state), do: {:reply, {type, data}, state}
@@ -104,16 +99,6 @@ defmodule RelaySpike.WebSocket do
       {:reply, {:text, Jason.encode!(%{type: "registered", endpointId: state.endpoint_id})}, %{state | phase: :registered}}
     else
       _ -> {:reply, {:close, 1008, "authentication failed"}, state}
-    end
-  end
-
-  defp peer(%{role: :client, pair_id: id}), do: pair_peer(id, :client)
-  defp peer(%{role: :host, pair_id: id}), do: pair_peer(id, :host)
-
-  defp pair_peer(id, side) do
-    case :sys.get_state(RelaySpike.Store) do
-      %{pairs: %{^id => pair}} -> if side == :client, do: pair.host, else: pair.client
-      _ -> nil
     end
   end
 

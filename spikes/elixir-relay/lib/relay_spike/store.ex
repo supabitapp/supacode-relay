@@ -59,7 +59,7 @@ defmodule RelaySpike.Store do
         updated = %{pair | host: host_pid, state: :active}
         send(client_pid, {:pair_ready, host_pid})
         Process.monitor(host_pid)
-        {:reply, :ok, %{state | pairs: Map.put(state.pairs, id, updated)}}
+        {:reply, {:ok, client_pid}, %{state | pairs: Map.put(state.pairs, id, updated)}}
 
       _ ->
         {:reply, {:error, :invalid_token}, state}
