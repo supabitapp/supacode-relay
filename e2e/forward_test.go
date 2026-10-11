@@ -88,10 +88,9 @@ func TestForwardingPreservesMessages(t *testing.T) {
 	for err := range errs {
 		t.Fatal(err)
 	}
-	m := r.metrics()
-	if m["forwardedMessages"] != float64(2*len(msgs)) {
-		t.Fatalf("forwardedMessages = %v, want %d", m["forwardedMessages"], 2*len(msgs))
-	}
+	r.waitMetrics("forwarded message count", func(m map[string]float64) bool {
+		return m["forwardedMessages"] == float64(2*len(msgs))
+	})
 }
 
 func TestClientReceivesNoRelayRecords(t *testing.T) {
