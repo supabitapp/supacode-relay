@@ -2,6 +2,7 @@
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/relay ./cmd/relay
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/push ./cmd/push
 
 run: build
 	./bin/relay

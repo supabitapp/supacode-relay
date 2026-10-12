@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1
+ARG GO_VERSION=1.27.2
+FROM golang:${GO_VERSION}-alpine AS build
+WORKDIR /src
+ENV CGO_ENABLED=0 GOTOOLCHAIN=local
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go build -trimpath -ldflags="-s -w" -o /out/push ./cmd/push
+RUN mkdir -m 700 /data && chown 65532:65532 /data
+FROM scratch
+COPY --from=build /out/push /push
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build --chown=65532:65532 /data /data
+USER 65532:65532
+ENV PUSH_ADDR=0.0.0.0:8081 PUSH_DATABASE=/data/push.sqlite
+EXPOSE 8081
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/push"]
