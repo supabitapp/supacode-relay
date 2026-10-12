@@ -49,7 +49,7 @@ func TestPageEmbedsCurrentStats(t *testing.T) {
 	if response.Code != http.StatusOK || response.Header().Get("Content-Security-Policy") != contentSecurityPolicy || response.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("page: %d %v", response.Code, response.Header())
 	}
-	for _, want := range []string{`hx-get="stats"`, `hx-trigger="every 2s"`, ">Online<", "Connected hosts", "4 <small>of 10</small>"} {
+	for _, want := range []string{`hx-get="stats"`, `hx-trigger="every 2s"`, ">Online<", "Connected hosts", "4 <small>of 10</small>", "Traffic (1 min avg)"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("page is missing %q:\n%s", want, body)
 		}
@@ -122,22 +122,93 @@ func TestSnapshotSamplesAtMostOncePerRefresh(t *testing.T) {
 	}
 }
 
-func TestBuildReportsRatesOverTheSampleWindow(t *testing.T) {
+func TestTrafficRatesAverageTheLastMinute(t *testing.T) {
+	stats := capacityLimits
+	stats.ForwardedMessages, stats.ForwardedBytes = 1200, 1<<20
+	d := New(func() Stats { return stats }, unlimited)
+	initial := d.snapshot(d.started)
+	for _, label := range []string{"Messages", "Throughput"} {
+		if got := findRow(t, initial, label).Value; got != unknown {
+			t.Fatalf("initial %s rate = %q, want unknown", label, got)
+		}
+	}
+	stats.ForwardedMessages += 600
+	stats.ForwardedBytes += 60 << 10
+	for _, tc := range []struct {
+		seconds    int
+		messages   string
+		throughput string
+	}{
+		{2, "300/s", "30.0 KiB/s"},
+		{5, "120/s", "12.0 KiB/s"},
+		{10, "60/s", "6.0 KiB/s"},
+		{20, "30/s", "3.0 KiB/s"},
+		{30, "20/s", "2.0 KiB/s"},
+		{40, "15/s", "1.5 KiB/s"},
+		{50, "12/s", "1.2 KiB/s"},
+		{60, "10/s", "1.0 KiB/s"},
+		{62, "0.0/s", "0 B/s"},
+	} {
+		v := d.snapshot(d.started.Add(time.Duration(tc.seconds) * time.Second))
+		for label, want := range map[string]row{
+			"Messages":   {Label: "Messages", Value: tc.messages, Detail: "1,800 total"},
+			"Throughput": {Label: "Throughput", Value: tc.throughput, Detail: "1.1 MiB total"},
+		} {
+			if got := findRow(t, v, label); got != want {
+				t.Errorf("at %ds: %s = %+v, want %+v", tc.seconds, label, got, want)
+			}
+		}
+	}
+}
+
+func TestTrafficRatesRestartAfterGapsOrCounterResets(t *testing.T) {
+	for _, reason := range []string{"monitoring gap", "messages reset", "bytes reset"} {
+		t.Run(reason, func(t *testing.T) {
+			stats := capacityLimits
+			stats.ForwardedMessages, stats.ForwardedBytes = 1000, 1<<20
+			d := New(func() Stats { return stats }, unlimited)
+			d.snapshot(d.started)
+			stats.ForwardedMessages += 20
+			stats.ForwardedBytes += 2048
+			d.snapshot(d.started.Add(2 * time.Second))
+			at := d.started.Add(4 * time.Second)
+			switch reason {
+			case "monitoring gap":
+				at = d.started.Add(time.Hour)
+				stats.ForwardedMessages += 5000
+				stats.ForwardedBytes += 1 << 20
+			case "messages reset":
+				stats.ForwardedMessages = 0
+			case "bytes reset":
+				stats.ForwardedBytes = 0
+			}
+			v := d.snapshot(at)
+			for _, label := range []string{"Messages", "Throughput"} {
+				if got := findRow(t, v, label).Value; got != unknown {
+					t.Fatalf("after %s: %s rate = %q, want unknown", reason, label, got)
+				}
+			}
+			stats.ForwardedMessages += 40
+			stats.ForwardedBytes += 4096
+			v = d.snapshot(at.Add(2 * time.Second))
+			for label, want := range map[string]string{"Messages": "20/s", "Throughput": "2.0 KiB/s"} {
+				if got := findRow(t, v, label).Value; got != want {
+					t.Errorf("resumed %s rate = %q, want %q", label, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildReportsCPUOverTheSampleWindow(t *testing.T) {
 	d := &Dashboard{started: time.Now()}
 	previous := sample{at: d.started, relay: capacityLimits, cpuOK: true, cpus: 4}
 	current := previous
 	current.at = previous.at.Add(2 * time.Second)
-	current.relay.ForwardedMessages, current.relay.ForwardedBytes = 40, 4096
 	current.cpu = time.Second
-	v := d.build(previous, current)
-	for label, want := range map[string]row{
-		"Messages":      {Label: "Messages", Value: "20/s", Detail: "40 total"},
-		"Throughput":    {Label: "Throughput", Value: "2.0 KiB/s", Detail: "4.0 KiB total"},
-		"Relay process": {Label: "Relay process", Value: "12.5%", Detail: "of 4 cores", Level: 0.125, Meter: true},
-	} {
-		if got := findRow(t, v, label); got != want {
-			t.Errorf("%s = %+v, want %+v", label, got, want)
-		}
+	want := row{Label: "Relay process", Value: "12.5%", Detail: "of 4 cores", Level: 0.125, Meter: true}
+	if got := findRow(t, d.build(previous, current), "Relay process"); got != want {
+		t.Errorf("Relay process = %+v, want %+v", got, want)
 	}
 }
 

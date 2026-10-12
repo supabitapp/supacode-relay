@@ -23,6 +23,7 @@ const (
 	pollInterval          = 2 * time.Second
 	refreshFloor          = pollInterval / 2
 	maxRateWindow         = 5 * pollInterval
+	trafficAverageWindow  = time.Minute
 	unknown               = "—"
 	contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
@@ -60,9 +61,16 @@ type Dashboard struct {
 	started time.Time
 	mux     *http.ServeMux
 
-	mu   sync.Mutex
-	last sample
-	view view
+	mu      sync.Mutex
+	last    sample
+	traffic []trafficSample
+	view    view
+}
+
+type trafficSample struct {
+	at       time.Time
+	messages int64
+	bytes    int64
 }
 
 type sample struct {
@@ -172,9 +180,29 @@ func (d *Dashboard) snapshot(now time.Time) view {
 		return d.view
 	}
 	current := takeSample(now, d.stats())
+	d.recordTraffic(current)
 	d.view = d.build(d.last, current)
 	d.last = current
 	return d.view
+}
+
+func (d *Dashboard) recordTraffic(current sample) {
+	if current.at.Sub(d.last.at) > trafficAverageWindow || current.relay.ForwardedMessages < d.last.relay.ForwardedMessages || current.relay.ForwardedBytes < d.last.relay.ForwardedBytes {
+		d.traffic = d.traffic[:0]
+	}
+	d.traffic = append(d.traffic, trafficSample{
+		at:       current.at,
+		messages: current.relay.ForwardedMessages,
+		bytes:    current.relay.ForwardedBytes,
+	})
+	start := 0
+	for current.at.Sub(d.traffic[start].at) > trafficAverageWindow {
+		start++
+	}
+	if start > 0 {
+		copy(d.traffic, d.traffic[start:])
+		d.traffic = d.traffic[:len(d.traffic)-start]
+	}
 }
 
 func takeSample(at time.Time, relay Stats) sample {
@@ -217,7 +245,7 @@ func (d *Dashboard) build(previous, current sample) view {
 				capacity("Connections", relay.OpenConnections, relay.MaxConnections),
 			}},
 			{"Rejections", rejectionRows(relay.RejectedConnections, relay.RejectedConnectionsByReason)},
-			{"Traffic", trafficRows(previous, current)},
+			{"Traffic (1 min avg)", d.trafficRows(current)},
 			{"CPU", cpuRows(previous, current)},
 			{"Memory", memoryRows(current)},
 		},
@@ -237,12 +265,16 @@ func rateWindow(previous, current sample) (seconds float64, ok bool) {
 	return window.Seconds(), window >= refreshFloor && window <= maxRateWindow
 }
 
-func trafficRows(previous, current sample) []row {
+func (d *Dashboard) trafficRows(current sample) []row {
 	messages := row{Label: "Messages", Value: unknown, Detail: formatCount(current.relay.ForwardedMessages) + " total"}
 	throughput := row{Label: "Throughput", Value: unknown, Detail: formatBytes(float64(current.relay.ForwardedBytes)) + " total"}
-	if seconds, ok := rateWindow(previous, current); ok {
-		messages.Value = formatQuantity(float64(current.relay.ForwardedMessages-previous.relay.ForwardedMessages)/seconds) + "/s"
-		throughput.Value = formatBytes(float64(current.relay.ForwardedBytes-previous.relay.ForwardedBytes)/seconds) + "/s"
+	if len(d.traffic) > 1 {
+		previous := d.traffic[0]
+		seconds := current.at.Sub(previous.at).Seconds()
+		if seconds > 0 {
+			messages.Value = formatQuantity(float64(current.relay.ForwardedMessages-previous.messages)/seconds) + "/s"
+			throughput.Value = formatBytes(float64(current.relay.ForwardedBytes-previous.bytes)/seconds) + "/s"
+		}
 	}
 	return []row{messages, throughput}
 }
