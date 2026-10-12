@@ -1,4 +1,4 @@
-.PHONY: build run test audit e2e-docker bench bench-docker
+.PHONY: build run test check test-race audit e2e-docker bench bench-docker
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/relay ./cmd/relay
@@ -6,11 +6,15 @@ build:
 run: build
 	./bin/relay
 
-test:
+test: check test-race
+
+check:
 	@test -z "$$(gofmt -l .)" || { gofmt -l .; exit 1; }
 	go mod tidy -diff
 	go vet ./...
 	go vet -tags dockere2e ./e2e/docker
+
+test-race:
 	go test -race -count=1 -shuffle=on ./...
 
 audit:
