@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: stable
-      - run: make test
+      - run: make -j2 test
 
   audit:
     if: github.event_name == 'pull_request'
