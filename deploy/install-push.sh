@@ -4,12 +4,9 @@ set -euo pipefail
 sudo test -f /etc/supacode-push/push.env
 sudo test -f /etc/supacode-push/apns-sandbox.p8
 sudo test -f /etc/supacode-push/apns-production.p8
-sudo test -f /etc/supacode-push/tunnel.token
-sudo test -x /usr/local/bin/cloudflared
 sudo install -m 0755 /tmp/push /usr/local/bin/supacode-push.next
 sudo mv /usr/local/bin/supacode-push.next /usr/local/bin/supacode-push
 sudo install -m 0644 /tmp/supacode-push.service /etc/systemd/system/supacode-push.service
-sudo install -m 0644 /tmp/supacode-push-tunnel.service /etc/systemd/system/supacode-push-tunnel.service
 sudo systemctl daemon-reload
 sudo systemctl restart supacode-push.service
 ready=false
@@ -25,6 +22,4 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 sudo systemctl enable supacode-push.service
-sudo systemctl restart supacode-push-tunnel.service
-sudo systemctl enable supacode-push-tunnel.service
-rm /tmp/push /tmp/supacode-push.service /tmp/supacode-push-tunnel.service
+rm /tmp/push /tmp/supacode-push.service

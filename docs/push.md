@@ -9,8 +9,8 @@ recipient and notification identifiers. Optional encrypted previews pass through
 unchanged and activate the iOS Notification Service Extension. The gateway
 validates their encoding and byte limits without decrypting them. It stores
 APNs tokens, recipient generations, revocation hashes, and bounded delivery
-receipts. It receives no conversation
-plaintext and has no notification queue. The Supacode host owns unsent work and
+receipts. It receives no conversation plaintext and has no notification queue.
+The Supacode host owns unsent work and
 retries until expiry; APNs acceptance does not prove delivery to a device.
 
 ## Configure credentials
@@ -85,32 +85,52 @@ IDs allow the client to reconcile duplicate taps. This is best-effort delivery.
 
 ## Managed deployment
 
-The push gateway and its HTTPS ingress have independent systemd units and a
-separate deployment workflow. The production workflow uses the existing
-`production` environment's `EXE_SSH_KEY`; push-only source changes do not restart
-the relay.
+The production gateway runs on its own exe.dev VM, `supacode-push.exe.xyz`.
+exe.dev's public HTTPS proxy forwards to `127.0.0.1:18771` and serves
+`push.supacode.sh`. The gateway has one systemd unit and a separate deployment
+workflow. Push-only changes do not restart the relay. The workflow uses the
+`production` environment's `EXE_PUSH_SSH_KEY`, scoped to the
+`supacode-push-deploy` VM tag, and pins exe.dev's published SSH host key. The key
+is backed up in the password vault.
+
+Create the VM with:
+
+```sh
+ssh exe.dev new --name=supacode-push --cpu=1 --memory=2GB --disk=25GB --no-email --json
+ssh exe.dev tag supacode-push supacode-push-deploy --json
+```
 
 Provision `/etc/supacode-push` with mode `0700` and these root-owned files with
 mode `0600` before running the installer:
 
 - `push.env`: team ID, allowed topics, sandbox key ID, and production key ID.
 - `apns-sandbox.p8` and `apns-production.p8`: the matching vault exports.
-- `tunnel.token`: the credential for the dedicated remotely managed
-  Cloudflare Tunnel, also backed up in the password vault.
 
-Install the vendor's Linux AMD64 `cloudflared` binary at
-`/usr/local/bin/cloudflared`, with its published SHA256 verified. Configure the
-dedicated tunnel to send the push hostname to `http://127.0.0.1:18771`, with a
-final `http_status:404` rule, and point its proxied DNS record at that tunnel.
-This keeps the relay's listener and public routing independent.
-
-Build `cmd/push` for Linux AMD64, copy it to `/tmp/push`, and copy both service
-files from `deploy/` to `/tmp/` on the deployment host. Run
+Build `cmd/push` for Linux AMD64, copy it to `/tmp/push`, and copy
+`deploy/supacode-push.service` to `/tmp/` on the deployment host. Run
 [`deploy/install-push.sh`](../deploy/install-push.sh) over SSH. It installs the
-binary and both units, checks local gateway health, and enables the services.
-The units load credentials through systemd and protect the persistent SQLite
-directory with mode `0700`.
+binary and unit, checks local gateway health, and enables the service. The unit
+loads credentials through systemd and protects the persistent SQLite directory
+with mode `0700`.
 
-Check the public `/healthz` response and confirm an unsigned request to
-`/v1/push/enroll` returns `401`. Inspect both push units after a restart and
-confirm the relay process was not restarted by the push deployment.
+Select the gateway port and make its HTTPS proxy public:
+
+```sh
+ssh exe.dev share port supacode-push 18771 --json
+ssh exe.dev share set-public supacode-push --json
+```
+
+Point a DNS-only CNAME for `push.supacode.sh` at `supacode-push.exe.xyz`, then
+register the domain:
+
+```sh
+ssh exe.dev domain add supacode-push push.supacode.sh --json
+```
+
+exe.dev issues the TLS certificate. Keep Cloudflare proxying and CNAME
+flattening disabled for this record, as required by
+[exe.dev custom domains](https://exe.dev/docs/cnames).
+
+Check `/healthz` through both the VM hostname and custom hostname, and confirm
+an unsigned request to `/v1/push/enroll` returns `401`. After a gateway restart,
+check health and recipient state again.

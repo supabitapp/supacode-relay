@@ -8,7 +8,6 @@ on:
       - internal/push/**
       - deploy/install-push.sh
       - deploy/supacode-push.service
-      - deploy/supacode-push-tunnel.service
       - go.mod
       - go.sum
       - .github/workflows/ci.yml
@@ -33,7 +32,7 @@ jobs:
       name: production
       url: https://push.supacode.sh/
     env:
-      PUSH_HOST: supacode-relay.exe.xyz
+      PUSH_HOST: supacode-push.exe.xyz
       HOST_KEY: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEKtEcRW8OBtro5B/MG+EaisD+ZVwwHFa5m7M8wFwBlMmPJJssY+1aGBRW3b9InAeCnTU2Kt7gazqbg/9od1KnK6x5piQNVQZ4C/lrjsC2ScBrOydnw9ry9G2+voFCAk+dQGabIrIT6gqqDJNOqxgFiG/lA3Xx6KwpfwI2BH5f3ab2fHCR2BGAC5jlB2RJXPgly80hMxYEHqexhJxYRwC+deeLrQSG795we9rSzPmdz58t9+9jLTKkyyqWKe/hmBvty1AYrEmRsefu6/TUrIGi/UWJfa+RBIQtFgWqN6xT1F6rRwELeVOfwwr5tZbsmgWY5frZU3EOtVWcF7Ve3gfL
     steps:
       - uses: actions/checkout@v7
@@ -46,7 +45,7 @@ jobs:
           GOARCH: amd64
       - name: Configure SSH
         env:
-          SSH_KEY: ${{ secrets.EXE_SSH_KEY }}
+          SSH_KEY: ${{ secrets.EXE_PUSH_SSH_KEY }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
@@ -54,7 +53,7 @@ jobs:
           printf '%s %s\n' "$PUSH_HOST" "$HOST_KEY" > ~/.ssh/known_hosts
       - name: Install gateway
         run: |
-          scp -o BatchMode=yes bin/push deploy/supacode-push.service deploy/supacode-push-tunnel.service "$PUSH_HOST:/tmp/"
+          scp -o BatchMode=yes bin/push deploy/supacode-push.service "$PUSH_HOST:/tmp/"
           ssh -o BatchMode=yes "$PUSH_HOST" 'bash -s' < deploy/install-push.sh
       - name: Verify separate HTTPS ingress
         run: |
