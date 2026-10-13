@@ -12,7 +12,7 @@ Use Go 1.27.2 or later. The module selects Go 1.27.2 through its `toolchain` dir
 | `make bench` | Measure standalone relay echo throughput and latency on loopback |
 | `make bench-docker` | Measure the relay from another container and retain resource samples |
 
-Pull requests run `make test` and `make audit` in [CI](../.github/workflows/ci.yml). Code changes pushed to `main` run `make test` before deploying.
+Pull requests run `make -j2 test` and `make audit` in [CI](../.github/workflows/ci.yml). Code changes pushed to `main` run `make -j2 test` before deploying. The [CI ledger](ci-pipeline.md) records timings and the limits of the measured gain.
 
 The container suite checks the public surface, pairing and ordered streaming across 12 hosts, duplicate identity replacement, graceful restart and abrupt restart, per-client limits, and log privacy. It removes its containers and network on completion. Set `E2E_KEEP=1` to retain them, `E2E_SKIP_BUILD=1` to use existing images, or `E2E_RELAY_PORT` to change the published port.
 
