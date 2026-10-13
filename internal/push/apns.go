@@ -49,16 +49,8 @@ func (sender *APNsSender) Send(ctx context.Context, recipient Recipient, data ma
 	if client == nil {
 		return DeliveryResult{Retryable: true}
 	}
-	payload := map[string]any{
-		"aps": map[string]any{
-			"alert":     map[string]string{"title": "Supacode", "body": "Supacode has an update"},
-			"sound":     "default",
-			"thread-id": recipient.ID,
-		},
-		"supacode": data,
-	}
-	encoded, err := json.Marshal(payload)
-	if err != nil || len(encoded) > 4096 {
+	encoded, err := marshalAPNsPayload(recipient.ID, data)
+	if err != nil {
 		return DeliveryResult{}
 	}
 	response, err := client.PushWithContext(ctx, &apns2.Notification{
@@ -82,4 +74,23 @@ func (sender *APNsSender) Send(ctx context.Context, recipient Recipient, data ma
 		InvalidToken: invalid,
 		InvalidAt:    invalidAt,
 	}
+}
+
+func marshalAPNsPayload(recipientID string, data map[string]any) ([]byte, error) {
+	aps := map[string]any{
+		"alert": map[string]string{"title": "Supacode", "body": "Supacode has an update"},
+		"sound": "default", "thread-id": recipientID,
+	}
+	if data["preview"] != nil {
+		aps["mutable-content"] = 1
+	}
+	payload := map[string]any{
+		"aps":      aps,
+		"supacode": data,
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil || len(encoded) > 4096 {
+		return nil, fmt.Errorf("APNs payload exceeds its budget or cannot be encoded")
+	}
+	return encoded, nil
 }

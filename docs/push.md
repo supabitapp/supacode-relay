@@ -4,10 +4,13 @@
 a separate process and HTTPS origin. The existing relay deployment does not
 install or expose it.
 
-The gateway sends the fixed alert “Supacode has an update” with opaque recipient
-and notification identifiers. It stores APNs tokens, recipient generations,
-revocation hashes, and bounded delivery receipts. It receives no conversation
-content and has no notification queue. The Supacode host owns unsent work and
+The gateway sends the fixed fallback alert “Supacode has an update” with opaque
+recipient and notification identifiers. Optional encrypted previews pass through
+unchanged and activate the iOS Notification Service Extension. The gateway
+validates their encoding and byte limits without decrypting them. It stores
+APNs tokens, recipient generations, revocation hashes, and bounded delivery
+receipts. It receives no conversation
+plaintext and has no notification queue. The Supacode host owns unsent work and
 retries until expiry; APNs acceptance does not prove delivery to a device.
 
 ## Configure credentials
@@ -79,3 +82,35 @@ Capacity or transient APNs failures return a retryable response to the host.
 tokens, recipient IDs, or payloads. Check it and `/healthz` after a restart. A
 crash after APNs acceptance can cause a repeated delivery attempt; notification
 IDs allow the client to reconcile duplicate taps. This is best-effort delivery.
+
+## Managed deployment
+
+The push gateway and its HTTPS ingress have independent systemd units and a
+separate deployment workflow. The production workflow uses the existing
+`production` environment's `EXE_SSH_KEY`; push-only source changes do not restart
+the relay.
+
+Provision `/etc/supacode-push` with mode `0700` and these root-owned files with
+mode `0600` before running the installer:
+
+- `push.env`: team ID, allowed topics, sandbox key ID, and production key ID.
+- `apns-sandbox.p8` and `apns-production.p8`: the matching vault exports.
+- `tunnel.token`: the credential for the dedicated remotely managed
+  Cloudflare Tunnel, also backed up in the password vault.
+
+Install the vendor's Linux AMD64 `cloudflared` binary at
+`/usr/local/bin/cloudflared`, with its published SHA256 verified. Configure the
+dedicated tunnel to send the push hostname to `http://127.0.0.1:18771`, with a
+final `http_status:404` rule, and point its proxied DNS record at that tunnel.
+This keeps the relay's listener and public routing independent.
+
+Build `cmd/push` for Linux AMD64, copy it to `/tmp/push`, and copy both service
+files from `deploy/` to `/tmp/` on the deployment host. Run
+[`deploy/install-push.sh`](../deploy/install-push.sh) over SSH. It installs the
+binary and both units, checks local gateway health, and enables the services.
+The units load credentials through systemd and protect the persistent SQLite
+directory with mode `0700`.
+
+Check the public `/healthz` response and confirm an unsigned request to
+`/v1/push/enroll` returns `401`. Inspect both push units after a restart and
+confirm the relay process was not restarted by the push deployment.

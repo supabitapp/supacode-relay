@@ -3,9 +3,17 @@ name: Deploy
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - LICENSE
+    paths:
+      - cmd/relay/**
+      - internal/**
+      - "!internal/push/**"
+      - deploy/install-relay.sh
+      - deploy/supacode-relay.service
+      - Makefile
+      - go.mod
+      - go.sum
+      - .github/workflows/ci.yml
+      - .github/workflows/deploy.yml
   workflow_dispatch:
 
 permissions:

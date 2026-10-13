@@ -283,12 +283,13 @@ func (gateway *Gateway) revokeDevice(w http.ResponseWriter, r *http.Request, bod
 func (gateway *Gateway) send(ctx context.Context, w http.ResponseWriter, host string, body []byte, now time.Time) {
 	var request struct {
 		recipientRequest
-		Version        int    `json:"version"`
-		NotificationID string `json:"notificationId"`
-		CreatedAt      int64  `json:"createdAt"`
-		ExpiresAt      int64  `json:"expiresAt"`
+		Version        int              `json:"version"`
+		NotificationID string           `json:"notificationId"`
+		CreatedAt      int64            `json:"createdAt"`
+		ExpiresAt      int64            `json:"expiresAt"`
+		Preview        *PreviewEnvelope `json:"preview,omitempty"`
 	}
-	if decode(body, &request) != nil || !validRecipient(request.recipientRequest) || request.Version != 1 || !uuidPattern.MatchString(request.NotificationID) || request.CreatedAt > now.Add(5*time.Minute).UnixMilli() || request.ExpiresAt <= now.UnixMilli() || request.ExpiresAt <= request.CreatedAt || request.ExpiresAt > request.CreatedAt+int64((24*time.Hour)/time.Millisecond) {
+	if decode(body, &request) != nil || !validRecipient(request.recipientRequest) || request.Version != 1 || !uuidPattern.MatchString(request.NotificationID) || !request.Preview.valid() || request.CreatedAt < 0 || request.CreatedAt > now.Add(5*time.Minute).UnixMilli() || request.ExpiresAt <= now.UnixMilli() || request.ExpiresAt <= request.CreatedAt || request.ExpiresAt > request.CreatedAt+int64((24*time.Hour)/time.Millisecond) {
 		reply(w, 400, DeliveryResult{})
 		return
 	}
@@ -318,9 +319,14 @@ func (gateway *Gateway) send(ctx context.Context, w http.ResponseWriter, host st
 		reply(w, 404, DeliveryResult{})
 		return
 	}
-	result := gateway.sender.Send(ctx, current, map[string]any{
+	data := map[string]any{
 		"version": 1, "recipientId": recipient.ID, "generation": recipient.Generation, "notificationId": request.NotificationID,
-	}, request.NotificationID, time.UnixMilli(request.ExpiresAt))
+		"createdAt": request.CreatedAt, "expiresAt": request.ExpiresAt,
+	}
+	if request.Preview != nil {
+		data["preview"] = request.Preview
+	}
+	result := gateway.sender.Send(ctx, current, data, request.NotificationID, time.UnixMilli(request.ExpiresAt))
 	if result.InvalidToken && result.InvalidAt != 0 && result.InvalidAt < current.UpdatedAt {
 		result.InvalidToken, result.Retryable = false, true
 	}
