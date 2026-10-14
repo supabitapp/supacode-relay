@@ -7,7 +7,7 @@
 | `RELAY_MAX_QUEUE_BYTES` | `1048576` | Bytes queued per host control connection |
 | `RELAY_MAX_QUEUE_MESSAGES` | `256` | Notifications queued per host control connection |
 | `RELAY_MAX_CLIENTS` | `20000` | Pairs across the relay |
-| `RELAY_MAX_CLIENTS_PER_HOST` | `64` | Pairs per host. Matches the Supacode host's 64-pair cap; excess connections receive HTTP 503 |
+| `RELAY_MAX_CLIENTS_PER_HOST` | `64` | Pairs per host. Matches the Supaterm host's 64-pair cap; excess connections receive HTTP 503 |
 | `RELAY_MAX_CLIENTS_PER_HOST_PER_IP` | `16` | Pairs per host from one client network, including pending, active and closing pairs. Excess connections receive HTTP 429 |
 | `RELAY_MAX_PENDING_PER_HOST` | `64` | Pairs per host waiting to be accepted. Must not exceed `RELAY_MAX_CLIENTS_PER_HOST`, and takes effect only below it |
 | `RELAY_MAX_HOSTS` | `20000` | Connected hosts |
@@ -27,6 +27,6 @@
 
 Client quotas use one IPv4 address or one IPv6 `/64` prefix. IPv4-mapped IPv6 addresses share the IPv4 quota. Devices behind the same IPv4 NAT or within the same IPv6 `/64` share these limits. Keep `RELAY_MAX_CLIENTS_PER_HOST_PER_IP` below `RELAY_MAX_CLIENTS_PER_HOST` to leave capacity for other networks. Hosts with many clients on one network may need a higher per-network limit. The relay cannot distinguish application-authenticated clients inside encrypted traffic.
 
-The [production service](../deploy/supacode-relay.service) targets a 4 GiB machine: 8,000 hosts and pairs, 10,000 protocol connections, and 1,500 connections per client network. It sets a 2 GiB soft Go memory target and a 3 GiB systemd memory ceiling. These are admission and containment limits, not measured operating capacity. The systemd ceiling can terminate an overloaded service; allow space for control queues and socket memory when sizing a deployment.
+The [production service](../deploy/supaterm-relay.service) targets a 4 GiB machine: 8,000 hosts and pairs, 10,000 protocol connections, and 1,500 connections per client network. It sets a 2 GiB soft Go memory target and a 3 GiB systemd memory ceiling. These are admission and containment limits, not measured operating capacity. The systemd ceiling can terminate an overloaded service; allow space for control queues and socket memory when sizing a deployment.
 
 `RELAY_INGRESS_BUDGET_BYTES` and `RELAY_INGRESS_WEIGHT` are ignored. Streaming forwarding has no payload queue or ingress eviction budget.

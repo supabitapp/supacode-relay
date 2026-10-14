@@ -17,8 +17,9 @@ import (
 	"github.com/supabitapp/supacode-relay/internal/diagnostics"
 )
 
+var signaturePrefixes = []string{"supaterm-relay-v1\n", "supacode-relay-v1\n"}
+
 const (
-	signaturePrefix  = "supacode-relay-v1\n"
 	controlReadLimit = 4096
 	closeSuperseded  = 4001
 )
@@ -89,7 +90,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	}
 	trace.Event("control.challenge.sent")
 	_ = ws.SetReadDeadline(time.Now().Add(s.cfg.AuthTimeout))
-	if accepted, reason := verifyAuth(ws, pub, []byte(signaturePrefix+id+"\n"+nonce)); !accepted {
+	if accepted, reason := verifyAuth(ws, pub, id+"\n"+nonce); !accepted {
 		s.countRejection("authentication failed")
 		trace.Event("control.auth.failed", "reason", reason)
 		s.closeNow(ws, closeMsg{websocket.ClosePolicyViolation, "authentication failed"})
@@ -123,7 +124,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	s.removeHost(h)
 }
 
-func verifyAuth(ws *websocket.Conn, pub ed25519.PublicKey, msg []byte) (bool, string) {
+func verifyAuth(ws *websocket.Conn, pub ed25519.PublicKey, challenge string) (bool, string) {
 	typ, data, err := ws.ReadMessage()
 	if err != nil {
 		return false, diagnostics.ErrorKind(err)
@@ -145,10 +146,12 @@ func verifyAuth(ws *websocket.Conn, pub ed25519.PublicKey, msg []byte) (bool, st
 	if !ok {
 		return false, "invalid_signature_encoding"
 	}
-	if !ed25519.Verify(pub, msg, sig) {
-		return false, "signature_mismatch"
+	for _, prefix := range signaturePrefixes {
+		if ed25519.Verify(pub, []byte(prefix+challenge), sig) {
+			return true, ""
+		}
 	}
-	return true, ""
+	return false, "signature_mismatch"
 }
 
 func (s *Server) removeHost(h *host) {

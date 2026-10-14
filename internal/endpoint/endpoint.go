@@ -43,7 +43,7 @@ func B64(b []byte) string {
 }
 
 func SignChallenge(priv ed25519.PrivateKey, endpointID, nonce string) string {
-	return B64(ed25519.Sign(priv, []byte("supacode-relay-v1\n"+endpointID+"\n"+nonce)))
+	return B64(ed25519.Sign(priv, []byte("supaterm-relay-v1\n"+endpointID+"\n"+nonce)))
 }
 
 func DialControl(base, publicKey string) (*websocket.Conn, Event, *http.Response, error) {

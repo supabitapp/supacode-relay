@@ -24,10 +24,10 @@ jobs:
     runs-on: depot-ubuntu-24.04
     environment:
       name: production
-      url: https://relay.supacode.sh/
+      url: https://relay.supaterm.com/
     env:
-      PUBLIC_RELAY_URL: wss://relay.supacode.sh
-      RELAY_HOST: supacode-relay.exe.xyz
+      PUBLIC_RELAY_URL: wss://relay.supaterm.com
+      RELAY_HOST: supaterm-relay.exe.xyz
       HOST_KEY: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEKtEcRW8OBtro5B/MG+EaisD+ZVwwHFa5m7M8wFwBlMmPJJssY+1aGBRW3b9InAeCnTU2Kt7gazqbg/9od1KnK6x5piQNVQZ4C/lrjsC2ScBrOydnw9ry9G2+voFCAk+dQGabIrIT6gqqDJNOqxgFiG/lA3Xx6KwpfwI2BH5f3ab2fHCR2BGAC5jlB2RJXPgly80hMxYEHqexhJxYRwC+deeLrQSG795we9rSzPmdz58t9+9jLTKkyyqWKe/hmBvty1AYrEmRsefu6/TUrIGi/UWJfa+RBIQtFgWqN6xT1F6rRwELeVOfwwr5tZbsmgWY5frZU3EOtVWcF7Ve3gfL
     steps:
       - uses: actions/checkout@v7
@@ -48,7 +48,7 @@ jobs:
           printf '%s %s\n' "$RELAY_HOST" "$HOST_KEY" > ~/.ssh/known_hosts
       - name: Install relay
         run: |
-          scp -o BatchMode=yes bin/relay deploy/supacode-relay.service "$RELAY_HOST:/tmp/"
+          scp -o BatchMode=yes bin/relay deploy/supaterm-relay.service "$RELAY_HOST:/tmp/"
           ssh -o BatchMode=yes "$RELAY_HOST" 'bash -s' < deploy/install-relay.sh
       - name: Smoke test through the public endpoint
         run: |

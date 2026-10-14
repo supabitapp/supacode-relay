@@ -150,6 +150,29 @@ func TestAuthenticationTimeout(t *testing.T) {
 	expectClose(t, ws, websocket.ClosePolicyViolation)
 }
 
+func TestAcceptsLegacySupacodeSignature(t *testing.T) {
+	r := startRelay(t)
+	priv := newKey(t)
+	pub := priv.Public().(ed25519.PublicKey)
+	id := endpoint.EndpointID(pub)
+	ws, ch, resp, err := endpoint.DialControl(r.base, endpoint.B64(pub))
+	if err != nil {
+		t.Fatalf("%v (%s)", err, status(resp))
+	}
+	t.Cleanup(func() { ws.Close() })
+	signature := endpoint.B64(ed25519.Sign(priv, []byte("supacode-relay-v1\n"+id+"\n"+ch.Nonce)))
+	if err := ws.WriteJSON(map[string]string{"type": "authenticate", "signature": signature}); err != nil {
+		t.Fatal(err)
+	}
+	var reg endpoint.Event
+	if err := ws.ReadJSON(&reg); err != nil {
+		t.Fatal(err)
+	}
+	if reg.Type != "registered" || reg.EndpointID != id {
+		t.Fatalf("unexpected registration reply %+v", reg)
+	}
+}
+
 func TestStolenEndpointClaim(t *testing.T) {
 	r := startRelay(t)
 	victim := newKey(t)
