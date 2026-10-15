@@ -1,6 +1,6 @@
 # Multi-node relay
 
-> Historical architecture and measurements. The standalone implementation and deployment are described in [Deployment](deployment.md). Links to removed source files below refer to the [router implementation at 7127208](https://github.com/supabitapp/supacode-relay/tree/7127208224c9c012d86083c6817e7c80388c38ee).
+> Historical architecture and measurements. The standalone implementation and deployment are described in [Deployment](deployment.md). Links to removed source files below refer to the [router implementation at 7127208](https://github.com/supabitapp/supaterm-relay/tree/7127208224c9c012d86083c6817e7c80388c38ee).
 
 A router in front of several relay nodes. Clients and hosts keep using `/v1/control`, `/v1/connect`, and `/v1/accept`. The router decides which node serves each request.
 
@@ -61,7 +61,7 @@ nodes ── authenticated directory stream ──▶ router private :9090 (/hea
 
 ## Metrics
 
-The router's public `GET /metrics` returns indented JSON with connection and request counts, node labels and readiness, memory use, errors, and configured connection limits. It exposes aggregate activity and operational state. Tokens, keys, client IPs, endpoint identifiers, registration identifiers, internal node URLs, and payloads are excluded. The response fields are defined by [`handleMetrics`](https://github.com/supabitapp/supacode-relay/blob/7127208224c9c012d86083c6817e7c80388c38ee/cmd/router/main.go).
+The router's public `GET /metrics` returns indented JSON with connection and request counts, node labels and readiness, memory use, errors, and configured connection limits. It exposes aggregate activity and operational state. Tokens, keys, client IPs, endpoint identifiers, registration identifiers, internal node URLs, and payloads are excluded. The response fields are defined by [`handleMetrics`](https://github.com/supabitapp/supaterm-relay/blob/7127208224c9c012d86083c6817e7c80388c38ee/cmd/router/main.go).
 
 Public metrics use a separate limiter with the `ROUTER_ADMISSION_RATE` rate and burst. Polling consumes no WebSocket admission slots and remains available while the router drains. The private listener serves the same stats without this limiter. `/healthz` and `/v1/directory` remain private.
 
@@ -176,7 +176,7 @@ What these numbers support: for small and medium messages the router hop adds ro
 
 The live bulk throughput ceiling tracks shared VM upload capacity. Increasing backend count or changing WebSocket buffer sizes does not remove it. The [retained measurements](performance-transport-results.json) distinguish this transport constraint from relay CPU saturation.
 
-Measurements on 2026-10-10 use the live London VMs with two vCPUs and 4 GiB each. The probe derives from [benchmark source at 7bc0264](https://github.com/supabitapp/supacode-relay/blob/7bc0264536ba14a2934ff19beb406abde4e6b6c6/e2e/pathbench/main.go). Live revisions are `cdbb53b75a4fd1750d674c737afbbbf60c389a58` and `7127208224c9c012d86083c6817e7c80388c38ee`; their forwarding code is identical.
+Measurements on 2026-10-10 use the live London VMs with two vCPUs and 4 GiB each. The probe derives from [benchmark source at 7bc0264](https://github.com/supabitapp/supaterm-relay/blob/7bc0264536ba14a2934ff19beb406abde4e6b6c6/e2e/pathbench/main.go). Live revisions are `cdbb53b75a4fd1750d674c737afbbbf60c389a58` and `7127208224c9c012d86083c6817e7c80388c38ee`; their forwarding code is identical.
 
 These are observed rates, not a documented provider quota or a maximum production capacity. The guest does not expose the configuration behind the effective upload ceiling. A deployment occurred between measurement groups; each measured case kept one service process ID.
 

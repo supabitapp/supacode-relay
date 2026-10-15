@@ -2,7 +2,7 @@
 
 Keep the queue, admission, and proxy-identity fuzz targets for generated invariant checks. Run memory churn as a separate opt-in test, with heap profiles available for investigation. Limit the socket-based lifecycle fuzzer by execution count on developer machines. The Base64 target costs little to maintain, but tests a small wrapper around the standard library.
 
-The measurements below describe local experiments against the relay source at [b41df22](https://github.com/supabitapp/supacode-relay/tree/b41df22e5a2b68c23c3c1c39c754bde715db56d5), with the adjacent test harnesses. No production relay was contacted. [Retained results](fuzz-testing-results.json) contain commands, execution summaries, memory samples, and synthetic-fault check results.
+The measurements below describe local experiments against the relay source at [b41df22](https://github.com/supabitapp/supaterm-relay/tree/b41df22e5a2b68c23c3c1c39c754bde715db56d5), with the adjacent test harnesses. No production relay was contacted. [Retained results](fuzz-testing-results.json) contain commands, execution summaries, memory samples, and synthetic-fault check results.
 
 ## Fuzz measurements
 

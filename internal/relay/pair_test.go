@@ -17,8 +17,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/diagnostics"
-	"github.com/supabitapp/supacode-relay/internal/endpoint"
+	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
+	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
 type handlerBarrier struct {

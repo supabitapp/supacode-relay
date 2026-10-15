@@ -65,7 +65,7 @@ func TestClientTagsUseTheSameForwardedAddressAsAdmission(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &record); err != nil {
 		t.Fatal(err)
 	}
-	if record["client_tag"] != Tag("203.0.113.2") {
+	if record["client_tag"] != "Tw_NyV0lPL2m" {
 		t.Fatalf("wrong client attribution: %v", record)
 	}
 }

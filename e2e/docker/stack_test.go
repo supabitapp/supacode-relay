@@ -53,7 +53,7 @@ func runTests(m *testing.M) int {
 	port := getenv("E2E_RELAY_PORT", "18480")
 	st = &stack{
 		file:    file,
-		project: getenv("E2E_PROJECT", fmt.Sprintf("supacode-relay-e2e-%d", os.Getpid())),
+		project: getenv("E2E_PROJECT", fmt.Sprintf("supaterm-relay-e2e-%d", os.Getpid())),
 		port:    port,
 		base:    "ws://127.0.0.1:" + port,
 		http:    "http://127.0.0.1:" + port,
@@ -209,7 +209,7 @@ func (s *stack) record(key string, v any) {
 }
 
 func (s *stack) writeReport() {
-	dir := getenv("E2E_OUT", filepath.Join(os.TempDir(), "supacode-relay-docker-e2e"))
+	dir := getenv("E2E_OUT", filepath.Join(os.TempDir(), "supaterm-relay-docker-e2e"))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return
 	}

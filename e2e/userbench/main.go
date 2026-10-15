@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/supabitapp/supacode-relay/internal/endpoint"
+	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
 var (

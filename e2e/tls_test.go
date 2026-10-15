@@ -19,7 +19,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/endpoint"
+	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
 type wsConn struct {
@@ -172,7 +172,7 @@ func dialTLS(t *testing.T, r *relay, endpointID string, pinned *x509.Certificate
 	pool := x509.NewCertPool()
 	pool.AddCert(pinned)
 	wc := &wsConn{ws: ws}
-	conn := tls.Client(wc, &tls.Config{RootCAs: pool, ServerName: "supacode-test-host", MinVersion: tls.VersionTLS13})
+	conn := tls.Client(wc, &tls.Config{RootCAs: pool, ServerName: "supaterm-test-host", MinVersion: tls.VersionTLS13})
 	_ = conn.SetDeadline(time.Now().Add(deadline))
 	return conn, wc, conn.Handshake()
 }
@@ -193,8 +193,8 @@ func roundTrip(conn *tls.Conn, rd *bufio.Reader, req string) error {
 
 func TestEndToEndEncryptedExchange(t *testing.T) {
 	r := startRelay(t)
-	hostCert, hostLeaf := selfSigned(t, "supacode-test-host")
-	impostorCert, _ := selfSigned(t, "supacode-test-host")
+	hostCert, hostLeaf := selfSigned(t, "supaterm-test-host")
+	impostorCert, _ := selfSigned(t, "supaterm-test-host")
 	h := register(t, r)
 	impostor := register(t, r)
 	th := serveTLS(t, h, hostCert)

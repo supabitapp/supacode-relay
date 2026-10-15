@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/supabitapp/supacode-relay/internal/admission"
+	"github.com/supabitapp/supaterm-relay/internal/admission"
 )
 
 type Config struct {

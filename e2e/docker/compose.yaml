@@ -1,8 +1,8 @@
-name: ${E2E_PROJECT:-supacode-relay-e2e}
+name: ${E2E_PROJECT:-supaterm-relay-e2e}
 
 services:
   relay:
-    image: supacode-relay:e2e
+    image: supaterm-relay:e2e
     build:
       context: ../..
       target: relay
@@ -37,7 +37,7 @@ services:
       start_period: 2s
 
   probe:
-    image: supacode-relay-tools:e2e
+    image: supaterm-relay-tools:e2e
     build:
       context: ../..
       target: tools
@@ -49,7 +49,7 @@ services:
         ipv4_address: 10.231.2.50
 
   bench:
-    image: supacode-relay-tools:e2e
+    image: supaterm-relay-tools:e2e
     profiles: [bench]
     read_only: true
     cap_drop: [ALL]

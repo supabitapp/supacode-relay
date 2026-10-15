@@ -9,7 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/diagnostics"
+	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 type peer struct {
