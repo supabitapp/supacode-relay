@@ -21,7 +21,7 @@ The handshake and cipher live in Supaterm's [`packages/shared/src/relay/protocol
 
 ## Use
 
-Supaterm uses the public relay at `wss://relay.supaterm.com`, which also accepts hosts from Supacode builds. To use your own, set **Settings → Connections → Public relay → Relay server** on the host before creating pairing links.
+Supaterm uses the public relay at `wss://relay.supaterm.com`. The same relay serves `wss://relay.supacode.sh` for Supacode builds. To use your own, set **Settings → Connections → Public relay → Relay server** on the host before creating pairing links.
 
 ## Run
 
