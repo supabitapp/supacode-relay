@@ -14,7 +14,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/diagnostics"
+	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 var signaturePrefixes = []string{"supaterm-relay-v1\n", "supacode-relay-v1\n"}

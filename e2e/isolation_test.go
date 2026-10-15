@@ -7,7 +7,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/endpoint"
+	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
 func TestMultipleHostsNoCrossDelivery(t *testing.T) {

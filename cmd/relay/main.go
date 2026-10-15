@@ -10,9 +10,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/supabitapp/supacode-relay/internal/diagnostics"
-	"github.com/supabitapp/supacode-relay/internal/healthcheck"
-	"github.com/supabitapp/supacode-relay/internal/relay"
+	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
+	"github.com/supabitapp/supaterm-relay/internal/healthcheck"
+	"github.com/supabitapp/supaterm-relay/internal/relay"
 )
 
 func main() {

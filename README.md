@@ -28,8 +28,8 @@ Supaterm uses the public relay at `wss://relay.supaterm.com`. The same relay ser
 With Go 1.27.2 or later, `make run` listens on `127.0.0.1:8080`. Open `http://127.0.0.1:8080/dashboard/` for live status. With Docker:
 
 ```sh
-docker build -t supacode-relay .
-docker run -p 8080:8080 supacode-relay
+docker build -t supaterm-relay .
+docker run -p 8080:8080 supaterm-relay
 ```
 
 ## Deploy

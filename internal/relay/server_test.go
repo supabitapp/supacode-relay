@@ -13,8 +13,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/dashboard"
-	"github.com/supabitapp/supacode-relay/internal/diagnostics"
+	"github.com/supabitapp/supaterm-relay/internal/dashboard"
+	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 func TestCloseNowPongsCannotExtendDrain(t *testing.T) {

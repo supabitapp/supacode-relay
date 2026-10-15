@@ -16,10 +16,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/admission"
+	"github.com/supabitapp/supaterm-relay/internal/admission"
 )
 
-const Header = "X-Supacode-Relay-Trace"
+const Header = "X-Supaterm-Relay-Trace"
 
 type traceKey struct{}
 
@@ -37,7 +37,7 @@ func Tag(value string) string {
 	if value == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte("supacode-relay-diagnostics/v1/" + value))
+	sum := sha256.Sum256([]byte("supaterm-relay-diagnostics/v1/" + value))
 	return base64.RawURLEncoding.EncodeToString(sum[:9])
 }
 

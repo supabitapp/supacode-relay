@@ -2,7 +2,7 @@
 
 The measured end-to-end speedup is inconclusive. Static checks overlap race tests on the existing runner, but two branch attempts do not establish a shorter PR wait.
 
-Measured on 2026-10-12 at [01b8b4b](https://github.com/supabitapp/supacode-relay/commit/01b8b4bdf40192bd1fa2c46414c29bd8f17a6885). The [CI workflow](../.github/workflows/ci.yml) runs `make -j2 test` and an independent vulnerability audit. The [deployment workflow](../.github/workflows/deploy.yml) waits for reusable CI before building, installing, and probing production.
+Measured on 2026-10-12 at [01b8b4b](https://github.com/supabitapp/supaterm-relay/commit/01b8b4bdf40192bd1fa2c46414c29bd8f17a6885). The [CI workflow](../.github/workflows/ci.yml) runs `make -j2 test` and an independent vulnerability audit. The [deployment workflow](../.github/workflows/deploy.yml) waits for reusable CI before building, installing, and probing production.
 
 ## Before and after
 
@@ -22,16 +22,16 @@ Observed median wall-time saving: **0s (0%)**. Projected saving: **3s (7.9%)**, 
 
 | PR run | Attempt | Configuration | Wall | Test recipe | Runner time |
 | --- | ---: | --- | ---: | ---: | ---: |
-| [38071983069](https://github.com/supabitapp/supacode-relay/actions/runs/38071983069) | 1 | Serial | 34s | 19s | 55s |
-| [38073300467](https://github.com/supabitapp/supacode-relay/actions/runs/38073300467) | 1 | Serial | 41s | 20s | 56s |
-| [38128017354](https://github.com/supabitapp/supacode-relay/actions/runs/38128017354) | 1 | Serial | 39s | 24s | 55s |
-| [38149987794](https://github.com/supabitapp/supacode-relay/actions/runs/38149987794) | 1 | Serial | 38s | 23s | 54s |
-| [38322295330](https://github.com/supabitapp/supacode-relay/actions/runs/38322295330/attempts/1) | 1 | Parallel | 60s | 20s | 77s |
-| [38322295330](https://github.com/supabitapp/supacode-relay/actions/runs/38322295330/attempts/2) | 2 | Parallel | 38s | 21s | 58s |
+| [38071983069](https://github.com/supabitapp/supaterm-relay/actions/runs/38071983069) | 1 | Serial | 34s | 19s | 55s |
+| [38073300467](https://github.com/supabitapp/supaterm-relay/actions/runs/38073300467) | 1 | Serial | 41s | 20s | 56s |
+| [38128017354](https://github.com/supabitapp/supaterm-relay/actions/runs/38128017354) | 1 | Serial | 39s | 24s | 55s |
+| [38149987794](https://github.com/supabitapp/supaterm-relay/actions/runs/38149987794) | 1 | Serial | 38s | 23s | 54s |
+| [38322295330](https://github.com/supabitapp/supaterm-relay/actions/runs/38322295330/attempts/1) | 1 | Parallel | 60s | 20s | 77s |
+| [38322295330](https://github.com/supabitapp/supaterm-relay/actions/runs/38322295330/attempts/2) | 2 | Parallel | 38s | 21s | 58s |
 
-Only five historical PR run IDs existed when sampled. Run [38073759005](https://github.com/supabitapp/supacode-relay/actions/runs/38073759005) mixed a failed attempt with a partial rerun and is excluded. The two after samples rerun the same SHA, so they are not independent commits. Earlier PRs also contain different application revisions. Twenty comparable PR samples and a controlled comparison are unavailable.
+Only five historical PR run IDs existed when sampled. Run [38073759005](https://github.com/supabitapp/supaterm-relay/actions/runs/38073759005) mixed a failed attempt with a partial rerun and is excluded. The two after samples rerun the same SHA, so they are not independent commits. Earlier PRs also contain different application revisions. Twenty comparable PR samples and a controlled comparison are unavailable.
 
-The seven comparable main runs are [38073286869](https://github.com/supabitapp/supacode-relay/actions/runs/38073286869), [38073369368](https://github.com/supabitapp/supacode-relay/actions/runs/38073369368), [38074333567](https://github.com/supabitapp/supacode-relay/actions/runs/38074333567), [38129151881](https://github.com/supabitapp/supacode-relay/actions/runs/38129151881), [38145300298](https://github.com/supabitapp/supacode-relay/actions/runs/38145300298), [38150269233](https://github.com/supabitapp/supacode-relay/actions/runs/38150269233), and [38251983941](https://github.com/supabitapp/supacode-relay/actions/runs/38251983941). The broader reference includes the 20 most recent successful deploy runs at measurement time and spans earlier workflow layouts. No branch measurement deploys production.
+The seven comparable main runs are [38073286869](https://github.com/supabitapp/supaterm-relay/actions/runs/38073286869), [38073369368](https://github.com/supabitapp/supaterm-relay/actions/runs/38073369368), [38074333567](https://github.com/supabitapp/supaterm-relay/actions/runs/38074333567), [38129151881](https://github.com/supabitapp/supaterm-relay/actions/runs/38129151881), [38145300298](https://github.com/supabitapp/supaterm-relay/actions/runs/38145300298), [38150269233](https://github.com/supabitapp/supaterm-relay/actions/runs/38150269233), and [38251983941](https://github.com/supabitapp/supaterm-relay/actions/runs/38251983941). The broader reference includes the 20 most recent successful deploy runs at measurement time and spans earlier workflow layouts. No branch measurement deploys production.
 
 ## Critical path and verification
 
@@ -66,4 +66,4 @@ The count comes from `git ls-tree -r --name-only 01b8b4b` filtered to `_test.go`
 
 Additional test jobs would duplicate roughly 13s of startup and setup in the representative baseline. Sharding waits until execution dominates that tax and repeated samples justify it. Runner changes require an unchanged-pipeline comparison and approval for increased spending. Deploy optimization waits for measurements after merge; production installation and smoke checks remain mandatory. Cache changes wait for evidence that restore or save dominates the path.
 
-To reproduce, fetch each run and its attempt-specific jobs through `gh api repos/supabitapp/supacode-relay/actions/runs/<id>` and `gh api repos/supabitapp/supacode-relay/actions/runs/<id>/attempts/<attempt>/jobs`. Calculate durations from timestamps, drop skipped jobs, and apply the percentile index above. Fetch test logs with `gh run view <id> --repo supabitapp/supacode-relay --attempt <attempt> --log`.
+To reproduce, fetch each run and its attempt-specific jobs through `gh api repos/supabitapp/supaterm-relay/actions/runs/<id>` and `gh api repos/supabitapp/supaterm-relay/actions/runs/<id>/attempts/<attempt>/jobs`. Calculate durations from timestamps, drop skipped jobs, and apply the percentile index above. Fetch test logs with `gh run view <id> --repo supabitapp/supaterm-relay --attempt <attempt> --log`.

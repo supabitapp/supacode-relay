@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
-project="${E2E_PROJECT:-supacode-relay-bench-$$}"
-out="${RELAY_BENCH_OUT:-$(mktemp -d "${TMPDIR:-/tmp}/supacode-relay-bench.XXXXXX")}"
+project="${E2E_PROJECT:-supaterm-relay-bench-$$}"
+out="${RELAY_BENCH_OUT:-$(mktemp -d "${TMPDIR:-/tmp}/supaterm-relay-bench.XXXXXX")}"
 mkdir -p "$out"
 dc() { docker compose -p "$project" -f compose.yaml "$@"; }
 sampler=""

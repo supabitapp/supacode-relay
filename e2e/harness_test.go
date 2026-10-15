@@ -20,7 +20,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supacode-relay/internal/endpoint"
+	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
 const deadline = 5 * time.Second
@@ -28,7 +28,7 @@ const deadline = 5 * time.Second
 var relayBin, probeBin string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "supacode-relay-e2e")
+	dir, err := os.MkdirTemp("", "supaterm-relay-e2e")
 	if err != nil {
 		panic(err)
 	}
