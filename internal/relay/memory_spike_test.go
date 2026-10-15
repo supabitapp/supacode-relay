@@ -74,7 +74,7 @@ func TestConnectionChurnMemory(t *testing.T) {
 }
 
 func TestMemoryRelayProcess(t *testing.T) {
-	if os.Getenv("SUPATERM_RELAY_MEMORY_CHILD") != "1" {
+	if os.Getenv("RELAY_MEMORY_SPIKE_CHILD") != "1" {
 		t.Skip("isolated relay process for the memory measurements")
 	}
 	if os.Getenv("RELAY_MEMORY_SPIKE_PROFILE_DIR") != "" {
@@ -139,7 +139,7 @@ func startMemoryRelay(t *testing.T) string {
 		t.Fatal(err)
 	}
 	cmd := exec.Command(binary, "-test.run=^TestMemoryRelayProcess$", "-test.timeout=5m")
-	cmd.Env = append(os.Environ(), "SUPATERM_RELAY_MEMORY_CHILD=1", "GORACE=atexit_sleep_ms=0")
+	cmd.Env = append(os.Environ(), "RELAY_MEMORY_SPIKE_CHILD=1", "GORACE=atexit_sleep_ms=0")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdin, err := cmd.StdinPipe()
