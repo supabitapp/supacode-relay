@@ -29,22 +29,18 @@ func newQueue(maxBytes, maxMsgs int) *queue {
 }
 
 func (q *queue) push(f frame) bool {
-	return q.enqueue(f) != "queue_full"
-}
-
-func (q *queue) enqueue(f frame) string {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if q.final != nil {
-		return "queue_finished"
+		return true
 	}
 	if len(q.items) >= q.maxMsgs || len(f.data) > q.maxBytes-q.bytes {
-		return "queue_full"
+		return false
 	}
 	q.items = append(q.items, f)
 	q.bytes += len(f.data)
 	q.signal()
-	return "queued"
+	return true
 }
 
 func (q *queue) finish(c closeMsg, discard bool) {

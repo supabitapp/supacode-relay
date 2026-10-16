@@ -42,8 +42,7 @@ func newLifecycleServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(cfg)
-	return s
+	return New(cfg)
 }
 
 func closeLifecycleSockets(s *Server) {

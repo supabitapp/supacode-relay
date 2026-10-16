@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -75,7 +76,9 @@ type relay struct {
 	addr     string
 	privAddr string
 	base     string
+	lines    chan string
 	stderr   *lockedBuffer
+	silent   bool
 	exited   chan struct{}
 	exitErr  error
 }
@@ -99,7 +102,7 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	for _, kv := range env {
 		wantPrivate = wantPrivate || strings.HasPrefix(kv, "RELAY_PRIVATE_ADDR=")
 	}
-	r := &relay{t: t, cmd: cmd, stderr: &lockedBuffer{}, exited: make(chan struct{})}
+	r := &relay{t: t, cmd: cmd, lines: make(chan string, 4), stderr: &lockedBuffer{}, exited: make(chan struct{})}
 	cmd.Stderr = r.stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -108,12 +111,11 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	lines := make(chan string, 4)
 	go func() {
 		sc := bufio.NewScanner(stdout)
 		for sc.Scan() {
 			select {
-			case lines <- sc.Text():
+			case r.lines <- sc.Text():
 			default:
 			}
 		}
@@ -127,7 +129,7 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	timeout := time.After(10 * time.Second)
 	for r.addr == "" || (wantPrivate && r.privAddr == "") {
 		select {
-		case line := <-lines:
+		case line := <-r.lines:
 			var ev struct{ Event, Address, Listener string }
 			if err := json.Unmarshal([]byte(line), &ev); err != nil || ev.Event != "listening" {
 				t.Fatalf("unexpected startup line %q", line)
@@ -155,7 +157,23 @@ func (r *relay) adminAddr() string {
 }
 
 func (r *relay) signal(sig syscall.Signal) {
+	r.expectSilent()
 	_ = r.cmd.Process.Signal(sig)
+}
+
+func (r *relay) expectSilent() {
+	if r.silent {
+		return
+	}
+	r.silent = true
+	select {
+	case line := <-r.lines:
+		r.t.Errorf("relay printed after startup: %s", line)
+	default:
+	}
+	if stderr := r.stderr.String(); stderr != "" {
+		r.t.Errorf("relay wrote to stderr before shutdown:\n%s", stderr)
+	}
 }
 
 func (r *relay) waitExit(timeout time.Duration) error {
@@ -166,6 +184,8 @@ func (r *relay) waitExit(timeout time.Duration) error {
 		return errors.New("relay did not exit")
 	}
 }
+
+var shutdownLine = regexp.MustCompile(`^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d relay: (draining|stopped after \S+ with \d+ pairs force-closed)$`)
 
 func (r *relay) stop() {
 	select {
@@ -179,8 +199,16 @@ func (r *relay) stop() {
 			<-r.exited
 		}
 	}
-	if strings.Contains(r.stderr.String(), "DATA RACE") || strings.Contains(r.stderr.String(), "panic:") {
-		r.t.Errorf("relay reported a failure:\n%s", r.stderr)
+	select {
+	case line := <-r.lines:
+		r.t.Errorf("relay printed during shutdown: %s", line)
+	default:
+	}
+	for line := range strings.Lines(r.stderr.String()) {
+		if !shutdownLine.MatchString(strings.TrimSuffix(line, "\n")) {
+			r.t.Errorf("relay wrote more than its shutdown lines:\n%s", r.stderr)
+			return
+		}
 	}
 }
 

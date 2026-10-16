@@ -2,10 +2,16 @@ package relay
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +19,62 @@ import (
 
 	"github.com/supabitapp/supaterm-relay/internal/dashboard"
 )
+
+type logCapture struct {
+	mu  sync.Mutex
+	buf strings.Builder
+}
+
+func (c *logCapture) Write(p []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.buf.Write(p)
+}
+
+func (c *logCapture) String() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.buf.String()
+}
+
+func TestHandlerPanicsAreLoggedWithoutThePeer(t *testing.T) {
+	logs := &logCapture{}
+	previous := log.Writer()
+	log.SetOutput(logs)
+	t.Cleanup(func() { log.SetOutput(previous) })
+	server := newHTTPServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panicFor(netip.MustParseAddr("203.0.113.77"))
+	}))
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = server.Serve(ln) }()
+	t.Cleanup(func() { _ = server.Close() })
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	fmt.Fprint(conn, "GET / HTTP/1.1\r\nHost: relay\r\n\r\n")
+	_, _ = io.ReadAll(conn)
+	out := logs.String()
+	if !strings.Contains(out, "relay: panic: handler failed") || !strings.Contains(out, "relay.panicFor") {
+		t.Fatalf("panic log should name the panic and its frames:\n%s", out)
+	}
+	for _, leak := range []string{conn.LocalAddr().String(), "panicFor("} {
+		if strings.Contains(out, leak) {
+			t.Fatalf("panic log exposed the peer or frame arguments (%s):\n%s", leak, out)
+		}
+	}
+}
+
+//go:noinline
+func panicFor(addr netip.Addr) {
+	if addr.IsValid() {
+		panic("handler failed")
+	}
+}
 
 func TestCloseNowPongsCannotExtendDrain(t *testing.T) {
 	server := New(Config{Heartbeat: time.Second, WriteTimeout: time.Second})
