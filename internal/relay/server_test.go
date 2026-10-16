@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"reflect"
 	"strings"
 	"sync"
@@ -41,7 +42,9 @@ func TestHandlerPanicsAreLoggedWithoutThePeer(t *testing.T) {
 	previous := log.Writer()
 	log.SetOutput(logs)
 	t.Cleanup(func() { log.SetOutput(previous) })
-	server := newHTTPServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic("handler failed") }))
+	server := newHTTPServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panicFor(netip.MustParseAddr("203.0.113.77"))
+	}))
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -56,8 +59,20 @@ func TestHandlerPanicsAreLoggedWithoutThePeer(t *testing.T) {
 	fmt.Fprint(conn, "GET / HTTP/1.1\r\nHost: relay\r\n\r\n")
 	_, _ = io.ReadAll(conn)
 	out := logs.String()
-	if !strings.Contains(out, "relay: panic: handler failed") || strings.Contains(out, conn.LocalAddr().String()) {
-		t.Fatalf("panic log should name the panic but not the peer %s:\n%s", conn.LocalAddr(), out)
+	if !strings.Contains(out, "relay: panic: handler failed") || !strings.Contains(out, "relay.panicFor") {
+		t.Fatalf("panic log should name the panic and its frames:\n%s", out)
+	}
+	for _, leak := range []string{conn.LocalAddr().String(), "panicFor("} {
+		if strings.Contains(out, leak) {
+			t.Fatalf("panic log exposed the peer or frame arguments (%s):\n%s", leak, out)
+		}
+	}
+}
+
+//go:noinline
+func panicFor(addr netip.Addr) {
+	if addr.IsValid() {
+		panic("handler failed")
 	}
 }
 

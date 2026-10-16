@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -184,6 +185,8 @@ func (r *relay) waitExit(timeout time.Duration) error {
 	}
 }
 
+var shutdownLine = regexp.MustCompile(`^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d relay: (draining|stopped after \S+ with \d+ pairs force-closed)$`)
+
 func (r *relay) stop() {
 	select {
 	case <-r.exited:
@@ -196,8 +199,16 @@ func (r *relay) stop() {
 			<-r.exited
 		}
 	}
-	if strings.Contains(r.stderr.String(), "DATA RACE") || strings.Contains(r.stderr.String(), "panic:") {
-		r.t.Errorf("relay reported a failure:\n%s", r.stderr)
+	select {
+	case line := <-r.lines:
+		r.t.Errorf("relay printed during shutdown: %s", line)
+	default:
+	}
+	for line := range strings.Lines(r.stderr.String()) {
+		if !shutdownLine.MatchString(strings.TrimSuffix(line, "\n")) {
+			r.t.Errorf("relay wrote more than its shutdown lines:\n%s", r.stderr)
+			return
+		}
 	}
 }
 
