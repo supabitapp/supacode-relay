@@ -2,17 +2,20 @@ import assert from "node:assert/strict";
 import { createServer, connect } from "node:net";
 import { setImmediate as tick } from "node:timers/promises";
 import { once } from "node:events";
-import { Peer } from "../transport/peer.js";
+import { Peer, socketHighWaterMark } from "../transport/peer.js";
 
 const peers = new Set<Peer>();
 let echo = true;
-const server = createServer({ highWaterMark: 4096 }, (socket) => {
-  const peer = new Peer(socket, 32 << 20, 1000);
-  peers.add(peer);
-  if (echo) peer.forwardTo(peer, () => {});
-  peer.onClosed = () => peers.delete(peer);
-  peer.start();
-});
+const server = createServer(
+  { highWaterMark: socketHighWaterMark },
+  (socket) => {
+    const peer = new Peer(socket, 32 << 20, 1000);
+    peers.add(peer);
+    if (echo) peer.forwardTo(peer, () => {});
+    peer.onClosed = () => peers.delete(peer);
+    peer.start();
+  },
+);
 server.listen(0, "127.0.0.1");
 await once(server, "listening");
 const address = server.address();
@@ -54,7 +57,13 @@ for (let i = 0; i < wire.length; i += 6) {
   wire[i + 1] = 128;
 }
 await new Promise<void>((resolve) => control.write(wire, () => resolve()));
-while ([...peers][0]!.socket.bytesRead < wire.length) await tick();
+control.write(Buffer.from([0x89, 0x80, 0, 0, 0, 0]));
+let pong = Buffer.alloc(0);
+for await (const chunk of control.iterator({ destroyOnReturn: false })) {
+  pong = Buffer.concat([pong, chunk]);
+  if (pong.length >= 2) break;
+}
+assert.deepEqual(pong, Buffer.from([0x8a, 0]));
 assert.ok(
   (await retained()) - baseline < 8 << 20,
   "empty fragments retained an unbounded control assembly",

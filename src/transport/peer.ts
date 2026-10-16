@@ -8,6 +8,11 @@ import {
   type CloseMessage,
 } from "./decoder.js";
 
+export const socketHighWaterMark = 64 << 10;
+const forwardingBufferBytes = 16 << 10;
+export const dataBufferBytesPerSocket =
+  socketHighWaterMark + forwardingBufferBytes;
+
 export class Peer {
   readonly decoder: Decoder;
   private readonly writes = new Set<Buffer>();
@@ -39,6 +44,7 @@ export class Peer {
   onMessage: ((opcode: number, payload: Buffer) => void) | undefined;
   private onCapacity: (() => number) | undefined;
   private forwardingBuffer: Buffer | undefined;
+  private forwardingDestination: Socket | undefined;
   onFailure: (cause: CloseMessage) => void = () => {};
   onClosed: () => void = () => {};
 
@@ -115,6 +121,7 @@ export class Peer {
       this.onData = undefined;
       this.onCapacity = undefined;
       this.forwardingBuffer = undefined;
+      this.forwardingDestination = undefined;
       this.blockedOn?.waiters.delete(this);
       this.blockedOn = undefined;
       this.failure({ code: 1001, reason: "peer disconnected" });
@@ -124,8 +131,9 @@ export class Peer {
   }
 
   forwardTo(destination: Peer, delivered: (bytes: number) => void): void {
-    const buffer = Buffer.allocUnsafe(16 << 10);
+    const buffer = Buffer.allocUnsafe(forwardingBufferBytes);
     this.forwardingBuffer = buffer;
+    this.forwardingDestination = destination.socket;
     let used = 0;
     let messageBytes = 0;
     let opcode = 2;
@@ -133,17 +141,21 @@ export class Peer {
     this.onCapacity = () => buffer.length - used;
     this.onData = (type, first, payload, final) => {
       if (first) opcode = type;
-      payload.copy(buffer, used);
-      used += payload.length;
       messageBytes += payload.length;
       if (destination.dataWrites)
         destination.writeDeadline.set(destination.deliveryTimeout);
-      if (used < buffer.length && !final) return true;
+      let output = payload;
+      if (used > 0 || (!final && payload.length < buffer.length)) {
+        payload.copy(buffer, used);
+        used += payload.length;
+        if (used < buffer.length && !final) return true;
+        output = buffer.subarray(0, used);
+      }
       const bytes = messageBytes;
       const ready = destination.send(
         firstFragment ? opcode : 0,
         final,
-        buffer.subarray(0, used),
+        output,
         (error) => {
           if (error)
             this.onFailure({ code: 1013, reason: "peer write timeout" });
@@ -192,6 +204,8 @@ export class Peer {
   private pump(): void {
     if (!this.reading || this.closing || this.blockedOn || this.pumping) return;
     this.pumping = true;
+    const destination = this.forwardingDestination;
+    destination?.cork();
     try {
       if (!this.decoder.feed()) return;
       for (
@@ -218,6 +232,7 @@ export class Peer {
           : { code: 1001, reason: "peer disconnected" },
       );
     } finally {
+      destination?.uncork();
       this.pumping = false;
     }
   }

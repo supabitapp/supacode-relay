@@ -15,7 +15,7 @@ import type { Metrics } from "./metrics.js";
 import { Deadline } from "./deadline.js";
 import { Dashboard } from "./dashboard.js";
 import { Pair, Relay, decodeB64 } from "./relay.js";
-import { Peer } from "./transport/peer.js";
+import { Peer, socketHighWaterMark } from "./transport/peer.js";
 
 export class Reply {
   readonly headers: Record<string, string> = {};
@@ -78,7 +78,7 @@ export class RelayServer {
   private createHTTP(privateListener: boolean): Server {
     const server = createServer(
       {
-        highWaterMark: 4096,
+        highWaterMark: socketHighWaterMark,
         maxHeaderSize: 1 << 20,
         headersTimeout: 5000,
         requestTimeout: 5000,

@@ -1,4 +1,34 @@
 import { isUtf8 } from "node:buffer";
+import { endianness } from "node:os";
+
+const littleEndian = endianness() === "LE";
+
+function unmask(payload: Buffer, mask: Buffer, offset: number): void {
+  let i = 0;
+  if (payload.length >= 16) {
+    const lead = (4 - (payload.byteOffset & 3)) & 3;
+    for (; i < lead; i++) payload[i] = payload[i]! ^ mask[(offset + i) & 3]!;
+    const a = offset + i;
+    const wordMask = littleEndian
+      ? mask[a & 3]! |
+        (mask[(a + 1) & 3]! << 8) |
+        (mask[(a + 2) & 3]! << 16) |
+        (mask[(a + 3) & 3]! << 24)
+      : (mask[a & 3]! << 24) |
+        (mask[(a + 1) & 3]! << 16) |
+        (mask[(a + 2) & 3]! << 8) |
+        mask[(a + 3) & 3]!;
+    const words = new Uint32Array(
+      payload.buffer,
+      payload.byteOffset + i,
+      (payload.length - i) >>> 2,
+    );
+    for (let w = 0; w < words.length; w++) words[w] = words[w]! ^ wordMask;
+    i += words.length * 4;
+  }
+  for (; i < payload.length; i++)
+    payload[i] = payload[i]! ^ mask[(offset + i) & 3]!;
+}
 
 export interface CloseMessage {
   code: number;
@@ -86,8 +116,7 @@ export class Decoder {
       );
       const payload = this.input.subarray(this.cursor, this.cursor + n);
       const offset = this.length - this.remaining;
-      for (let i = 0; i < n; i++)
-        payload[i] = payload[i]! ^ this.mask[(offset + i) & 3]!;
+      unmask(payload, this.mask, offset);
       this.cursor += n;
       this.remaining -= n;
       const complete = this.remaining === 0;

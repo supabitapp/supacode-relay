@@ -2,19 +2,22 @@ import assert from "node:assert/strict";
 import { createServer, connect } from "node:net";
 import { once } from "node:events";
 import { test } from "node:test";
-import { Peer } from "../transport/peer.js";
+import { Peer, socketHighWaterMark } from "../transport/peer.js";
 
 test("pong writes expire while the receiver is blocked before the next heartbeat", async () => {
   let release: () => void = () => {};
   const closed = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const server = createServer({ highWaterMark: 4096 }, (socket) => {
-    const peer = new Peer(socket, 4096, 50);
-    peer.onClosed = release;
-    peer.enableHeartbeat(10000);
-    peer.start();
-  });
+  const server = createServer(
+    { highWaterMark: socketHighWaterMark },
+    (socket) => {
+      const peer = new Peer(socket, 4096, 50);
+      peer.onClosed = release;
+      peer.enableHeartbeat(10000);
+      peer.start();
+    },
+  );
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();

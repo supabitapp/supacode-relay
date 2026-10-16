@@ -16,6 +16,8 @@ make build-ts
 
 The [decoder](../src/transport/decoder.ts) reads payload chunks within individual frames. [Peer](../src/transport/peer.ts) owns fixed 16 KiB forwarding buffers, socket backpressure, serialized writes and absolute deadlines. Interrupted input never produces a successful final fragment. Pair reservations remain owned until both sockets finish cleanup.
 
+The decoder unmasks aligned 32-bit words, with bytewise handling for unaligned edges. Peer batches writes during each bounded input pump and flushes on every exit, including errors and backpressure. Complete chunks bypass the intermediate forwarding copy; queued frames retain their own payload copy. Socket read and write high-water marks are 64 KiB each, allowing larger batches at the cost of more buffering per busy connection.
+
 The [configuration loader](../src/config.ts) rejects NaN admission rates, integers above JavaScript's exact integer range, and durations that would overflow Go's signed duration representation. Heartbeats also exclude values whose doubled pong deadline would overflow. Valid durations above Node's native timer range use segmented monotonic deadlines. These validation exceptions replace Go's accepted overflow/NaN cases with startup errors.
 
 ## Compatibility and memory checks
@@ -28,7 +30,7 @@ E2E_RELAY_TARGET=relay-ts E2E_RELAY_IMAGE=supaterm-relay-ts:e2e make e2e-docker
 
 The external harness defaults to building Go. `RELAY_E2E_BIN` selects an executable instead, while retaining the Go clients and probe. Container scenarios remain under `make e2e-docker`. Both implementations run the same ordered-message, authentication, lifecycle, privacy and encrypted-exchange checks.
 
-Additional tests require prefix delivery within one large frame, actual sender saturation, bounded process-memory growth across concurrent 32 MiB messages, safe redirects and raw-frame rejection. Node tests check arbitrary TCP segmentation, control-write deadlines and retained memory after partial-message and empty-fragment churn. Forced GC runs only in an isolated test child, outside the release artifact.
+Additional tests require prefix delivery within one large frame, actual sender saturation, bounded process-memory growth across concurrent 32 MiB messages, safe redirects and raw-frame rejection. Node tests check arbitrary TCP segmentation, unmasking across alignments and mask offsets, control-write deadlines and retained memory after partial-message and empty-fragment churn. Forced GC runs only in an isolated test child, outside the release artifact.
 
 TypeScript metrics carry `metricsSchemaVersion: 2` and `runtime: "node"`. Relay counters and listener privacy retain their meanings. Go runtime gauges are omitted rather than redefined. The harness requires the selected runtime gauges to exist.
 
@@ -55,21 +57,23 @@ Before measuring the candidate, the policy requires zero failures/corruption, me
 docker build --target relay -t supaterm-relay-go:compare .
 docker build --target relay-ts -t supaterm-relay-ts:e2e .
 docker build --target tools -t supaterm-relay-tools:e2e .
-node scripts/compare.mjs docs/typescript-performance-results.json
+node scripts/compare.mjs bin/typescript-comparison.json
 ```
 
 Run this on an isolated Docker host. The script removes its own containers and network. These loopback/container measurements do not establish public TLS performance or production's maximum connection capacity. The fixed 50,000-connection admission ceiling remains a limit, not a capacity claim.
 
-The [retained comparison](typescript-performance-results.json), measured on October 16, 2026 on Linux aarch64, fails adoption in all four workloads. Ratios compare the candidate's median across three rounds with Go's median across three rounds.
+The [retained comparison](typescript-optimized-performance-results.json), measured on October 16, 2026 on Linux aarch64, passes adoption in the 64 KiB, 32-client workload. The other three workloads fail. Ratios compare the candidate's median across three rounds with Go's median across three rounds.
 
 | Payload | Clients | Throughput relative to Go | p99 latency relative to Go | Adoption |
 | --- | ---: | ---: | ---: | --- |
-| 1 KiB | 1 | 80.7% | 1.29x | Fails latency |
-| 1 KiB | 32 | 43.4% | 1.66x | Fails both |
-| 64 KiB | 1 | 59.1% | 2.82x | Fails both |
-| 64 KiB | 32 | 46.0% | 0.98x | Fails throughput |
+| 1 KiB | 1 | 90.0% | 1.31x | Fails latency |
+| 1 KiB | 32 | 75.2% | 1.59x | Fails both |
+| 64 KiB | 1 | 95.9% | 2.43x | Fails latency |
+| 64 KiB | 32 | 84.3% | 0.59x | Passes |
 
-No measured echo failed validation or contained corrupt data. Go remains the production default. Additional optimization and a passing comparison are required before staging a production cutover.
+Against the [earlier candidate measurement](typescript-performance-results.json), the 32-client throughput medians improve 1.82x for 1 KiB messages and 1.85x for 64 KiB messages. These comparisons use the same container limits and workloads, measured in separate runs.
+
+No measured echo failed validation or contained corrupt data. Go remains the production default. Additional optimization and a passing comparison in every workload are required before staging a production cutover.
 
 ## Release and recovery
 

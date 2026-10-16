@@ -72,6 +72,19 @@ func TestSingleFrameStreamsBeforePayloadCompletes(t *testing.T) {
 	}
 }
 
+func waitForStalledSender(t *testing.T, sent *atomic.Uint64) {
+	t.Helper()
+	end := time.Now().Add(3 * time.Second)
+	for time.Now().Before(end) {
+		before := sent.Load()
+		time.Sleep(150 * time.Millisecond)
+		if before > 0 && sent.Load() == before {
+			return
+		}
+	}
+	t.Fatalf("sender never stopped: %d messages", sent.Load())
+}
+
 func TestSendersActuallyStopUnderBackpressure(t *testing.T) {
 	for _, pending := range []bool{true, false} {
 		t.Run(fmt.Sprintf("pending=%t", pending), func(t *testing.T) {
@@ -96,19 +109,7 @@ func TestSendersActuallyStopUnderBackpressure(t *testing.T) {
 				}
 			}()
 			t.Cleanup(func() { client.Close(); <-done })
-			end := time.Now().Add(3 * time.Second)
-			stopped := false
-			for time.Now().Before(end) {
-				before := sent.Load()
-				time.Sleep(150 * time.Millisecond)
-				if before > 0 && sent.Load() == before {
-					stopped = true
-					break
-				}
-			}
-			if !stopped {
-				t.Fatalf("sender never stopped: %d messages", sent.Load())
-			}
+			waitForStalledSender(t, &sent)
 			if pending {
 				host = accept(t, h, ev)
 			}

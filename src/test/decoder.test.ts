@@ -80,6 +80,50 @@ test("decoder streams inside one large frame and does not finalize a truncated f
   assert.equal(hash.digest("hex"), expected);
 });
 
+test("decoder unmasks every alignment and mask offset without touching adjacent bytes", () => {
+  for (const size of [0, 1, 15, 16, 17, 31, 125, 126, 127, 16385, 65536]) {
+    const payload = Buffer.from(
+      Uint8Array.from({ length: size }, (_, i) => (i * 73 + 129) & 255),
+    );
+    for (let alignment = 0; alignment < 4; alignment++) {
+      for (let split = 0; split < 4; split++) {
+        const chunks: Buffer[] = [];
+        let finals = 0;
+        const decoder = new Decoder(size, {
+          data: (_opcode, _first, chunk, final) => {
+            chunks.push(Buffer.from(chunk));
+            if (final) finals++;
+            return true;
+          },
+          control: () => true,
+        });
+        const wire = masked(2, true, payload);
+        const headerSize = wire.length - payload.length;
+        const boundary = Math.min(wire.length, headerSize + split);
+        decoder.feed(Buffer.from(wire.subarray(0, boundary)));
+        const storage = Buffer.allocUnsafeSlow(wire.length - boundary + 8);
+        storage.fill(0xa5);
+        const input = storage.subarray(
+          alignment + 1,
+          alignment + 1 + wire.length - boundary,
+        );
+        wire.copy(input, 0, boundary);
+        decoder.feed(input);
+        assert.deepEqual(Buffer.concat(chunks), payload);
+        assert.equal(finals, 1);
+        assert.ok(
+          storage.subarray(0, alignment + 1).every((byte) => byte === 0xa5),
+        );
+        assert.ok(
+          storage
+            .subarray(alignment + 1 + input.length)
+            .every((byte) => byte === 0xa5),
+        );
+      }
+    }
+  }
+});
+
 test("backpressure retains only unconsumed input and resumes without replay", () => {
   let calls = 0;
   const lengths: number[] = [];

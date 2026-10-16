@@ -293,7 +293,10 @@ func TestClosingStalledPairReleasesItsAdmissionSlot(t *testing.T) {
 			sent.Add(1)
 		}
 	}()
-	r.waitMetrics("stalled delivery owns memory", func(m map[string]float64) bool { return sent.Load() >= 9 && m["forwardedMessages"] >= 8 })
+	waitForStalledSender(t, &sent)
+	r.waitMetrics("stalled delivery owns its admission slot", func(m map[string]float64) bool {
+		return m["clientSlots"] == 1 && m["activePairs"] == 1 && m["forwardedMessages"] > 0
+	})
 	h.Close()
 	r.waitMetrics("closing pair released admission", func(m map[string]float64) bool { return m["clientSlots"] == 0 })
 	<-stopped

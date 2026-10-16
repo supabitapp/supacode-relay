@@ -10,7 +10,7 @@ import { monitorEventLoopDelay } from "node:perf_hooks";
 import type { Config } from "./config.js";
 import type { RelayMetrics } from "./metrics.js";
 import { Deadline } from "./deadline.js";
-import { Peer } from "./transport/peer.js";
+import { Peer, dataBufferBytesPerSocket } from "./transport/peer.js";
 import type { CloseMessage } from "./transport/decoder.js";
 
 export function decodeB64(value: string, length: number): Buffer | undefined {
@@ -264,7 +264,7 @@ export class Relay {
         ),
       eventLoopDelayP99Ms: this.eventLoop.percentile(99) / 1e6,
       eventLoopDelayMaxMs: this.eventLoop.max / 1e6,
-      dataBufferBytesPerSocket: 4096 + (16 << 10),
+      dataBufferBytesPerSocket,
     };
     if (detailed)
       result.topHosts = [...this.hosts.values()]
