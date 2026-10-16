@@ -13,7 +13,6 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
@@ -44,7 +43,6 @@ func newLifecycleServer(t *testing.T) *Server {
 		t.Fatal(err)
 	}
 	s := New(cfg)
-	s.events = diagnostics.Logger(io.Discard)
 	return s
 }
 

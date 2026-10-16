@@ -5,8 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"log"
-	"log/slog"
 	"maps"
 	"net"
 	"net/http"
@@ -20,7 +18,6 @@ import (
 
 	"github.com/supabitapp/supaterm-relay/internal/admission"
 	"github.com/supabitapp/supaterm-relay/internal/dashboard"
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 const (
@@ -37,7 +34,6 @@ type Server struct {
 	limiter       *admission.Limiter
 	publicLimiter *admission.Limiter
 	gate          *admission.Gate
-	events        *slog.Logger
 	draining      atomic.Bool
 
 	forwardedMessages atomic.Int64
@@ -59,8 +55,7 @@ type Server struct {
 
 func New(cfg Config) *Server {
 	s := &Server{
-		cfg:    cfg,
-		events: diagnostics.Logger(log.Writer()),
+		cfg: cfg,
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: cfg.WriteTimeout,
 			ReadBufferSize:   4096,
@@ -89,10 +84,8 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("GET /v1/control", s.limitConnections(s.handleControl))
 	mux.HandleFunc("GET /v1/connect", s.limitConnections(s.handleConnect))
 	mux.HandleFunc("GET /v1/accept", s.limitConnections(s.handleAccept))
-	public := http.NewServeMux()
-	public.Handle("GET /dashboard/", http.StripPrefix("/dashboard", dashboard.New(s.dashboardStats, s.limitPublic)))
-	public.Handle("/", s.traceRequests(mux))
-	s.http = newHTTPServer(public)
+	mux.Handle("GET /dashboard/", http.StripPrefix("/dashboard", dashboard.New(s.dashboardStats, s.limitPublic)))
+	s.http = newHTTPServer(mux)
 	s.private = newHTTPServer(admin)
 	return s
 }
@@ -107,29 +100,7 @@ func newHTTPServer(handler http.Handler) *http.Server {
 	}
 }
 
-func (s *Server) traceRequests(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		trace, request := diagnostics.Request(s.events, r, diagnostics.RequestOptions{
-			TrustedProxies: s.cfg.TrustedProxies,
-			ClientIPHeader: s.cfg.ClientIPHeader,
-		})
-		trace.Event("request.begin")
-		response := &diagnostics.Response{ResponseWriter: w}
-		response.Header().Set(diagnostics.Header, trace.ID())
-		defer func() {
-			trace.Event("request.end", "status", response.Status, "upgraded", response.Hijacked)
-		}()
-		next.ServeHTTP(response, request)
-	})
-}
-
 func (s *Server) Serve(ln net.Listener) error {
-	s.events.Info("relay.started", "auth_timeout_ms", s.cfg.AuthTimeout.Milliseconds(),
-		"pair_timeout_ms", s.cfg.PairTimeout.Milliseconds(), "delivery_timeout_ms", s.cfg.DeliveryTimeout.Milliseconds(),
-		"heartbeat_ms", s.cfg.Heartbeat.Milliseconds(), "max_hosts", s.cfg.MaxHosts,
-		"max_clients", s.cfg.MaxClients, "max_clients_per_host", s.cfg.MaxClientsPerHost,
-		"max_clients_per_host_per_ip", s.cfg.MaxClientsPerHostPerIP,
-		"max_pending_per_host", s.cfg.MaxPendingPerHost)
 	return s.http.Serve(admission.FilterListener(ln, s.cfg.AllowedPeers))
 }
 
@@ -230,10 +201,10 @@ func (s *Server) limitConnections(next http.HandlerFunc) http.HandlerFunc {
 		ip := admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader)
 		switch s.gate.Acquire(ip) {
 		case admission.GlobalFull:
-			s.reject(w, r, http.StatusServiceUnavailable, "connection capacity reached")
+			s.reject(w, http.StatusServiceUnavailable, "connection capacity reached")
 			return
 		case admission.PerIPFull:
-			s.reject(w, r, http.StatusTooManyRequests, "client connection capacity reached")
+			s.reject(w, http.StatusTooManyRequests, "client connection capacity reached")
 			return
 		}
 		defer s.gate.Release(ip)
@@ -243,7 +214,6 @@ func (s *Server) limitConnections(next http.HandlerFunc) http.HandlerFunc {
 
 type hostTraffic struct {
 	Endpoint string `json:"endpoint"`
-	TraceTag string `json:"traceTag"`
 	BytesIn  int64  `json:"bytesIn"`
 	BytesOut int64  `json:"bytesOut"`
 	Pairs    int    `json:"pairs"`
@@ -256,7 +226,7 @@ func (s *Server) topHosts() []hostTraffic {
 		if in+out == 0 {
 			continue
 		}
-		hosts = append(hosts, hostTraffic{Endpoint: id[:16], TraceTag: diagnostics.Tag(id), BytesIn: in, BytesOut: out, Pairs: len(h.pairs)})
+		hosts = append(hosts, hostTraffic{Endpoint: id[:16], BytesIn: in, BytesOut: out, Pairs: len(h.pairs)})
 	}
 	slices.SortFunc(hosts, func(a, b hostTraffic) int {
 		return cmp.Compare(b.BytesIn+b.BytesOut, a.BytesIn+a.BytesOut)
@@ -264,9 +234,8 @@ func (s *Server) topHosts() []hostTraffic {
 	return hosts[:min(len(hosts), topHostsReported)]
 }
 
-func (s *Server) reject(w http.ResponseWriter, r *http.Request, status int, msg string) {
+func (s *Server) reject(w http.ResponseWriter, status int, msg string) {
 	s.countRejection(msg)
-	diagnostics.From(r).Event("request.rejected", "status", status, "reason", msg)
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
@@ -287,31 +256,25 @@ func (s *Server) rejectionCounts() (total int64, byReason map[string]int64) {
 
 func (s *Server) admit(w http.ResponseWriter, r *http.Request, duringDrain bool) bool {
 	if !duringDrain && s.draining.Load() {
-		s.reject(w, r, http.StatusServiceUnavailable, "draining")
+		s.reject(w, http.StatusServiceUnavailable, "draining")
 		return false
 	}
 	if !s.limiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
-		s.reject(w, r, http.StatusTooManyRequests, "rate limited")
+		s.reject(w, http.StatusTooManyRequests, "rate limited")
 		return false
 	}
 	return true
 }
 
 func (s *Server) upgrade(w http.ResponseWriter, r *http.Request, limit int64) (*websocket.Conn, bool) {
-	var headers http.Header
-	if trace := diagnostics.From(r); trace != nil {
-		headers = http.Header{diagnostics.Header: {trace.ID()}}
-	}
-	ws, err := s.upgrader.Upgrade(w, r, headers)
+	ws, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		diagnostics.From(r).Failure("socket.upgrade.failed", err)
 		return nil, false
 	}
 	ws.SetReadLimit(limit)
 	s.mu.Lock()
 	s.conns[ws] = struct{}{}
 	s.mu.Unlock()
-	diagnostics.From(r).Event("socket.upgraded")
 	return ws, true
 }
 

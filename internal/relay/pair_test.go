@@ -2,7 +2,6 @@ package relay
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
@@ -27,30 +25,6 @@ type handlerBarrier struct {
 	block    func()
 	release  func()
 	claimed  atomic.Bool
-}
-
-type diagnosticBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *diagnosticBuffer) Write(data []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(data)
-}
-
-func (b *diagnosticBuffer) records(event string) []map[string]any {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	var records []map[string]any
-	for _, line := range strings.Split(b.buf.String(), "\n") {
-		var record map[string]any
-		if json.Unmarshal([]byte(line), &record) == nil && record["msg"] == event {
-			records = append(records, record)
-		}
-	}
-	return records
 }
 
 func newHandlerBarrier(t *testing.T) *handlerBarrier {
@@ -105,8 +79,6 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := New(cfg)
-	logs := &diagnosticBuffer{}
-	s.events = diagnostics.Logger(logs)
 	connect, accept := newHandlerBarrier(t), newHandlerBarrier(t)
 	listener := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var b *handlerBarrier
@@ -136,25 +108,15 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 	expectClientCapacityReached(t, nextHost)
 	expectClosingPairMetrics(t, s, 1)
 	expectHostClientQuota(t, s, hostState, 1)
-	if len(logs.records("pair.closed")) != 0 {
-		t.Fatal("close summary was recorded before forwarding handlers finished")
-	}
 	connect.release()
 	waitForHandler(t, connect.returned, "connect handler exit")
 	expectClientCapacityReached(t, nextHost)
 	expectClosingPairMetrics(t, s, 1)
 	expectHostClientQuota(t, s, hostState, 1)
-	if len(logs.records("pair.closed")) != 0 {
-		t.Fatal("close summary was recorded while the host handler was still active")
-	}
 	accept.release()
 	waitForHandler(t, accept.returned, "accept handler exit")
 	expectClosingPairMetrics(t, s, 0)
 	expectHostClientQuota(t, s, hostState, 0)
-	closed := logs.records("pair.closed")
-	if len(closed) != 1 || closed[0]["bytes_to_host"] != float64(len("paired")) || closed[0]["messages_to_host"] != float64(1) {
-		t.Fatalf("missing final forwarding totals: %v", closed)
-	}
 	client, host = openPair(t, nextHost)
 	expectPairMessage(t, client, host)
 }

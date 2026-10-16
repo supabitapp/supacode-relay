@@ -32,7 +32,7 @@ func TestControlQueueKeepsInFlightBytesUntilWriteEnds(t *testing.T) {
 	}
 }
 
-func TestHostNotificationsReportQueueOutcome(t *testing.T) {
+func TestHostNotificationsQueueOrCloseControl(t *testing.T) {
 	for _, outcome := range []string{"queued", "queue_full", "queue_finished", "host_gone"} {
 		t.Run(outcome, func(t *testing.T) {
 			q := newQueue(1024, 1)
@@ -43,9 +43,7 @@ func TestHostNotificationsReportQueueOutcome(t *testing.T) {
 			if outcome == "queue_finished" {
 				q.finish(closeMsg{code: 1001}, true)
 			}
-			if got := h.notify(map[string]string{"type": "incoming"}); got != outcome {
-				t.Fatalf("notification outcome %q, want %q", got, outcome)
-			}
+			h.notify(map[string]string{"type": "incoming"})
 			_, final, queued := q.next()
 			if queued != (outcome == "queued") {
 				t.Fatalf("notification queue contradicts outcome %q", outcome)
