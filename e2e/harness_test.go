@@ -45,7 +45,10 @@ func TestMain(m *testing.M) {
 		}
 		return out
 	}
-	relayBin = build("relay", "../cmd/relay")
+	relayBin = os.Getenv("E2E_RELAY_BIN")
+	if relayBin == "" {
+		relayBin = build("relay", "../cmd/relay")
+	}
 	probeBin = build("probe", "./docker/probe")
 	code := m.Run()
 	os.RemoveAll(dir)
