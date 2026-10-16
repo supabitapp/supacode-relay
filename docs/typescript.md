@@ -75,6 +75,45 @@ Against the [earlier candidate measurement](typescript-performance-results.json)
 
 No measured echo failed validation or contained corrupt data. Go remains the production default. Additional optimization and a passing comparison in every workload are required before staging a production cutover.
 
+### Further optimization experiments
+
+The strongest measured prototype combines reusable write timers, a bounded output-buffer cache and Node's `--max-semi-space-size=1` setting. Against the TypeScript baseline at commit `6236c94`, it improves 32-client throughput by 18.8% for 1 KiB messages and 21.2% for 64 KiB messages. The corresponding p99 medians fall by 46.6% and 17.6%. These experimental patches are retained in the [exploration results](typescript-exploration-results.json); they are not applied to the application.
+
+The confirmation uses three interleaved rounds on October 16, 2026, balancing implementation order and reversing workload order in the middle round. Each workload gets three seconds of warmup and eight seconds of measurement. Relay limits remain two CPUs and 3 GiB; the driver gets four CPUs. The host is an Apple M5 Pro with a nine-CPU Linux aarch64 Docker VM, Node 24.22.0 and Go 1.27.2. Values below are medians of per-run measurements, including all outliers.
+
+| Payload | Clients | Current TS messages/s | Prototype messages/s | Current TS p99 | Prototype p99 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 KiB | 1 | 112,504 | 111,350 | 93.2 us | 95.8 us |
+| 1 KiB | 32 | 207,225 | 246,185 | 1,671.8 us | 893.3 us |
+| 64 KiB | 1 | 9,985 | 11,640 | 999.8 us | 498.5 us |
+| 64 KiB | 32 | 12,303 | 14,910 | 12,733.8 us | 10,491.2 us |
+
+The single-client 1 KiB case changes by -1.0% in throughput and +2.8% in p99, so the prototype does not establish an improvement there. Single-client 64 KiB throughput rises 16.6%, while p99 falls 50.1%. Median end-of-run RSS falls from 211.3 MiB to 101.1 MiB. These RSS snapshots describe these workloads, not peak memory or connection capacity.
+
+| Payload | Clients | Prototype throughput relative to Go | Prototype p99 relative to Go | Threshold result |
+| --- | ---: | ---: | ---: | --- |
+| 1 KiB | 1 | 100.8% | 1.23x | Passes |
+| 1 KiB | 32 | 91.6% | 0.80x | Passes |
+| 64 KiB | 1 | 119.1% | 0.87x | Passes |
+| 64 KiB | 32 | 72.7% | 0.70x | Fails throughput |
+
+This comparison remains below the adoption criteria overall. It is separate from the earlier two-CPU-driver comparison above. In a two-round sensitivity check, increasing the driver from two to four CPUs changed Go throughput by -10.4% for 1 KiB messages and +40.8% for 64 KiB messages at 32 clients. The TypeScript changes were -2.0% and -7.2%. Driver configuration materially affects the relative result; four CPUs do not establish spare driver capacity.
+
+The two-round screens identify which changes merit further work:
+
+- Reusing idle write timers improves small-message throughput by 8.8%. Deadline renewal retains an existing earlier wakeup, idle completion disarms it, and teardown cancels it. Read suspension still cancels its timer.
+- Recycling completed output buffers improves large-message throughput by 11.5%. Each peer caches at most four owned 16,388-byte buffers, returned only after the socket write callback. The cache can retain 65,552 bytes per previously busy peer and increases backing allocation for queued 4 KiB frames. The retained-buffer metric includes the cache, and socket close clears it.
+- The smaller V8 semi-space substantially reduces small-message p99 in both screening sets, but does not consistently improve large-message throughput by itself. The combined prototype produces the stronger measured result.
+- Larger socket reads, capacity-limited reads, short-length parsing without BigInt, borrowed-payload writes and a smaller V8 worker pool show little consistent throughput gain. The driver's 64 KiB messages arrive as 4 KiB masked frames, so a single-large-frame copy-bypass hypothesis does not match this traffic.
+
+Enabling the image's five-second Docker healthcheck changes throughput by +0.2% for 1 KiB and -1.2% for 64 KiB messages in a two-round screen. The p99 changes are -2.0% and +7.0%, respectively. These short samples do not establish healthchecks as the main cause of the performance gap. The other experiments disable automatic healthchecks and retain explicit readiness checks.
+
+The combined prototype passes all 24 Node tests, the external race-enabled compatibility suite, all five container scenarios, and targeted checks for write ownership, cache bounds, error cleanup and deadline rearming. No measured echo failed or contained corrupt data. Buffer pooling uses `Buffer.allocUnsafeSlow` to own each backing allocation; the pinned Node runtime has a 65,536-byte default Buffer pool.
+
+The next unmeasured option is to coalesce directly into reusable framed output slabs and batch write completion bookkeeping. This could remove a payload copy and some allocation, but requires ownership, control-frame ordering, backpressure and error-delivery checks before benchmarking. Borrowed payloads can retain an entire input backing buffer, and completion callback reuse must preserve error ordering.
+
+The results artifact includes raw benchmark output, median/range summaries, CPU counters, parsed Docker statistics, exact experimental patches, validation commands and reproduction source. Resource counters and sampled peaks cover entire runs, including setup and warmup. Early screens lack per-variant image IDs. The convenience reproducer is syntax checked but has not been replayed from a clean checkout; it uses the ambient Go toolchain and Docker architecture. These short, closed-loop tests do not establish long-run stability, public TLS performance or production connection capacity.
+
 ## Release and recovery
 
 `make package-ts` creates `bin/relay-ts-linux-x64.tar.gz` and its SHA-256 sidecar. The packager verifies the official Node archive checksum and records runtime/application hashes in a manifest. The package includes the runtime, compiled application, assets, executable launcher and [candidate service unit](../deploy/supaterm-relay-ts.service). It excludes test programs.
