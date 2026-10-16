@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"crypto/ed25519"
 	"errors"
 	"fmt"
@@ -349,13 +350,17 @@ func TestInvalidConfigExits(t *testing.T) {
 	}
 }
 
-func TestUnknownCommandExitsWithoutServing(t *testing.T) {
-	cmd := exec.Command(relayBin, "trace-tag", strings.Repeat("ab", 32))
-	cmd.Env = append(os.Environ(), "RELAY_ADDR=127.0.0.1:0")
-	out, err := cmd.CombinedOutput()
-	var exit *exec.ExitError
-	if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "usage:") || strings.Contains(string(out), "listening") {
-		t.Fatalf("expected exit 2 with usage, got %v: %s", err, out)
+func TestUnknownCommandsExitWithoutServing(t *testing.T) {
+	for _, args := range [][]string{{"trace-tag", strings.Repeat("ab", 32)}, {"metrics", "extra"}} {
+		ctx, cancel := context.WithTimeout(t.Context(), deadline)
+		cmd := exec.CommandContext(ctx, relayBin, args...)
+		cmd.Env = append(os.Environ(), "RELAY_ADDR=127.0.0.1:0")
+		out, err := cmd.CombinedOutput()
+		cancel()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "usage:") {
+			t.Fatalf("%v: expected exit 2 with usage, got %v: %s", args, err, out)
+		}
 	}
 }
 

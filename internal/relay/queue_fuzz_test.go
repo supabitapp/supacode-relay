@@ -35,7 +35,7 @@ func FuzzControlQueue(f *testing.F) {
 				item := frame{typ: int(data[i+1]%2) + 1, data: bytes.Repeat([]byte{byte(i)}, int(data[i+1]))}
 				full := final == nil && (len(queued)+1 > maxMessages || heldBytes()+len(item.data) > maxBytes)
 				if q.push(item) == full {
-					t.Fatalf("step %d: push accepted=%v with a full queue=%v", i/2, !full, full)
+					t.Fatalf("step %d: push returned %v, want %v", i/2, full, !full)
 				}
 				if final == nil && !full {
 					queued = append(queued, item)

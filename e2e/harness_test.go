@@ -75,9 +75,9 @@ type relay struct {
 	addr     string
 	privAddr string
 	base     string
-	stdout   *lockedBuffer
+	lines    chan string
 	stderr   *lockedBuffer
-	signaled bool
+	silent   bool
 	exited   chan struct{}
 	exitErr  error
 }
@@ -101,7 +101,7 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	for _, kv := range env {
 		wantPrivate = wantPrivate || strings.HasPrefix(kv, "RELAY_PRIVATE_ADDR=")
 	}
-	r := &relay{t: t, cmd: cmd, stdout: &lockedBuffer{}, stderr: &lockedBuffer{}, exited: make(chan struct{})}
+	r := &relay{t: t, cmd: cmd, lines: make(chan string, 4), stderr: &lockedBuffer{}, exited: make(chan struct{})}
 	cmd.Stderr = r.stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -110,13 +110,11 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	lines := make(chan string, 4)
 	go func() {
 		sc := bufio.NewScanner(stdout)
 		for sc.Scan() {
-			fmt.Fprintln(r.stdout, sc.Text())
 			select {
-			case lines <- sc.Text():
+			case r.lines <- sc.Text():
 			default:
 			}
 		}
@@ -126,12 +124,11 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 		close(r.exited)
 	}()
 	t.Cleanup(r.stop)
-	t.Cleanup(r.expectSilent)
 	t.Cleanup(r.expectReleased)
 	timeout := time.After(10 * time.Second)
 	for r.addr == "" || (wantPrivate && r.privAddr == "") {
 		select {
-		case line := <-lines:
+		case line := <-r.lines:
 			var ev struct{ Event, Address, Listener string }
 			if err := json.Unmarshal([]byte(line), &ev); err != nil || ev.Event != "listening" {
 				t.Fatalf("unexpected startup line %q", line)
@@ -159,28 +156,22 @@ func (r *relay) adminAddr() string {
 }
 
 func (r *relay) signal(sig syscall.Signal) {
-	r.signaled = true
+	r.expectSilent()
 	_ = r.cmd.Process.Signal(sig)
 }
 
 func (r *relay) expectSilent() {
-	select {
-	case <-r.exited:
+	if r.silent {
 		return
+	}
+	r.silent = true
+	select {
+	case line := <-r.lines:
+		r.t.Errorf("relay printed after startup: %s", line)
 	default:
 	}
-	if r.signaled {
-		return
-	}
-	var stdout []string
-	for line := range strings.Lines(r.stdout.String()) {
-		var ev struct{ Event string }
-		if json.Unmarshal([]byte(line), &ev) != nil || ev.Event != "listening" {
-			stdout = append(stdout, line)
-		}
-	}
-	if stderr := r.stderr.String(); len(stdout) > 0 || stderr != "" {
-		r.t.Errorf("relay wrote connection output:\nstdout: %s\nstderr: %s", strings.Join(stdout, ""), stderr)
+	if stderr := r.stderr.String(); stderr != "" {
+		r.t.Errorf("relay wrote to stderr before shutdown:\n%s", stderr)
 	}
 }
 

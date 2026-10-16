@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"log"
 	"maps"
 	"net"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -92,12 +94,26 @@ func New(cfg Config) *Server {
 
 func newHTTPServer(handler http.Handler) *http.Server {
 	return &http.Server{
-		Handler:           handler,
+		Handler:           logPanicsWithoutPeer(handler),
 		ReadHeaderTimeout: httpTimeout,
 		ReadTimeout:       httpTimeout,
 		WriteTimeout:      httpTimeout,
 		IdleTimeout:       httpTimeout,
 	}
+}
+
+func logPanicsWithoutPeer(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if v := recover(); v != nil {
+				if v != http.ErrAbortHandler {
+					log.Printf("relay: panic: %v\n%s", v, debug.Stack())
+				}
+				panic(http.ErrAbortHandler)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) Serve(ln net.Listener) error {

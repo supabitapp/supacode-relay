@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"path/filepath"
 	"time"
 )
 
@@ -45,11 +46,14 @@ func Command(args []string, addr string, stdout, stderr io.Writer) (int, bool) {
 	if len(args) < 2 {
 		return 0, false
 	}
-	switch args[1] {
-	case "healthcheck":
-		return Run(addr, "/healthz", io.Discard, stderr), true
-	case "metrics":
-		return Run(addr, "/metrics", stdout, stderr), true
+	if len(args) == 2 {
+		switch args[1] {
+		case "healthcheck":
+			return Run(addr, "/healthz", io.Discard, stderr), true
+		case "metrics":
+			return Run(addr, "/metrics", stdout, stderr), true
+		}
 	}
-	return 0, false
+	fmt.Fprintf(stderr, "usage: %s [healthcheck | metrics]\n", filepath.Base(args[0]))
+	return 2, true
 }
