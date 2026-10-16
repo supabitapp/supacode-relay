@@ -137,7 +137,7 @@ func ClientKey(ip netip.Addr) netip.Addr {
 	return ip
 }
 
-func ClientIP(r *http.Request, trusted []netip.Prefix, header string) netip.Addr {
+func ClientIP(r *http.Request, trusted []netip.Prefix) netip.Addr {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
@@ -147,15 +147,8 @@ func ClientIP(r *http.Request, trusted []netip.Prefix, header string) netip.Addr
 		return netip.Addr{}
 	}
 	ip = ip.Unmap()
-	if !IsTrusted(ip, trusted) {
+	if !isTrusted(ip, trusted) {
 		return ip
-	}
-	if header != "" {
-		if vals := r.Header.Values(header); len(vals) == 1 {
-			if forwarded, err := netip.ParseAddr(strings.TrimSpace(vals[0])); err == nil {
-				return forwarded.Unmap()
-			}
-		}
 	}
 	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
 	for i := len(hops) - 1; i >= 0; i-- {
@@ -164,7 +157,7 @@ func ClientIP(r *http.Request, trusted []netip.Prefix, header string) netip.Addr
 			return ip
 		}
 		hop = hop.Unmap()
-		if !IsTrusted(hop, trusted) {
+		if !isTrusted(hop, trusted) {
 			return hop
 		}
 		ip = hop
@@ -172,7 +165,7 @@ func ClientIP(r *http.Request, trusted []netip.Prefix, header string) netip.Addr
 	return ip
 }
 
-func IsTrusted(ip netip.Addr, trusted []netip.Prefix) bool {
+func isTrusted(ip netip.Addr, trusted []netip.Prefix) bool {
 	for _, p := range trusted {
 		if p.Contains(ip) {
 			return true
@@ -194,29 +187,4 @@ func ParsePrefixes(v string) ([]netip.Prefix, error) {
 		out = append(out, p.Masked())
 	}
 	return out, nil
-}
-
-type filteredListener struct {
-	net.Listener
-	allow []netip.Prefix
-}
-
-func FilterListener(ln net.Listener, allow []netip.Prefix) net.Listener {
-	if len(allow) == 0 {
-		return ln
-	}
-	return &filteredListener{Listener: ln, allow: allow}
-}
-
-func (l *filteredListener) Accept() (net.Conn, error) {
-	for {
-		c, err := l.Listener.Accept()
-		if err != nil {
-			return nil, err
-		}
-		if ap, err := netip.ParseAddrPort(c.RemoteAddr().String()); err == nil && IsTrusted(ap.Addr().Unmap(), l.allow) {
-			return c, nil
-		}
-		_ = c.Close()
-	}
 }

@@ -17,7 +17,7 @@ import (
 )
 
 func TestPendingBufferDrainsInOrder(t *testing.T) {
-	r := startRelay(t, "RELAY_MAX_QUEUE_MESSAGES=8", "RELAY_MAX_QUEUE_BYTES=65536", "RELAY_MAX_MESSAGE_BYTES=4096")
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=4096")
 	h := register(t, r)
 	client, ev := connect(t, r, h)
 	var sent []message
@@ -39,7 +39,7 @@ func TestPendingBufferDrainsInOrder(t *testing.T) {
 }
 
 func TestPendingBufferPausesSender(t *testing.T) {
-	r := startRelay(t, "RELAY_MAX_QUEUE_MESSAGES=8", "RELAY_MAX_QUEUE_BYTES=4096", "RELAY_MAX_MESSAGE_BYTES=4096")
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=4096")
 	h := register(t, r)
 
 	client, ev := connect(t, r, h)
@@ -100,7 +100,7 @@ func TestOversizeMessages(t *testing.T) {
 }
 
 func TestSlowReaderIsolation(t *testing.T) {
-	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=262144", "RELAY_MAX_QUEUE_MESSAGES=64", "RELAY_DELIVERY_TIMEOUT_MS=1000")
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_DELIVERY_TIMEOUT_MS=1000")
 	h := register(t, r)
 	stalledClient, stalledHost, _ := pairUp(t, r, h)
 	healthyClient, healthyHost, _ := pairUp(t, r, h)
@@ -145,8 +145,7 @@ func TestSlowReaderIsolation(t *testing.T) {
 
 func TestSlowReaderPausesSender(t *testing.T) {
 	const chunk = 64 << 10
-	const queue = 4 * chunk
-	r := startRelay(t, fmt.Sprintf("RELAY_MAX_MESSAGE_BYTES=%d", chunk), fmt.Sprintf("RELAY_MAX_QUEUE_BYTES=%d", queue), "RELAY_MAX_QUEUE_MESSAGES=64")
+	r := startRelay(t, fmt.Sprintf("RELAY_MAX_MESSAGE_BYTES=%d", chunk))
 	client, host, _ := pairUp(t, r, register(t, r))
 
 	stop := make(chan struct{})
@@ -262,31 +261,24 @@ func TestTruncatedMessageIsNeverCompleted(t *testing.T) {
 }
 
 func TestConnectionLimits(t *testing.T) {
-	r := startRelay(t, "RELAY_MAX_CLIENTS=3", "RELAY_MAX_CLIENTS_PER_HOST=2", "RELAY_MAX_PENDING_PER_HOST=1", "RELAY_MAX_HOSTS=2")
+	r := startRelay(t, "RELAY_MAX_CLIENTS_PER_HOST=2")
 	h1, h2 := register(t, r), register(t, r)
-	_, _, resp, err := endpoint.DialControl(r.base, endpoint.B64(newKey(t).Public().(ed25519.PublicKey)))
-	expectStatus(t, resp, err, 503)
 	_, ev1 := connect(t, r, h1)
-	_, resp, err = endpoint.Connect(r.base, h1.ID)
-	expectStatus(t, resp, err, 503)
 	accept(t, h1, ev1)
 	connect(t, r, h1)
-	_, resp, err = endpoint.Connect(r.base, h1.ID)
+	_, resp, err := endpoint.Connect(r.base, h1.ID)
 	expectStatus(t, resp, err, 503)
 	connect(t, r, h2)
-	_, resp, err = endpoint.Connect(r.base, h2.ID)
-	expectStatus(t, resp, err, 503)
 	_, resp, err = endpoint.Connect(r.base, endpoint.EndpointID(randomBytes(32)))
 	expectStatus(t, resp, err, 404)
-	if m := r.metrics(); m["activePairs"] != 1 || m["pendingPairs"] != 2 || m["rejectedConnections"] < 4 {
+	if m := r.metrics(); m["activePairs"] != 1 || m["pendingPairs"] != 2 || m["rejectedConnections"] != 2 {
 		t.Fatalf("unexpected metrics %v", m)
 	}
 }
 
 func TestClosingStalledPairReleasesItsAdmissionSlot(t *testing.T) {
-	r := startRelay(t, "RELAY_MAX_CLIENTS=1", "RELAY_MAX_CLIENTS_PER_HOST=1", "RELAY_MAX_PENDING_PER_HOST=1", "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_MAX_QUEUE_BYTES=262144", "RELAY_DELIVERY_TIMEOUT_MS=30000")
+	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=65536", "RELAY_DELIVERY_TIMEOUT_MS=30000")
 	h := register(t, r)
-	nextHost := register(t, r)
 	client, _, _ := pairUp(t, r, h)
 	stopped := make(chan struct{})
 	var sent atomic.Uint64
@@ -305,10 +297,6 @@ func TestClosingStalledPairReleasesItsAdmissionSlot(t *testing.T) {
 	h.Close()
 	r.waitMetrics("closing pair released admission", func(m map[string]float64) bool { return m["clientSlots"] == 0 })
 	<-stopped
-	nextClient, nextPeer, _ := pairUp(t, r, nextHost)
-	m := message{websocket.TextMessage, []byte("capacity recovered")}
-	send(t, nextClient, m)
-	expectMessage(t, nextPeer, m)
 }
 
 func TestInterruptedStreamingMessageNeverCompletes(t *testing.T) {
@@ -402,24 +390,13 @@ func TestLargeStreamingMessageKeepsHeapBounded(t *testing.T) {
 }
 
 func TestProtocolConnectionLimitsReleaseOnDisconnect(t *testing.T) {
-	for _, test := range []struct {
-		name   string
-		limits []string
-		status int
-	}{
-		{"global", []string{"RELAY_MAX_CONNS=1", "RELAY_MAX_CONNS_PER_IP=10"}, http.StatusServiceUnavailable},
-		{"per_ip", []string{"RELAY_MAX_CONNS=10", "RELAY_MAX_CONNS_PER_IP=1"}, http.StatusTooManyRequests},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			r := startRelay(t, test.limits...)
-			h := register(t, r)
-			_, _, response, err := endpoint.DialControl(r.base, endpoint.B64(newKey(t).Public().(ed25519.PublicKey)))
-			if err == nil || response == nil || response.StatusCode != test.status {
-				t.Fatalf("full connection gate: got %s, error %v", status(response), err)
-			}
-			h.Close()
-			r.waitMetrics("released connection", func(m map[string]float64) bool { return m["openConnections"] == 0 && m["openConnectionIPs"] == 0 })
-			register(t, r)
-		})
+	r := startRelay(t, "RELAY_MAX_CONNS_PER_IP=1")
+	h := register(t, r)
+	_, _, response, err := endpoint.DialControl(r.base, endpoint.B64(newKey(t).Public().(ed25519.PublicKey)))
+	if err == nil || response == nil || response.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("full connection gate: got %s, error %v", status(response), err)
 	}
+	h.Close()
+	r.waitMetrics("released connection", func(m map[string]float64) bool { return m["openConnections"] == 0 && m["openConnectionIPs"] == 0 })
+	register(t, r)
 }

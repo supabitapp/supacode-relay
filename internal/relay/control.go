@@ -20,13 +20,14 @@ var signaturePrefixes = []string{"supaterm-relay-v1\n", "supacode-relay-v1\n"}
 const (
 	controlReadLimit = 4096
 	closeSuperseded  = 4001
+	maxQueueBytes    = 64 << 10
+	maxQueueMessages = 256
 )
 
 type host struct {
 	id           string
 	ctrl         *peer
 	pairs        map[string]*pair
-	pending      int
 	clientSlots  int
 	clientCounts map[netip.Addr]int
 	gone         bool
@@ -41,28 +42,11 @@ func (h *host) notify(v any) {
 }
 
 func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
-	if !s.admit(w, r, false) {
-		return
-	}
 	pub, ok := decodeB64(r.URL.Query().Get("publicKey"), ed25519.PublicKeySize)
 	if !ok {
 		s.reject(w, http.StatusBadRequest, "invalid publicKey")
 		return
 	}
-	s.mu.Lock()
-	if s.controls >= s.cfg.MaxHosts {
-		s.mu.Unlock()
-		s.reject(w, http.StatusServiceUnavailable, "host capacity reached")
-		return
-	}
-	s.controls++
-	s.mu.Unlock()
-	defer func() {
-		s.mu.Lock()
-		s.controls--
-		s.mu.Unlock()
-	}()
-
 	ws, ok := s.upgrade(w, r, controlReadLimit)
 	if !ok {
 		return
@@ -70,7 +54,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	id := endpointID(pub)
 	nonce := randomB64(32)
 	challenge := textFrame(map[string]string{"type": "challenge", "nonce": nonce})
-	_ = ws.SetWriteDeadline(time.Now().Add(s.cfg.WriteTimeout))
+	_ = ws.SetWriteDeadline(time.Now().Add(writeTimeout))
 	if err := ws.WriteMessage(challenge.typ, challenge.data); err != nil {
 		s.forget(ws)
 		return
@@ -82,7 +66,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages), nil)
+	ctrl := s.newPeer(ws, newQueue(maxQueueBytes, maxQueueMessages), nil)
 	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}, clientCounts: map[netip.Addr]int{}}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()

@@ -342,11 +342,11 @@ func waitHealth(t *testing.T, r *relay, want int) {
 
 func TestInvalidConfigExits(t *testing.T) {
 	cmd := exec.Command(relayBin)
-	cmd.Env = append(os.Environ(), "RELAY_ADDR=127.0.0.1:0", "RELAY_MAX_CLIENTS=zero")
+	cmd.Env = append(os.Environ(), "RELAY_ADDR=127.0.0.1:0", "RELAY_MAX_CLIENTS_PER_HOST=zero")
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
-	if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "RELAY_MAX_CLIENTS") {
-		t.Fatalf("expected exit 2 naming RELAY_MAX_CLIENTS, got %v: %s", err, out)
+	if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "RELAY_MAX_CLIENTS_PER_HOST") {
+		t.Fatalf("expected exit 2 naming RELAY_MAX_CLIENTS_PER_HOST, got %v: %s", err, out)
 	}
 }
 

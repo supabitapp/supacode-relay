@@ -27,7 +27,6 @@ type memorySnapshot struct {
 	Hosts           int
 	Pairs           int
 	Sockets         int
-	Controls        int
 	ClientSlots     int
 	ConnectionSlots int
 }
@@ -90,7 +89,7 @@ func TestMemoryRelayProcess(t *testing.T) {
 		sample := memorySnapshot{HeapBytes: stats.HeapAlloc, HeapObjects: stats.HeapObjects, Goroutines: runtime.NumGoroutine()}
 		s.mu.Lock()
 		sample.Hosts, sample.Pairs, sample.Sockets = len(s.hosts), len(s.pairs), len(s.conns)
-		sample.Controls, sample.ClientSlots = s.controls, s.clientSlots
+		sample.ClientSlots = s.clientSlots
 		s.mu.Unlock()
 		sample.ConnectionSlots, _ = s.gate.Stats()
 		writeJSON(w, http.StatusOK, sample)
@@ -204,7 +203,7 @@ func waitMemoryResources(t *testing.T, base string) {
 			t.Fatal(err)
 		}
 		idle := true
-		for _, name := range []string{"activeHosts", "activePairs", "pendingPairs", "clientSlots", "closingPairs", "controlConnections", "openSockets", "openConnections"} {
+		for _, name := range []string{"activeHosts", "activePairs", "pendingPairs", "clientSlots", "closingPairs", "openSockets", "openConnections"} {
 			value, ok := metrics[name]
 			var count int
 			if !ok || json.Unmarshal(value, &count) != nil {
@@ -234,7 +233,7 @@ func readMemorySnapshot(t *testing.T, base string) memorySnapshot {
 	if err := json.NewDecoder(response.Body).Decode(&sample); err != nil {
 		t.Fatal(err)
 	}
-	if sample.Hosts != 0 || sample.Pairs != 0 || sample.Sockets != 0 || sample.Controls != 0 || sample.ClientSlots != 0 || sample.ConnectionSlots != 0 {
+	if sample.Hosts != 0 || sample.Pairs != 0 || sample.Sockets != 0 || sample.ClientSlots != 0 || sample.ConnectionSlots != 0 {
 		t.Fatalf("memory sample taken before resources were released: %+v", sample)
 	}
 	return sample

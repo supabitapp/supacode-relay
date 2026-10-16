@@ -38,19 +38,13 @@ var (
 )
 
 type Stats struct {
-	Draining           bool
-	ActiveHosts        int
-	ActivePairs        int
-	PendingPairs       int
-	ControlConnections int
-	ClientSlots        int
-	OpenSockets        int
-	OpenConnections    int
-	MaxHosts           int
-	MaxClients         int
-	MaxConnections     int
-	ForwardedMessages  int64
-	ForwardedBytes     int64
+	Draining          bool
+	ActiveHosts       int
+	ActivePairs       int
+	PendingPairs      int
+	OpenSockets       int
+	ForwardedMessages int64
+	ForwardedBytes    int64
 
 	RejectedConnections         int64
 	RejectedConnectionsByReason map[string]int64
@@ -239,11 +233,6 @@ func (d *Dashboard) build(previous, current sample) view {
 				{Label: "Pending pairs", Value: formatCount(int64(relay.PendingPairs))},
 				{Label: "Open sockets", Value: formatCount(int64(relay.OpenSockets))},
 			}},
-			{"Capacity", []row{
-				capacity("Hosts", relay.ControlConnections, relay.MaxHosts),
-				capacity("Pairs", relay.ClientSlots, relay.MaxClients),
-				capacity("Connections", relay.OpenConnections, relay.MaxConnections),
-			}},
 			{"Rejections", rejectionRows(relay.RejectedConnections, relay.RejectedConnectionsByReason)},
 			{"Traffic (1 min avg)", d.trafficRows(current)},
 			{"CPU", cpuRows(previous, current)},
@@ -310,10 +299,6 @@ func memoryRows(current sample) []row {
 		rows = append(rows, gauge("System", formatBytes(used), "of "+formatBytes(total), used/total))
 	}
 	return append(rows, row{Label: "GC cycles", Value: formatCount(int64(current.gcCycles))})
-}
-
-func capacity(label string, n, limit int) row {
-	return gauge(label, formatCount(int64(n)), "of "+formatCount(int64(limit)), float64(n)/float64(limit))
 }
 
 func gauge(label, value, detail string, level float64) row {
