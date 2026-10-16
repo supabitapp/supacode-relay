@@ -38,9 +38,9 @@ type pair struct {
 	timer      *time.Timer
 	ready      chan struct{}
 	done       chan struct{}
-	client     *peer
+	client     *dataPeer
 	clientKey  netip.Addr
-	hostPeer   *peer
+	hostPeer   *dataPeer
 	refs       int
 	trace      *diagnostics.Trace
 }
@@ -96,18 +96,18 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	p.trace.Event("pair.created", "pair_timeout_ms", s.cfg.PairTimeout.Milliseconds(), "control_trace_id", h.trace.ID())
 	defer p.releaseSlot()
 
-	ws, ok := s.upgrade(w, r, int64(s.cfg.MaxMessageBytes))
+	conn, ok := s.upgradeData(w, r, int64(s.cfg.MaxMessageBytes))
 	if !ok {
 		p.close(closeMsg{websocket.CloseInternalServerErr, "upgrade failed"})
 		return
 	}
-	cp := s.newPeer(ws, nil, &h.bytesOut)
+	cp := s.newDataPeer(conn, &h.bytesOut)
 	cp.trace = p.trace.With("peer", "client")
 	s.mu.Lock()
 	if p.state == closed {
 		cause := p.cause
 		s.mu.Unlock()
-		s.closeNow(ws, cause)
+		s.closeData(conn, cause)
 		return
 	}
 	p.client = cp
@@ -150,18 +150,18 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 	trace.Event("pair.accept.authorized")
 	defer p.releaseSlot()
 
-	ws, ok := s.upgrade(w, r, int64(s.cfg.MaxMessageBytes))
+	conn, ok := s.upgradeData(w, r, int64(s.cfg.MaxMessageBytes))
 	if !ok {
 		p.close(closeMsg{websocket.CloseInternalServerErr, "host accept failed"})
 		return
 	}
-	hp := s.newPeer(ws, nil, &p.host.bytesIn)
+	hp := s.newDataPeer(conn, &p.host.bytesIn)
 	hp.trace = trace.With("peer", "host")
 	s.mu.Lock()
 	if p.state != accepting {
 		cause := p.cause
 		s.mu.Unlock()
-		s.closeNow(ws, cause)
+		s.closeData(conn, cause)
 		return
 	}
 	p.state = active
@@ -221,15 +221,15 @@ func (p *pair) closeWhen(c closeMsg, waitingOnly bool) {
 	// bounds teardown even when either destination has stopped reading.
 	deadline := time.Now().Add(closeGrace)
 	var cleanup sync.WaitGroup
-	for _, peer := range []*peer{client, hostPeer} {
+	for _, peer := range []*dataPeer{client, hostPeer} {
 		if peer == nil {
 			continue
 		}
 		cleanup.Add(1)
 		go func() {
 			defer cleanup.Done()
-			_ = peer.ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(c.code, c.reason), deadline)
-			_ = peer.ws.Close()
+			_ = peer.conn.sendClose(c, deadline)
+			_ = peer.conn.nc.Close()
 		}()
 	}
 	cleanup.Wait()

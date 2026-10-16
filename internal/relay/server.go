@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"log"
 	"log/slog"
 	"maps"
@@ -55,6 +56,7 @@ type Server struct {
 	active      int
 	clientSlots int
 	conns       map[*websocket.Conn]struct{}
+	data        map[*dataConn]struct{}
 }
 
 func New(cfg Config) *Server {
@@ -75,6 +77,7 @@ func New(cfg Config) *Server {
 		hosts:         map[string]*host{},
 		pairs:         map[string]*pair{},
 		conns:         map[*websocket.Conn]struct{}{},
+		data:          map[*dataConn]struct{}{},
 	}
 	admin := http.NewServeMux()
 	admin.HandleFunc("GET /healthz", s.handleHealth)
@@ -181,7 +184,7 @@ func (s *Server) dashboardStats() dashboard.Stats {
 	stats.PendingPairs = s.pending
 	stats.ControlConnections = s.controls
 	stats.ClientSlots = s.clientSlots
-	stats.OpenSockets = len(s.conns)
+	stats.OpenSockets = s.openSockets()
 	s.mu.Unlock()
 	return stats
 }
@@ -195,7 +198,7 @@ func (s *Server) writeMetrics(w http.ResponseWriter, detailed bool) {
 		"closingPairs":       s.clientSlots - s.active - s.pending,
 		"pendingPairs":       s.pending,
 		"controlConnections": s.controls,
-		"openSockets":        len(s.conns),
+		"openSockets":        s.openSockets(),
 	}
 	if detailed {
 		m["topHosts"] = s.topHosts()
@@ -221,7 +224,7 @@ func (s *Server) writeMetrics(w http.ResponseWriter, detailed bool) {
 	m["rateLimiterEntries"] = s.limiter.Size()
 	m["goroutines"] = runtime.NumGoroutine()
 	m["draining"] = s.draining.Load()
-	m["dataBufferBytesPerSocket"] = 4096 + 16*1024
+	m["dataBufferBytesPerSocket"] = frameReadBuffer + frameWriteBuffer
 	writeJSON(w, http.StatusOK, m)
 }
 
@@ -313,6 +316,43 @@ func (s *Server) upgrade(w http.ResponseWriter, r *http.Request, limit int64) (*
 	s.mu.Unlock()
 	diagnostics.From(r).Event("socket.upgraded")
 	return ws, true
+}
+
+func (s *Server) openSockets() int {
+	return len(s.conns) + len(s.data)
+}
+
+func (s *Server) upgradeData(w http.ResponseWriter, r *http.Request, limit int64) (*dataConn, bool) {
+	var headers http.Header
+	if trace := diagnostics.From(r); trace != nil {
+		headers = http.Header{diagnostics.Header: {trace.ID()}}
+	}
+	ws, err := s.upgrader.Upgrade(w, r, headers)
+	if err != nil {
+		diagnostics.From(r).Failure("socket.upgrade.failed", err)
+		return nil, false
+	}
+	conn := newDataConn(ws.NetConn(), limit)
+	s.mu.Lock()
+	s.data[conn] = struct{}{}
+	s.mu.Unlock()
+	diagnostics.From(r).Event("socket.upgraded")
+	return conn, true
+}
+
+func (s *Server) closeData(conn *dataConn, c closeMsg) {
+	deadline := time.Now().Add(closeGrace)
+	_ = conn.sendClose(c, deadline)
+	_ = conn.nc.SetReadDeadline(deadline)
+	_, _ = io.Copy(io.Discard, conn.br)
+	s.forgetData(conn)
+}
+
+func (s *Server) forgetData(conn *dataConn) {
+	_ = conn.nc.Close()
+	s.mu.Lock()
+	delete(s.data, conn)
+	s.mu.Unlock()
 }
 
 func (s *Server) closeNow(ws *websocket.Conn, c closeMsg) {

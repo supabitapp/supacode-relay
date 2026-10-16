@@ -33,16 +33,27 @@ func (s *Server) Shutdown() {
 	for ws := range s.conns {
 		conns = append(conns, ws)
 	}
+	data := make([]*dataConn, 0, len(s.data))
+	for conn := range s.data {
+		data = append(data, conn)
+	}
 	s.mu.Unlock()
-	msg := websocket.FormatCloseMessage(websocket.CloseGoingAway, "relay shutting down")
+	shuttingDown := closeMsg{websocket.CloseGoingAway, "relay shutting down"}
+	msg := websocket.FormatCloseMessage(shuttingDown.code, shuttingDown.reason)
 	for _, ws := range conns {
 		go func() { _ = ws.WriteControl(websocket.CloseMessage, msg, hardStop) }()
+	}
+	for _, conn := range data {
+		go func() { _ = conn.sendClose(shuttingDown, hardStop) }()
 	}
 	for s.socketCount() > 0 && time.Now().Before(hardStop) {
 		<-tick.C
 	}
 	for _, ws := range conns {
 		_ = ws.Close()
+	}
+	for _, conn := range data {
+		_ = conn.nc.Close()
 	}
 	_ = s.http.Close()
 	_ = s.private.Close()
@@ -58,5 +69,5 @@ func (s *Server) pairCount() int {
 func (s *Server) socketCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return len(s.conns)
+	return s.openSockets()
 }

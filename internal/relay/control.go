@@ -98,7 +98,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	}
 	trace.Event("control.auth.accepted")
 
-	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages), nil)
+	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages))
 	ctrl.trace = trace.With("peer", "control")
 	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}, clientCounts: map[netip.Addr]int{}, trace: trace}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))

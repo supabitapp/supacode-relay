@@ -89,7 +89,7 @@ func TestMemoryRelayProcess(t *testing.T) {
 		runtime.ReadMemStats(&stats)
 		sample := memorySnapshot{HeapBytes: stats.HeapAlloc, HeapObjects: stats.HeapObjects, Goroutines: runtime.NumGoroutine()}
 		s.mu.Lock()
-		sample.Hosts, sample.Pairs, sample.Sockets = len(s.hosts), len(s.pairs), len(s.conns)
+		sample.Hosts, sample.Pairs, sample.Sockets = len(s.hosts), len(s.pairs), s.openSockets()
 		sample.Controls, sample.ClientSlots = s.controls, s.clientSlots
 		s.mu.Unlock()
 		sample.ConnectionSlots, _ = s.gate.Stats()

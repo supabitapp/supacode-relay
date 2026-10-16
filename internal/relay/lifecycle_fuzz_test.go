@@ -50,9 +50,12 @@ func newLifecycleServer(t *testing.T) *Server {
 
 func closeLifecycleSockets(s *Server) {
 	s.mu.Lock()
-	connections := make([]*websocket.Conn, 0, len(s.conns))
+	connections := make([]io.Closer, 0, s.openSockets())
 	for connection := range s.conns {
 		connections = append(connections, connection)
+	}
+	for connection := range s.data {
+		connections = append(connections, connection.nc)
 	}
 	s.mu.Unlock()
 	for _, connection := range connections {
@@ -225,7 +228,7 @@ func waitLifecycleIdle(t *testing.T, s *Server) {
 	deadline := time.Now().Add(2 * time.Second)
 	for {
 		s.mu.Lock()
-		idle := len(s.hosts) == 0 && len(s.pairs) == 0 && len(s.conns) == 0 && s.controls == 0 && s.clientSlots == 0
+		idle := len(s.hosts) == 0 && len(s.pairs) == 0 && s.openSockets() == 0 && s.controls == 0 && s.clientSlots == 0
 		valid := s.active >= 0 && s.pending >= 0 && s.controls >= 0 && s.clientSlots >= s.active+s.pending && len(s.pairs) == s.active+s.pending
 		s.mu.Unlock()
 		if !valid {

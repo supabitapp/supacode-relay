@@ -25,7 +25,7 @@ func TestCloseNowPongsCannotExtendDrain(t *testing.T) {
 		if !ok {
 			return
 		}
-		server.newPeer(ws, nil, nil)
+		server.newPeer(ws, nil)
 		start := time.Now()
 		server.closeNow(ws, closeMsg{websocket.CloseGoingAway, "closing"})
 		finished <- time.Since(start)
