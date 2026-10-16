@@ -65,7 +65,7 @@ The router's public `GET /metrics` returns indented JSON with connection and req
 
 Public metrics use a separate limiter with the `ROUTER_ADMISSION_RATE` rate and burst. Polling consumes no WebSocket admission slots and remains available while the router drains. The private listener serves the same stats without this limiter. `/healthz` and `/v1/directory` remain private.
 
-Detailed node metrics remain private in the production deployment. Their `topHosts` entries contain endpoint prefixes, diagnostic tags, and per-host traffic counts. See [node metrics](protocol.md#http).
+Detailed node metrics remain private in the production deployment. Their `topHosts` entries contain endpoint prefixes and per-host traffic counts. See [node metrics](protocol.md#http).
 
 
 ## Production on exe.dev

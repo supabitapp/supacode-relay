@@ -75,7 +75,9 @@ type relay struct {
 	addr     string
 	privAddr string
 	base     string
+	stdout   *lockedBuffer
 	stderr   *lockedBuffer
+	signaled bool
 	exited   chan struct{}
 	exitErr  error
 }
@@ -99,7 +101,7 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	for _, kv := range env {
 		wantPrivate = wantPrivate || strings.HasPrefix(kv, "RELAY_PRIVATE_ADDR=")
 	}
-	r := &relay{t: t, cmd: cmd, stderr: &lockedBuffer{}, exited: make(chan struct{})}
+	r := &relay{t: t, cmd: cmd, stdout: &lockedBuffer{}, stderr: &lockedBuffer{}, exited: make(chan struct{})}
 	cmd.Stderr = r.stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -112,6 +114,7 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 	go func() {
 		sc := bufio.NewScanner(stdout)
 		for sc.Scan() {
+			fmt.Fprintln(r.stdout, sc.Text())
 			select {
 			case lines <- sc.Text():
 			default:
@@ -123,6 +126,7 @@ func startBinary(t *testing.T, bin string, env []string) *relay {
 		close(r.exited)
 	}()
 	t.Cleanup(r.stop)
+	t.Cleanup(r.expectSilent)
 	t.Cleanup(r.expectReleased)
 	timeout := time.After(10 * time.Second)
 	for r.addr == "" || (wantPrivate && r.privAddr == "") {
@@ -155,7 +159,29 @@ func (r *relay) adminAddr() string {
 }
 
 func (r *relay) signal(sig syscall.Signal) {
+	r.signaled = true
 	_ = r.cmd.Process.Signal(sig)
+}
+
+func (r *relay) expectSilent() {
+	select {
+	case <-r.exited:
+		return
+	default:
+	}
+	if r.signaled {
+		return
+	}
+	var stdout []string
+	for line := range strings.Lines(r.stdout.String()) {
+		var ev struct{ Event string }
+		if json.Unmarshal([]byte(line), &ev) != nil || ev.Event != "listening" {
+			stdout = append(stdout, line)
+		}
+	}
+	if stderr := r.stderr.String(); len(stdout) > 0 || stderr != "" {
+		r.t.Errorf("relay wrote connection output:\nstdout: %s\nstderr: %s", strings.Join(stdout, ""), stderr)
+	}
 }
 
 func (r *relay) waitExit(timeout time.Duration) error {

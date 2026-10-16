@@ -27,6 +27,10 @@ func main() {
 	if code, ok := healthcheck.Command(os.Args, admin, os.Stdout, os.Stderr); ok {
 		os.Exit(code)
 	}
+	if len(os.Args) > 1 {
+		fmt.Fprintln(os.Stderr, "usage: relay [healthcheck | metrics]")
+		os.Exit(2)
+	}
 	ln, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "relay: listen:", err)

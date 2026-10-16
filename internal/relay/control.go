@@ -35,7 +35,7 @@ type host struct {
 }
 
 func (h *host) notify(v any) {
-	if !h.gone && h.ctrl.q.enqueue(textFrame(v)) == "queue_full" {
+	if !h.gone && !h.ctrl.q.push(textFrame(v)) {
 		h.ctrl.q.finish(closeMsg{websocket.CloseTryAgainLater, "control queue limit exceeded"}, true)
 	}
 }

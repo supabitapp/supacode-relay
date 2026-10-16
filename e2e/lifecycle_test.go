@@ -349,6 +349,16 @@ func TestInvalidConfigExits(t *testing.T) {
 	}
 }
 
+func TestUnknownCommandExitsWithoutServing(t *testing.T) {
+	cmd := exec.Command(relayBin, "trace-tag", strings.Repeat("ab", 32))
+	cmd.Env = append(os.Environ(), "RELAY_ADDR=127.0.0.1:0")
+	out, err := cmd.CombinedOutput()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "usage:") || strings.Contains(string(out), "listening") {
+		t.Fatalf("expected exit 2 with usage, got %v: %s", err, out)
+	}
+}
+
 func TestAuthenticationCannotRegisterDuringShutdown(t *testing.T) {
 	r := startRelay(t)
 	h := register(t, r)

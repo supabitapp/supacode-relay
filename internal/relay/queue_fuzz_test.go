@@ -33,16 +33,11 @@ func FuzzControlQueue(f *testing.F) {
 			switch data[i] % 5 {
 			case 0:
 				item := frame{typ: int(data[i+1]%2) + 1, data: bytes.Repeat([]byte{byte(i)}, int(data[i+1]))}
-				want := "queued"
-				if final != nil {
-					want = "queue_finished"
-				} else if len(queued)+1 > maxMessages || heldBytes()+len(item.data) > maxBytes {
-					want = "queue_full"
+				full := final == nil && (len(queued)+1 > maxMessages || heldBytes()+len(item.data) > maxBytes)
+				if q.push(item) == full {
+					t.Fatalf("step %d: push accepted=%v with a full queue=%v", i/2, !full, full)
 				}
-				if got := q.enqueue(item); got != want {
-					t.Fatalf("step %d: enqueue returned %q, want %q", i/2, got, want)
-				}
-				if want == "queued" {
+				if final == nil && !full {
 					queued = append(queued, item)
 				}
 			case 1:

@@ -33,22 +33,22 @@ func TestControlQueueKeepsInFlightBytesUntilWriteEnds(t *testing.T) {
 }
 
 func TestHostNotificationsQueueOrCloseControl(t *testing.T) {
-	for _, outcome := range []string{"queued", "queue_full", "queue_finished", "host_gone"} {
-		t.Run(outcome, func(t *testing.T) {
+	for _, state := range []string{"open", "full", "finished", "gone"} {
+		t.Run(state, func(t *testing.T) {
 			q := newQueue(1024, 1)
-			h := &host{ctrl: &peer{q: q}, gone: outcome == "host_gone"}
-			if outcome == "queue_full" {
+			h := &host{ctrl: &peer{q: q}, gone: state == "gone"}
+			switch state {
+			case "full":
 				q.push(textFrame(map[string]string{"type": "registered"}))
-			}
-			if outcome == "queue_finished" {
+			case "finished":
 				q.finish(closeMsg{code: 1001}, true)
 			}
 			h.notify(map[string]string{"type": "incoming"})
 			_, final, queued := q.next()
-			if queued != (outcome == "queued") {
-				t.Fatalf("notification queue contradicts outcome %q", outcome)
+			if queued != (state == "open") {
+				t.Fatalf("%s control queue: notification queued=%v", state, queued)
 			}
-			if outcome == "queue_full" && (final == nil || final.reason != "control queue limit exceeded") {
+			if state == "full" && (final == nil || final.reason != "control queue limit exceeded") {
 				t.Fatal("overloaded host control did not close")
 			}
 		})

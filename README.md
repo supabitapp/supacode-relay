@@ -15,7 +15,7 @@ Supaterm encrypts traffic inside the client and the host, so the relay forwards 
 
 - Each connection agrees on fresh keys with X25519. The host signs the exchange with its Ed25519 identity key, and the client checks it against the key in its pairing link, so the relay cannot pose as the host.
 - Every frame is sealed with ChaCha20-Poly1305 and numbered. A modified, replayed, or reordered frame is rejected.
-- The relay still sees connection metadata while a connection is open: IP addresses, the host's endpoint ID, timing, and byte counts. It keeps them in memory only to route and rate-limit connections, and never logs or stores them.
+- The relay still sees connection metadata: IP addresses, the host's endpoint ID, timing, and byte counts. It keeps them in memory only, to route connections, rate-limit clients, and count each registered host's traffic for private metrics, and writes none of them to logs or disk.
 
 The handshake and cipher live in Supaterm's [`packages/shared/src/relay/protocol.ts`](https://github.com/supabitapp/supacode-next/blob/main/packages/shared/src/relay/protocol.ts).
 
