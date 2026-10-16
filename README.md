@@ -32,6 +32,8 @@ docker build -t supaterm-relay .
 docker run -p 8080:8080 supaterm-relay
 ```
 
+A [TypeScript implementation](docs/typescript.md) is available with Node 24.22.0: run `npm ci`, `make build-ts`, then `./bin/relay-ts`. The default build and production deployment use Go. The TypeScript implementation must pass its performance adoption criteria before cutover.
+
 ## Deploy
 
 The relay does not terminate TLS, so put it behind a proxy that serves `wss://`. Settings are `RELAY_*` environment variables, listed in [configuration](docs/configuration.md).
@@ -45,6 +47,7 @@ Run one relay behind the TLS proxy. Hosts register and clients connect to that s
 - [Deployment](docs/deployment.md)
 - [Performance measurements](docs/multi-node.md#live-transport-investigation)
 - [Development](docs/development.md)
+- [TypeScript implementation and validation](docs/typescript.md)
 - [CI measurements](docs/ci-pipeline.md)
 - [Fuzz and memory experiments](docs/fuzz-testing.md)
 

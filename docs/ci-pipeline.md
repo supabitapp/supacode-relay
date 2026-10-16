@@ -67,3 +67,11 @@ The count comes from `git ls-tree -r --name-only 01b8b4b` filtered to `_test.go`
 Additional test jobs would duplicate roughly 13s of startup and setup in the representative baseline. Sharding waits until execution dominates that tax and repeated samples justify it. Runner changes require an unchanged-pipeline comparison and approval for increased spending. Deploy optimization waits for measurements after merge; production installation and smoke checks remain mandatory. Cache changes wait for evidence that restore or save dominates the path.
 
 To reproduce, fetch each run and its attempt-specific jobs through `gh api repos/supabitapp/supaterm-relay/actions/runs/<id>` and `gh api repos/supabitapp/supaterm-relay/actions/runs/<id>/attempts/<attempt>/jobs`. Calculate durations from timestamps, drop skipped jobs, and apply the percentile index above. Fetch test logs with `gh run view <id> --repo supabitapp/supaterm-relay --attempt <attempt> --log`.
+
+## TypeScript validation
+
+The existing `test` job also installs the pinned Node toolchain and npm lockfile. `make -j2 test` retains `check` and `test-race` and adds `test-ts`, which runs Node tests and the external Go suite against the TypeScript executable. `audit` retains the Go vulnerability check and adds npm auditing. Job identities, runner selection and job count are unchanged.
+
+The second external suite adds execution to the current job. Local package durations do not establish GitHub wall time. Measure completed comparable PR runs before changing concurrency or adding shards; the startup/setup cost in the historical measurements above still applies.
+
+Local verification on October 16, 2026 with `/usr/bin/time -p make -j2 test` completed in 22.24 seconds on macOS arm64. Both external-suite invocations, the remaining Go race tests and 23 Node tests passed. This is a local validation result, not a completed GitHub Actions measurement.

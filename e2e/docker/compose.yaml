@@ -2,10 +2,10 @@ name: ${E2E_PROJECT:-supaterm-relay-e2e}
 
 services:
   relay:
-    image: supaterm-relay:e2e
+    image: ${E2E_RELAY_IMAGE:-supaterm-relay:e2e}
     build:
       context: ../..
-      target: relay
+      target: ${E2E_RELAY_TARGET:-relay}
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

@@ -1,0 +1,863 @@
+{
+  "policy": {
+    "minThroughputRatio": 0.8,
+    "maxP99Ratio": 1.25,
+    "memoryBytes": 3221225472,
+    "cpus": 2,
+    "fileDescriptors": 131072
+  },
+  "platform": "aarch64",
+  "imageDigests": {
+    "go": "sha256:8ba68335a147190e4b12cdbb77c94c56c0100809a941e7b8b08c86f09371bbb2",
+    "typescript": "sha256:df9eebea33e84b8550a7c59fd31c2a63605818def8ae900409e71fd3191e41b5"
+  },
+  "runs": {
+    "go": [
+      {
+        "round": 0,
+        "benchmark": {
+          "driver": {
+            "cpus": 9,
+            "go": "go1.27.2",
+            "goarch": "arm64",
+            "goos": "linux"
+          },
+          "durationSec": 2,
+          "hosts": 4,
+          "inflightPerClient": 4,
+          "results": [
+            {
+              "payloadBytes": 1024,
+              "clients": 1,
+              "messagesInWindow": 274647,
+              "messagesPerSec": 137323.5,
+              "payloadMiBPerSec": 134.1,
+              "rttMicros": {
+                "p50": 23.5,
+                "p99": 51.7,
+                "max": 409.7
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 1024,
+              "clients": 32,
+              "messagesInWindow": 606913,
+              "messagesPerSec": 303456.5,
+              "payloadMiBPerSec": 296.3,
+              "rttMicros": {
+                "p50": 393.2,
+                "p99": 927.8,
+                "max": 7828.7
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 1,
+              "messagesInWindow": 25795,
+              "messagesPerSec": 12897.5,
+              "payloadMiBPerSec": 806.1,
+              "rttMicros": {
+                "p50": 249.1,
+                "p99": 361.2,
+                "max": 501.5
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 32,
+              "messagesInWindow": 27266,
+              "messagesPerSec": 13633,
+              "payloadMiBPerSec": 852.1,
+              "rttMicros": {
+                "p50": 7265.5,
+                "p99": 25145.2,
+                "max": 54974.3
+              },
+              "failures": 0,
+              "corrupt": 0
+            }
+          ],
+          "spawned": false,
+          "url": "ws://relay:8080",
+          "warmupSec": 1
+        },
+        "metrics": {
+          "activeHosts": 0,
+          "activePairs": 0,
+          "clientSlots": 0,
+          "closingPairs": 0,
+          "dataBufferBytesPerSocket": 20480,
+          "draining": false,
+          "forwardedBytes": 13355331584,
+          "forwardedMessages": 2775206,
+          "gcCycles": 85,
+          "goroutines": 7,
+          "heapAllocBytes": 3339440,
+          "heapInuseBytes": 4136960,
+          "heapReleasedBytes": 6234112,
+          "heapSysBytes": 11665408,
+          "maxConnectionsPerClient": 8192,
+          "openConnectionIPs": 0,
+          "openConnections": 0,
+          "openSockets": 0,
+          "pendingPairs": 0,
+          "rateLimiterEntries": 1,
+          "rejectedConnections": 0,
+          "rejectedConnectionsByReason": {},
+          "runtimeSysBytes": 17475864,
+          "stackInuseBytes": 917504,
+          "supersededRegistrations": 0,
+          "topHosts": [],
+          "totalAllocatedBytes": 225834072
+        },
+        "samples": [
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"0.00%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.42%\",\"MemUsage\":\"12.86MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"240B / 42B\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"87.80%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.52%\",\"MemUsage\":\"15.98MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"296MB / 296MB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"87.80%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.52%\",\"MemUsage\":\"15.98MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"296MB / 296MB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"87.80%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.52%\",\"MemUsage\":\"15.98MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"296MB / 296MB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"92.57%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.49%\",\"MemUsage\":\"15.04MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"604MB / 604MB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"92.57%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.49%\",\"MemUsage\":\"15.04MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"604MB / 604MB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"91.01%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.49%\",\"MemUsage\":\"15.18MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"910MB / 910MB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"91.01%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.49%\",\"MemUsage\":\"15.18MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"910MB / 910MB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"117.09%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.56%\",\"MemUsage\":\"17.13MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.33GB / 1.33GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"117.09%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.56%\",\"MemUsage\":\"17.13MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.33GB / 1.33GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"171.60%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.55%\",\"MemUsage\":\"16.94MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.97GB / 1.97GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"171.60%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.55%\",\"MemUsage\":\"16.94MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.97GB / 1.97GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"175.19%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.57%\",\"MemUsage\":\"17.62MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.65GB / 2.65GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"175.19%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.57%\",\"MemUsage\":\"17.62MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.65GB / 2.65GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"96.69%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.55%\",\"MemUsage\":\"16.76MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"3.38GB / 3.37GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"96.69%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.55%\",\"MemUsage\":\"16.76MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"3.38GB / 3.37GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"95.05%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.53%\",\"MemUsage\":\"16.26MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"5.1GB / 5.08GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"95.05%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.53%\",\"MemUsage\":\"16.26MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"5.1GB / 5.08GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"94.99%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.53%\",\"MemUsage\":\"16.21MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"6.83GB / 6.8GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"94.99%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.53%\",\"MemUsage\":\"16.21MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"6.83GB / 6.8GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"67.94%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.65%\",\"MemUsage\":\"20.05MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"8.02GB / 7.98GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"67.94%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.65%\",\"MemUsage\":\"20.05MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"8.02GB / 7.98GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"117.93%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.68%\",\"MemUsage\":\"20.92MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"10.2GB / 10.1GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"117.93%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.68%\",\"MemUsage\":\"20.92MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"10.2GB / 10.1GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"113.04%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.62%\",\"MemUsage\":\"19.04MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"11.8GB / 11.7GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"4.02MB / 0B\",\"CPUPerc\":\"113.04%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"b7dda28fdd07\",\"MemPerc\":\"0.62%\",\"MemUsage\":\"19.04MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"11.8GB / 11.7GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J"
+        ]
+      },
+      {
+        "round": 1,
+        "benchmark": {
+          "driver": {
+            "cpus": 9,
+            "go": "go1.27.2",
+            "goarch": "arm64",
+            "goos": "linux"
+          },
+          "durationSec": 2,
+          "hosts": 4,
+          "inflightPerClient": 4,
+          "results": [
+            {
+              "payloadBytes": 1024,
+              "clients": 1,
+              "messagesInWindow": 270219,
+              "messagesPerSec": 135109.5,
+              "payloadMiBPerSec": 131.9,
+              "rttMicros": {
+                "p50": 23.6,
+                "p99": 54.5,
+                "max": 403.8
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 1024,
+              "clients": 32,
+              "messagesInWindow": 539686,
+              "messagesPerSec": 269843,
+              "payloadMiBPerSec": 263.5,
+              "rttMicros": {
+                "p50": 431.2,
+                "p99": 1206.8,
+                "max": 2286.3
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 1,
+              "messagesInWindow": 24533,
+              "messagesPerSec": 12266.5,
+              "payloadMiBPerSec": 766.7,
+              "rttMicros": {
+                "p50": 258.7,
+                "p99": 384.3,
+                "max": 497.7
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 32,
+              "messagesInWindow": 31240,
+              "messagesPerSec": 15620,
+              "payloadMiBPerSec": 976.3,
+              "rttMicros": {
+                "p50": 6451.9,
+                "p99": 21147.6,
+                "max": 39387.2
+              },
+              "failures": 0,
+              "corrupt": 0
+            }
+          ],
+          "spawned": false,
+          "url": "ws://relay:8080",
+          "warmupSec": 1
+        },
+        "metrics": {
+          "activeHosts": 0,
+          "activePairs": 0,
+          "clientSlots": 0,
+          "closingPairs": 0,
+          "dataBufferBytesPerSocket": 20480,
+          "draining": false,
+          "forwardedBytes": 13330343936,
+          "forwardedMessages": 2636270,
+          "gcCycles": 81,
+          "goroutines": 7,
+          "heapAllocBytes": 1987920,
+          "heapInuseBytes": 2859008,
+          "heapReleasedBytes": 1589248,
+          "heapSysBytes": 7405568,
+          "maxConnectionsPerClient": 8192,
+          "openConnectionIPs": 0,
+          "openConnections": 0,
+          "openSockets": 0,
+          "pendingPairs": 0,
+          "rateLimiterEntries": 1,
+          "rejectedConnections": 0,
+          "rejectedConnectionsByReason": {},
+          "runtimeSysBytes": 13211912,
+          "stackInuseBytes": 983040,
+          "supersededRegistrations": 0,
+          "topHosts": [],
+          "totalAllocatedBytes": 214734336
+        },
+        "samples": [
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.00%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.29%\",\"MemUsage\":\"8.832MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"67.9MB / 67.8MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"90.41%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.29%\",\"MemUsage\":\"9MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"360MB / 360MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"90.41%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.29%\",\"MemUsage\":\"9MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"360MB / 360MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"90.41%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.29%\",\"MemUsage\":\"9MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"360MB / 360MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"91.34%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.32%\",\"MemUsage\":\"9.867MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"664MB / 663MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"91.34%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.32%\",\"MemUsage\":\"9.867MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"664MB / 663MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"70.93%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.31%\",\"MemUsage\":\"9.453MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"894MB / 894MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"70.93%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.31%\",\"MemUsage\":\"9.453MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"894MB / 894MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"161.36%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.43%\",\"MemUsage\":\"13.12MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.5GB / 1.5GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"161.36%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.43%\",\"MemUsage\":\"13.12MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.5GB / 1.5GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"174.54%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.43%\",\"MemUsage\":\"13.12MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.1GB / 2.1GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"174.54%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.43%\",\"MemUsage\":\"13.12MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.1GB / 2.1GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"178.58%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.42%\",\"MemUsage\":\"12.92MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.71GB / 2.71GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"178.58%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.42%\",\"MemUsage\":\"12.92MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.71GB / 2.71GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"69.95%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.40%\",\"MemUsage\":\"12.38MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"3.67GB / 3.66GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"69.95%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.40%\",\"MemUsage\":\"12.38MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"3.67GB / 3.66GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"95.10%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.38%\",\"MemUsage\":\"11.82MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"5.33GB / 5.3GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"95.10%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.38%\",\"MemUsage\":\"11.82MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"5.33GB / 5.3GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"94.53%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.40%\",\"MemUsage\":\"12.37MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"6.96GB / 6.93GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"94.53%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.40%\",\"MemUsage\":\"12.37MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"6.96GB / 6.93GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"70.99%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.50%\",\"MemUsage\":\"15.4MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"8.16GB / 8.12GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"70.99%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.50%\",\"MemUsage\":\"15.4MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"8.16GB / 8.12GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"113.39%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.54%\",\"MemUsage\":\"16.48MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"10.2GB / 10.1GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"113.39%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.54%\",\"MemUsage\":\"16.48MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"10.2GB / 10.1GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"114.69%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.56%\",\"MemUsage\":\"17.11MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"12.3GB / 12.2GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"114.69%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"6c9b2a63ea18\",\"MemPerc\":\"0.56%\",\"MemUsage\":\"17.11MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"12.3GB / 12.2GB\",\"PIDs\":\"8\"}\u001b[K\n\u001b[K\n\u001b[J"
+        ]
+      },
+      {
+        "round": 2,
+        "benchmark": {
+          "driver": {
+            "cpus": 9,
+            "go": "go1.27.2",
+            "goarch": "arm64",
+            "goos": "linux"
+          },
+          "durationSec": 2,
+          "hosts": 4,
+          "inflightPerClient": 4,
+          "results": [
+            {
+              "payloadBytes": 1024,
+              "clients": 1,
+              "messagesInWindow": 268616,
+              "messagesPerSec": 134308,
+              "payloadMiBPerSec": 131.2,
+              "rttMicros": {
+                "p50": 23.6,
+                "p99": 58.2,
+                "max": 852.2
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 1024,
+              "clients": 32,
+              "messagesInWindow": 587266,
+              "messagesPerSec": 293633,
+              "payloadMiBPerSec": 286.8,
+              "rttMicros": {
+                "p50": 405.8,
+                "p99": 975.8,
+                "max": 5919
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 1,
+              "messagesInWindow": 24981,
+              "messagesPerSec": 12490.5,
+              "payloadMiBPerSec": 780.7,
+              "rttMicros": {
+                "p50": 254,
+                "p99": 442,
+                "max": 2694.3
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 32,
+              "messagesInWindow": 31453,
+              "messagesPerSec": 15726.5,
+              "payloadMiBPerSec": 982.9,
+              "rttMicros": {
+                "p50": 6503.8,
+                "p99": 20490,
+                "max": 33753.3
+              },
+              "failures": 0,
+              "corrupt": 0
+            }
+          ],
+          "spawned": false,
+          "url": "ws://relay:8080",
+          "warmupSec": 1
+        },
+        "metrics": {
+          "activeHosts": 0,
+          "activePairs": 0,
+          "clientSlots": 0,
+          "closingPairs": 0,
+          "dataBufferBytesPerSocket": 20480,
+          "draining": false,
+          "forwardedBytes": 13559605248,
+          "forwardedMessages": 2698626,
+          "gcCycles": 84,
+          "goroutines": 7,
+          "heapAllocBytes": 1771240,
+          "heapInuseBytes": 2686976,
+          "heapReleasedBytes": 6520832,
+          "heapSysBytes": 11698176,
+          "maxConnectionsPerClient": 8192,
+          "openConnectionIPs": 0,
+          "openConnections": 0,
+          "openSockets": 0,
+          "pendingPairs": 0,
+          "rateLimiterEntries": 1,
+          "rejectedConnections": 0,
+          "rejectedConnectionsByReason": {},
+          "runtimeSysBytes": 17144072,
+          "stackInuseBytes": 884736,
+          "supersededRegistrations": 0,
+          "topHosts": [],
+          "totalAllocatedBytes": 219803152
+        },
+        "samples": [
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.00%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.35%\",\"MemUsage\":\"10.79MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"156MB / 156MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.00%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.35%\",\"MemUsage\":\"10.79MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"156MB / 156MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"90.19%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.38%\",\"MemUsage\":\"11.61MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"434MB / 434MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"90.19%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.38%\",\"MemUsage\":\"11.61MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"434MB / 434MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"91.51%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.36%\",\"MemUsage\":\"11.18MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"737MB / 737MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"91.51%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.36%\",\"MemUsage\":\"11.18MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"737MB / 737MB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"81.12%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.38%\",\"MemUsage\":\"11.73MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.01GB / 1.01GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"81.12%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.38%\",\"MemUsage\":\"11.73MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.01GB / 1.01GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"169.63%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.47%\",\"MemUsage\":\"14.31MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.67GB / 1.67GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"169.63%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.47%\",\"MemUsage\":\"14.31MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"1.67GB / 1.67GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"177.43%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.47%\",\"MemUsage\":\"14.56MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.32GB / 2.32GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"177.43%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.47%\",\"MemUsage\":\"14.56MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.32GB / 2.32GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"135.09%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.46%\",\"MemUsage\":\"14.14MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.83GB / 2.82GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"135.09%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.46%\",\"MemUsage\":\"14.14MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"2.83GB / 2.82GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"85.98%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.48%\",\"MemUsage\":\"14.82MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"4.28GB / 4.27GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"85.98%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.48%\",\"MemUsage\":\"14.82MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"4.28GB / 4.27GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"94.72%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.43%\",\"MemUsage\":\"13.34MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"5.92GB / 5.9GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"94.72%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.43%\",\"MemUsage\":\"13.34MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"5.92GB / 5.9GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"92.92%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.47%\",\"MemUsage\":\"14.34MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"7.63GB / 7.59GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"92.92%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.47%\",\"MemUsage\":\"14.34MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"7.63GB / 7.59GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"77.96%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.63%\",\"MemUsage\":\"19.46MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"8.98GB / 8.93GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"77.96%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.63%\",\"MemUsage\":\"19.46MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"8.98GB / 8.93GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"115.25%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.58%\",\"MemUsage\":\"17.88MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"11.1GB / 11GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"115.25%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.58%\",\"MemUsage\":\"17.88MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"11.1GB / 11GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"117.30%\",\"Container\":\"relay-compare-go-86574\",\"ID\":\"e8556e3adec4\",\"MemPerc\":\"0.70%\",\"MemUsage\":\"21.38MiB / 3GiB\",\"Name\":\"relay-compare-go-86574\",\"NetIO\":\"13.2GB / 13.1GB\",\"PIDs\":\"7\"}\u001b[K\n\u001b[K\n\u001b[J"
+        ]
+      }
+    ],
+    "typescript": [
+      {
+        "round": 0,
+        "benchmark": {
+          "driver": {
+            "cpus": 9,
+            "go": "go1.27.2",
+            "goarch": "arm64",
+            "goos": "linux"
+          },
+          "durationSec": 2,
+          "hosts": 4,
+          "inflightPerClient": 4,
+          "results": [
+            {
+              "payloadBytes": 1024,
+              "clients": 1,
+              "messagesInWindow": 219358,
+              "messagesPerSec": 109679,
+              "payloadMiBPerSec": 107.1,
+              "rttMicros": {
+                "p50": 33.2,
+                "p99": 70.5,
+                "max": 723
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 1024,
+              "clients": 32,
+              "messagesInWindow": 255747,
+              "messagesPerSec": 127873.5,
+              "payloadMiBPerSec": 124.9,
+              "rttMicros": {
+                "p50": 988.5,
+                "p99": 1617,
+                "max": 2535.5
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 1,
+              "messagesInWindow": 14743,
+              "messagesPerSec": 7371.5,
+              "payloadMiBPerSec": 460.7,
+              "rttMicros": {
+                "p50": 505.5,
+                "p99": 1137.5,
+                "max": 1756.4
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 32,
+              "messagesInWindow": 14460,
+              "messagesPerSec": 7230,
+              "payloadMiBPerSec": 451.9,
+              "rttMicros": {
+                "p50": 17661.1,
+                "p99": 20672.8,
+                "max": 24268.1
+              },
+              "failures": 0,
+              "corrupt": 0
+            }
+          ],
+          "spawned": false,
+          "url": "ws://relay:8080",
+          "warmupSec": 1
+        },
+        "metrics": {
+          "activeHosts": 0,
+          "activePairs": 0,
+          "pendingPairs": 0,
+          "clientSlots": 0,
+          "closingPairs": 0,
+          "openSockets": 0,
+          "forwardedMessages": 1502932,
+          "forwardedBytes": 7163545600,
+          "supersededRegistrations": 0,
+          "rejectedConnections": 0,
+          "rejectedConnectionsByReason": {},
+          "draining": false,
+          "metricsSchemaVersion": 2,
+          "runtime": "node",
+          "nodeVersion": "24.22.0",
+          "rssBytes": 181280768,
+          "heapUsedBytes": 8251120,
+          "heapTotalBytes": 144683008,
+          "externalBytes": 38026097,
+          "arrayBufferBytes": 4730749,
+          "activeResources": 5,
+          "bufferedBytes": 0,
+          "eventLoopDelayP99Ms": 28.540927,
+          "eventLoopDelayMaxMs": 29.884415,
+          "dataBufferBytesPerSocket": 20480,
+          "topHosts": [],
+          "openConnections": 0,
+          "openConnectionIPs": 0,
+          "rateLimiterEntries": 1,
+          "maxConnectionsPerClient": 8192
+        },
+        "samples": [
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.00%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"0.68%\",\"MemUsage\":\"20.92MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"260B / 42B\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"100.34%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.41MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"216MB / 215MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"100.34%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.41MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"216MB / 215MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"100.34%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.41MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"216MB / 215MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"98.98%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.24%\",\"MemUsage\":\"38.17MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"461MB / 458MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"98.98%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.24%\",\"MemUsage\":\"38.17MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"461MB / 458MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"97.08%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.24%\",\"MemUsage\":\"38.05MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"705MB / 702MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"97.08%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.24%\",\"MemUsage\":\"38.05MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"705MB / 702MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"72.60%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.44%\",\"MemUsage\":\"44.2MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"896MB / 892MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"72.60%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.44%\",\"MemUsage\":\"44.2MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"896MB / 892MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"104.90%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.49%\",\"MemUsage\":\"45.85MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.19GB / 1.18GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"104.90%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.49%\",\"MemUsage\":\"45.85MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.19GB / 1.18GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"110.11%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.84%\",\"MemUsage\":\"56.45MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.47GB / 1.46GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"110.11%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"1.84%\",\"MemUsage\":\"56.45MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.47GB / 1.46GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"78.80%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"3.59%\",\"MemUsage\":\"110.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.85GB / 1.83GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"78.80%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"3.59%\",\"MemUsage\":\"110.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.85GB / 1.83GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"115.80%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"3.57%\",\"MemUsage\":\"109.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"2.84GB / 2.82GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"115.80%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"3.57%\",\"MemUsage\":\"109.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"2.84GB / 2.82GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"115.34%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"3.63%\",\"MemUsage\":\"111.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"3.84GB / 3.8GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"115.34%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"3.63%\",\"MemUsage\":\"111.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"3.84GB / 3.8GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"85.45%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"4.08%\",\"MemUsage\":\"125.2MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.52GB / 4.47GB\",\"PIDs\":\"12\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"85.45%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"4.08%\",\"MemUsage\":\"125.2MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.52GB / 4.47GB\",\"PIDs\":\"12\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"132.08%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"4.49%\",\"MemUsage\":\"137.9MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"5.47GB / 5.4GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"132.08%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"4.49%\",\"MemUsage\":\"137.9MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"5.47GB / 5.4GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"125.51%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"4.57%\",\"MemUsage\":\"140.5MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"6.44GB / 6.35GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"1.69MB / 0B\",\"CPUPerc\":\"125.51%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"87610d983bf3\",\"MemPerc\":\"4.57%\",\"MemUsage\":\"140.5MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"6.44GB / 6.35GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J"
+        ]
+      },
+      {
+        "round": 1,
+        "benchmark": {
+          "driver": {
+            "cpus": 9,
+            "go": "go1.27.2",
+            "goarch": "arm64",
+            "goos": "linux"
+          },
+          "durationSec": 2,
+          "hosts": 4,
+          "inflightPerClient": 4,
+          "results": [
+            {
+              "payloadBytes": 1024,
+              "clients": 1,
+              "messagesInWindow": 218142,
+              "messagesPerSec": 109071,
+              "payloadMiBPerSec": 106.5,
+              "rttMicros": {
+                "p50": 33.3,
+                "p99": 70.3,
+                "max": 670.8
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 1024,
+              "clients": 32,
+              "messagesInWindow": 254791,
+              "messagesPerSec": 127395.5,
+              "payloadMiBPerSec": 124.4,
+              "rttMicros": {
+                "p50": 991.7,
+                "p99": 1607.1,
+                "max": 2572.8
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 1,
+              "messagesInWindow": 14775,
+              "messagesPerSec": 7387.5,
+              "payloadMiBPerSec": 461.7,
+              "rttMicros": {
+                "p50": 507.5,
+                "p99": 1082,
+                "max": 1935
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 32,
+              "messagesInWindow": 14360,
+              "messagesPerSec": 7180,
+              "payloadMiBPerSec": 448.8,
+              "rttMicros": {
+                "p50": 17760.6,
+                "p99": 19645.8,
+                "max": 23693.3
+              },
+              "failures": 0,
+              "corrupt": 0
+            }
+          ],
+          "spawned": false,
+          "url": "ws://relay:8080",
+          "warmupSec": 1
+        },
+        "metrics": {
+          "activeHosts": 0,
+          "activePairs": 0,
+          "pendingPairs": 0,
+          "clientSlots": 0,
+          "closingPairs": 0,
+          "openSockets": 0,
+          "forwardedMessages": 1499732,
+          "forwardedBytes": 7142850560,
+          "supersededRegistrations": 0,
+          "rejectedConnections": 0,
+          "rejectedConnectionsByReason": {},
+          "draining": false,
+          "metricsSchemaVersion": 2,
+          "runtime": "node",
+          "nodeVersion": "24.22.0",
+          "rssBytes": 170774528,
+          "heapUsedBytes": 8680864,
+          "heapTotalBytes": 145469440,
+          "externalBytes": 14019697,
+          "arrayBufferBytes": 10044277,
+          "activeResources": 5,
+          "bufferedBytes": 0,
+          "eventLoopDelayP99Ms": 28.803071,
+          "eventLoopDelayMaxMs": 29.835263,
+          "dataBufferBytesPerSocket": 20480,
+          "topHosts": [],
+          "openConnections": 0,
+          "openConnectionIPs": 0,
+          "rateLimiterEntries": 1,
+          "maxConnectionsPerClient": 8192
+        },
+        "samples": [
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.00%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.16%\",\"MemUsage\":\"35.78MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"52.3MB / 52.1MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.18%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.26%\",\"MemUsage\":\"38.69MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"295MB / 294MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.18%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.26%\",\"MemUsage\":\"38.69MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"295MB / 294MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.18%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.26%\",\"MemUsage\":\"38.69MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"295MB / 294MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.26%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.24%\",\"MemUsage\":\"38.04MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"540MB / 537MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.26%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.24%\",\"MemUsage\":\"38.04MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"540MB / 537MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"74.55%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.23%\",\"MemUsage\":\"37.87MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"723MB / 719MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"74.55%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.23%\",\"MemUsage\":\"37.87MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"723MB / 719MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"97.86%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.41%\",\"MemUsage\":\"43.41MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"984MB / 979MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"97.86%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.41%\",\"MemUsage\":\"43.41MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"984MB / 979MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"105.01%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.40%\",\"MemUsage\":\"43.1MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.27GB / 1.26GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"105.01%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.40%\",\"MemUsage\":\"43.1MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.27GB / 1.26GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"107.67%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.70%\",\"MemUsage\":\"52.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.55GB / 1.55GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"107.67%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"1.70%\",\"MemUsage\":\"52.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.55GB / 1.55GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"80.56%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"3.53%\",\"MemUsage\":\"108.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"2.13GB / 2.12GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"80.56%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"3.53%\",\"MemUsage\":\"108.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"2.13GB / 2.12GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"116.07%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"3.33%\",\"MemUsage\":\"102.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"3.14GB / 3.11GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"116.07%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"3.33%\",\"MemUsage\":\"102.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"3.14GB / 3.11GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"115.02%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"3.57%\",\"MemUsage\":\"109.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.14GB / 4.09GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"115.02%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"3.57%\",\"MemUsage\":\"109.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.14GB / 4.09GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"90.06%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"4.02%\",\"MemUsage\":\"123.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.79GB / 4.73GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"90.06%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"4.02%\",\"MemUsage\":\"123.6MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.79GB / 4.73GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"130.86%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"4.10%\",\"MemUsage\":\"125.9MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"5.74GB / 5.67GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"130.86%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"4.10%\",\"MemUsage\":\"125.9MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"5.74GB / 5.67GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"127.43%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"4.18%\",\"MemUsage\":\"128.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"6.72GB / 6.62GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"127.43%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"937888cb68da\",\"MemPerc\":\"4.18%\",\"MemUsage\":\"128.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"6.72GB / 6.62GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J"
+        ]
+      },
+      {
+        "round": 2,
+        "benchmark": {
+          "driver": {
+            "cpus": 9,
+            "go": "go1.27.2",
+            "goarch": "arm64",
+            "goos": "linux"
+          },
+          "durationSec": 2,
+          "hosts": 4,
+          "inflightPerClient": 4,
+          "results": [
+            {
+              "payloadBytes": 1024,
+              "clients": 1,
+              "messagesInWindow": 213315,
+              "messagesPerSec": 106657.5,
+              "payloadMiBPerSec": 104.2,
+              "rttMicros": {
+                "p50": 34.1,
+                "p99": 75,
+                "max": 659.1
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 1024,
+              "clients": 32,
+              "messagesInWindow": 247996,
+              "messagesPerSec": 123998,
+              "payloadMiBPerSec": 121.1,
+              "rttMicros": {
+                "p50": 1011.8,
+                "p99": 1711.2,
+                "max": 2900.7
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 1,
+              "messagesInWindow": 14934,
+              "messagesPerSec": 7467,
+              "payloadMiBPerSec": 466.7,
+              "rttMicros": {
+                "p50": 506.8,
+                "p99": 1066.9,
+                "max": 1613.2
+              },
+              "failures": 0,
+              "corrupt": 0
+            },
+            {
+              "payloadBytes": 65536,
+              "clients": 32,
+              "messagesInWindow": 14351,
+              "messagesPerSec": 7175.5,
+              "payloadMiBPerSec": 448.5,
+              "rttMicros": {
+                "p50": 17667.4,
+                "p99": 21432.1,
+                "max": 23726.2
+              },
+              "failures": 0,
+              "corrupt": 0
+            }
+          ],
+          "spawned": false,
+          "url": "ws://relay:8080",
+          "warmupSec": 1
+        },
+        "metrics": {
+          "activeHosts": 0,
+          "activePairs": 0,
+          "pendingPairs": 0,
+          "clientSlots": 0,
+          "closingPairs": 0,
+          "openSockets": 0,
+          "forwardedMessages": 1485032,
+          "forwardedBytes": 7152312320,
+          "supersededRegistrations": 0,
+          "rejectedConnections": 0,
+          "rejectedConnectionsByReason": {},
+          "draining": false,
+          "metricsSchemaVersion": 2,
+          "runtime": "node",
+          "nodeVersion": "24.22.0",
+          "rssBytes": 185032704,
+          "heapUsedBytes": 9202784,
+          "heapTotalBytes": 145469440,
+          "externalBytes": 23859185,
+          "arrayBufferBytes": 19883765,
+          "activeResources": 5,
+          "bufferedBytes": 0,
+          "eventLoopDelayP99Ms": 29.196287,
+          "eventLoopDelayMaxMs": 30.113791,
+          "dataBufferBytesPerSocket": 20480,
+          "topHosts": [],
+          "openConnections": 0,
+          "openConnectionIPs": 0,
+          "rateLimiterEntries": 1,
+          "maxConnectionsPerClient": 8192
+        },
+        "samples": [
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.00%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.24%\",\"MemUsage\":\"38.13MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"118MB / 117MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.26%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.52MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"362MB / 360MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.26%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.52MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"362MB / 360MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"99.26%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.52MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"362MB / 360MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"98.48%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.32MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"598MB / 595MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"98.48%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.25%\",\"MemUsage\":\"38.32MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"598MB / 595MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"71.51%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.40%\",\"MemUsage\":\"42.92MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"755MB / 751MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"71.51%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.40%\",\"MemUsage\":\"42.92MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"755MB / 751MB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"98.67%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.40%\",\"MemUsage\":\"42.94MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.05GB / 1.05GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"98.67%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.40%\",\"MemUsage\":\"42.94MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.05GB / 1.05GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"106.04%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.53%\",\"MemUsage\":\"47.05MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.34GB / 1.33GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"106.04%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.53%\",\"MemUsage\":\"47.05MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.34GB / 1.33GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"95.52%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.76%\",\"MemUsage\":\"54.18MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.56GB / 1.55GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"95.52%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"1.76%\",\"MemUsage\":\"54.18MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"1.56GB / 1.55GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"100.25%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"3.56%\",\"MemUsage\":\"109.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"2.38GB / 2.36GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"100.25%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"3.56%\",\"MemUsage\":\"109.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"2.38GB / 2.36GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"117.02%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"3.52%\",\"MemUsage\":\"108.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"3.38GB / 3.35GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"117.02%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"3.52%\",\"MemUsage\":\"108.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"3.38GB / 3.35GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"116.53%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"3.56%\",\"MemUsage\":\"109.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.38GB / 4.33GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"116.53%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"3.56%\",\"MemUsage\":\"109.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"4.38GB / 4.33GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"91.72%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"5.02%\",\"MemUsage\":\"154.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"5.05GB / 4.98GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"91.72%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"5.02%\",\"MemUsage\":\"154.3MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"5.05GB / 4.98GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"117.65%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"4.41%\",\"MemUsage\":\"135.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"6.02GB / 5.94GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"117.65%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"4.41%\",\"MemUsage\":\"135.4MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"6.02GB / 5.94GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J",
+          "\u001b[H{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"120.79%\",\"Container\":\"relay-compare-typescript-86574\",\"ID\":\"02c3906c73f7\",\"MemPerc\":\"4.62%\",\"MemUsage\":\"142MiB / 3GiB\",\"Name\":\"relay-compare-typescript-86574\",\"NetIO\":\"6.98GB / 6.88GB\",\"PIDs\":\"6\"}\u001b[K\n\u001b[K\n\u001b[J"
+        ]
+      }
+    ]
+  },
+  "comparisons": [
+    {
+      "payloadBytes": 1024,
+      "clients": 1,
+      "throughputRatio": 0.8072785407391783,
+      "p99Ratio": 1.2935779816513762,
+      "accepted": false
+    },
+    {
+      "payloadBytes": 1024,
+      "clients": 32,
+      "throughputRatio": 0.4338596138717378,
+      "p99Ratio": 1.6571018651362985,
+      "accepted": false
+    },
+    {
+      "payloadBytes": 65536,
+      "clients": 1,
+      "throughputRatio": 0.5914495016212321,
+      "p99Ratio": 2.8155087171480613,
+      "accepted": false
+    },
+    {
+      "payloadBytes": 65536,
+      "clients": 32,
+      "throughputRatio": 0.45966709346991036,
+      "p99Ratio": 0.9775482797102272,
+      "accepted": false
+    }
+  ],
+  "accepted": false,
+  "measuredAt": "2026-10-16T17:40:49.801331+00:00",
+  "releaseSmoke": {
+    "platform": "linux/amd64",
+    "archiveSHA256": "cf5f80bf57ccabfc178e08592b386fb6d0b137cef81541cf5b8ea128f599eb65",
+    "nodeVersion": "24.22.0",
+    "verifiedPairs": 6,
+    "readOnly": true,
+    "unprivileged": true,
+    "healthcheck": true,
+    "metricsSchemaVersion": 2,
+    "sigusr1Quiet": true,
+    "sigtermExitCode": 0
+  }
+}
