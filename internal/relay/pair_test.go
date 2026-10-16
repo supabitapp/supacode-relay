@@ -70,11 +70,7 @@ func (w barrierResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 }
 
 func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
-	cfg, err := LoadConfig(env(map[string]string{
-		"RELAY_MAX_CLIENTS":          "1",
-		"RELAY_MAX_CLIENTS_PER_HOST": "1",
-		"RELAY_MAX_PENDING_PER_HOST": "1",
-	}))
+	cfg, err := LoadConfig(env(map[string]string{"RELAY_MAX_CLIENTS_PER_HOST": "1"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,28 +92,28 @@ func TestClosingPairKeepsItsAdmissionSlot(t *testing.T) {
 	}))
 	t.Cleanup(listener.Close)
 	base := "ws" + strings.TrimPrefix(listener.URL, "http")
-	h, nextHost := registerHost(t, base), registerHost(t, base)
+	h := registerHost(t, base)
 	client, host := openPair(t, h)
 	s.mu.Lock()
 	hostState := s.hosts[h.ID]
 	s.mu.Unlock()
 	expectPairMessage(t, client, host)
-	h.Close()
-	waitForHandler(t, connect.entered, "connect terminal read")
-	waitForHandler(t, accept.entered, "accept terminal read")
-	expectClientCapacityReached(t, nextHost)
-	expectClosingPairMetrics(t, s, 1)
-	expectHostClientQuota(t, s, hostState, 1)
-	connect.release()
+	if err := client.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
 	waitForHandler(t, connect.returned, "connect handler exit")
-	expectClientCapacityReached(t, nextHost)
+	waitForHandler(t, accept.entered, "accept terminal read")
+	expectClientCapacityReached(t, h)
 	expectClosingPairMetrics(t, s, 1)
 	expectHostClientQuota(t, s, hostState, 1)
 	accept.release()
 	waitForHandler(t, accept.returned, "accept handler exit")
 	expectClosingPairMetrics(t, s, 0)
 	expectHostClientQuota(t, s, hostState, 0)
-	client, host = openPair(t, nextHost)
+	if ev, err := h.Next(5 * time.Second); err != nil || ev.Type != "closed" {
+		t.Fatalf("closed event: %+v %v", ev, err)
+	}
+	client, host = openPair(t, h)
 	expectPairMessage(t, client, host)
 }
 

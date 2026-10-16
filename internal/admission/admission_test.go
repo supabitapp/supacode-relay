@@ -1,7 +1,6 @@
 package admission
 
 import (
-	"net"
 	"net/http"
 	"net/netip"
 	"testing"
@@ -145,39 +144,9 @@ func TestClientIPTrustedProxies(t *testing.T) {
 		{req("[::ffff:127.0.0.1]:1234"), trusted, "127.0.0.1"},
 	}
 	for _, c := range cases {
-		if got := ClientIP(c.r, c.trusted, ""); got.String() != c.want {
+		if got := ClientIP(c.r, c.trusted); got.String() != c.want {
 			t.Errorf("%s %q: got %s want %s", c.r.RemoteAddr, c.r.Header.Values("X-Forwarded-For"), got, c.want)
 		}
-	}
-}
-
-func TestClientIPHeaderOnlyFromTrustedPeers(t *testing.T) {
-	trusted := []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
-	req := func(remote string, values ...string) *http.Request {
-		r := &http.Request{RemoteAddr: remote, Header: http.Header{"X-Forwarded-For": {"109.94.97.37, 109.94.97.37"}}}
-		for _, v := range values {
-			r.Header.Add("X-Relay-Client-Ip", v)
-		}
-		return r
-	}
-	cases := []struct {
-		r    *http.Request
-		want string
-	}{
-		{req("127.0.0.1:1", "198.51.100.7"), "198.51.100.7"},
-		{req("127.0.0.1:1", "::ffff:198.51.100.7"), "198.51.100.7"},
-		{req("203.0.113.5:1", "198.51.100.7"), "203.0.113.5"},
-		{req("127.0.0.1:1", "198.51.100.7", "6.6.6.6"), "109.94.97.37"},
-		{req("127.0.0.1:1", "not-an-ip"), "109.94.97.37"},
-		{req("127.0.0.1:1"), "109.94.97.37"},
-	}
-	for _, c := range cases {
-		if got := ClientIP(c.r, trusted, "X-Relay-Client-Ip"); got.String() != c.want {
-			t.Errorf("%s %v: got %s want %s", c.r.RemoteAddr, c.r.Header.Values("X-Relay-Client-Ip"), got, c.want)
-		}
-	}
-	if got := ClientIP(req("127.0.0.1:1", "198.51.100.7"), trusted, ""); got.String() != "109.94.97.37" {
-		t.Errorf("header honored without opt-in: %s", got)
 	}
 }
 
@@ -205,40 +174,5 @@ func TestGateLimits(t *testing.T) {
 	g.Release(b)
 	if total, ips := g.Stats(); total != 0 || ips != 0 {
 		t.Fatalf("leaked state total=%d ips=%d", total, ips)
-	}
-}
-
-func TestFilterListenerDropsUnlistedPeers(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ln.Close()
-	if FilterListener(ln, nil) != ln {
-		t.Fatal("empty allowlist should not wrap the listener")
-	}
-	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) })}
-	go func() { _ = srv.Serve(FilterListener(ln, []netip.Prefix{netip.MustParsePrefix("10.9.9.9/32")})) }()
-	defer srv.Close()
-	c := http.Client{Timeout: 2 * time.Second}
-	if resp, err := c.Get("http://" + ln.Addr().String() + "/healthz"); err == nil {
-		resp.Body.Close()
-		t.Fatalf("unlisted peer got HTTP %d", resp.StatusCode)
-	}
-
-	ln2, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	srv2 := &http.Server{Handler: srv.Handler}
-	go func() { _ = srv2.Serve(FilterListener(ln2, []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")})) }()
-	defer srv2.Close()
-	resp, err := c.Get("http://" + ln2.Addr().String() + "/healthz")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 204 {
-		t.Fatalf("listed peer got %d", resp.StatusCode)
 	}
 }

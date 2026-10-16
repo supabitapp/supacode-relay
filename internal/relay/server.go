@@ -26,6 +26,8 @@ import (
 const (
 	closeGrace       = time.Second
 	httpTimeout      = 5 * time.Second
+	writeTimeout     = 5 * time.Second
+	maxConnections   = 50_000
 	topHostsReported = 20
 )
 
@@ -49,7 +51,6 @@ type Server struct {
 	mu          sync.Mutex
 	hosts       map[string]*host
 	pairs       map[string]*pair
-	controls    int
 	pending     int
 	active      int
 	clientSlots int
@@ -60,7 +61,7 @@ func New(cfg Config) *Server {
 	s := &Server{
 		cfg: cfg,
 		upgrader: websocket.Upgrader{
-			HandshakeTimeout: cfg.WriteTimeout,
+			HandshakeTimeout: writeTimeout,
 			ReadBufferSize:   4096,
 			WriteBufferSize:  16 * 1024,
 			WriteBufferPool:  &sync.Pool{},
@@ -68,7 +69,7 @@ func New(cfg Config) *Server {
 		},
 		limiter:       admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
 		publicLimiter: admission.NewLimiter(cfg.AdmissionRate, cfg.admissionBurst()),
-		gate:          admission.NewGate(cfg.MaxConnections, cfg.MaxConnectionsPerIP),
+		gate:          admission.NewGate(maxConnections, cfg.MaxConnectionsPerIP),
 		rejections:    map[string]int64{},
 		hosts:         map[string]*host{},
 		pairs:         map[string]*pair{},
@@ -84,9 +85,9 @@ func New(cfg Config) *Server {
 	} else {
 		mux.Handle("GET /metrics", s.limitPublic(http.HandlerFunc(s.handlePublicMetrics)))
 	}
-	mux.HandleFunc("GET /v1/control", s.limitConnections(s.handleControl))
-	mux.HandleFunc("GET /v1/connect", s.limitConnections(s.handleConnect))
-	mux.HandleFunc("GET /v1/accept", s.limitConnections(s.handleAccept))
+	mux.HandleFunc("GET /v1/control", s.admit(false, s.handleControl))
+	mux.HandleFunc("GET /v1/connect", s.admit(false, s.handleConnect))
+	mux.HandleFunc("GET /v1/accept", s.admit(true, s.handleAccept))
 	mux.Handle("GET /dashboard/", http.StripPrefix("/dashboard", dashboard.New(s.dashboardStats, s.limitPublic)))
 	s.http = newHTTPServer(mux)
 	s.private = newHTTPServer(admin)
@@ -131,11 +132,11 @@ func panicFrames() string {
 }
 
 func (s *Server) Serve(ln net.Listener) error {
-	return s.http.Serve(admission.FilterListener(ln, s.cfg.AllowedPeers))
+	return s.http.Serve(ln)
 }
 
 func (s *Server) ServePrivate(ln net.Listener) error {
-	return s.private.Serve(admission.FilterListener(ln, s.cfg.PrivatePeers))
+	return s.private.Serve(ln)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -156,7 +157,7 @@ func (s *Server) handlePublicMetrics(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) limitPublic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.publicLimiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
+		if !s.publicLimiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies), time.Now()) {
 			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
 			return
 		}
@@ -165,13 +166,8 @@ func (s *Server) limitPublic(next http.Handler) http.Handler {
 }
 
 func (s *Server) dashboardStats() dashboard.Stats {
-	openConnections, _ := s.gate.Stats()
 	stats := dashboard.Stats{
 		Draining:          s.draining.Load(),
-		OpenConnections:   openConnections,
-		MaxHosts:          s.cfg.MaxHosts,
-		MaxClients:        s.cfg.MaxClients,
-		MaxConnections:    s.cfg.MaxConnections,
 		ForwardedMessages: s.forwardedMessages.Load(),
 		ForwardedBytes:    s.forwardedBytes.Load(),
 	}
@@ -180,8 +176,6 @@ func (s *Server) dashboardStats() dashboard.Stats {
 	stats.ActiveHosts = len(s.hosts)
 	stats.ActivePairs = s.active
 	stats.PendingPairs = s.pending
-	stats.ControlConnections = s.controls
-	stats.ClientSlots = s.clientSlots
 	stats.OpenSockets = len(s.conns)
 	s.mu.Unlock()
 	return stats
@@ -190,20 +184,18 @@ func (s *Server) dashboardStats() dashboard.Stats {
 func (s *Server) writeMetrics(w http.ResponseWriter, detailed bool) {
 	s.mu.Lock()
 	m := map[string]any{
-		"activeHosts":        len(s.hosts),
-		"activePairs":        s.active,
-		"clientSlots":        s.clientSlots,
-		"closingPairs":       s.clientSlots - s.active - s.pending,
-		"pendingPairs":       s.pending,
-		"controlConnections": s.controls,
-		"openSockets":        len(s.conns),
+		"activeHosts":  len(s.hosts),
+		"activePairs":  s.active,
+		"clientSlots":  s.clientSlots,
+		"closingPairs": s.clientSlots - s.active - s.pending,
+		"pendingPairs": s.pending,
+		"openSockets":  len(s.conns),
 	}
 	if detailed {
 		m["topHosts"] = s.topHosts()
 	}
 	s.mu.Unlock()
 	m["openConnections"], m["openConnectionIPs"] = s.gate.Stats()
-	m["maxConnections"] = s.cfg.MaxConnections
 	m["maxConnectionsPerClient"] = s.cfg.MaxConnectionsPerIP
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
@@ -226,9 +218,9 @@ func (s *Server) writeMetrics(w http.ResponseWriter, detailed bool) {
 	writeJSON(w, http.StatusOK, m)
 }
 
-func (s *Server) limitConnections(next http.HandlerFunc) http.HandlerFunc {
+func (s *Server) admit(duringDrain bool, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader)
+		ip := admission.ClientIP(r, s.cfg.TrustedProxies)
 		switch s.gate.Acquire(ip) {
 		case admission.GlobalFull:
 			s.reject(w, http.StatusServiceUnavailable, "connection capacity reached")
@@ -238,7 +230,14 @@ func (s *Server) limitConnections(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		defer s.gate.Release(ip)
-		next(w, r)
+		switch {
+		case !duringDrain && s.draining.Load():
+			s.reject(w, http.StatusServiceUnavailable, "draining")
+		case !s.limiter.Allow(ip, time.Now()):
+			s.reject(w, http.StatusTooManyRequests, "rate limited")
+		default:
+			next(w, r)
+		}
 	}
 }
 
@@ -282,18 +281,6 @@ func (s *Server) rejectionCounts() (total int64, byReason map[string]int64) {
 		total += n
 	}
 	return total, maps.Clone(s.rejections)
-}
-
-func (s *Server) admit(w http.ResponseWriter, r *http.Request, duringDrain bool) bool {
-	if !duringDrain && s.draining.Load() {
-		s.reject(w, http.StatusServiceUnavailable, "draining")
-		return false
-	}
-	if !s.limiter.Allow(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader), time.Now()) {
-		s.reject(w, http.StatusTooManyRequests, "rate limited")
-		return false
-	}
-	return true
 }
 
 func (s *Server) upgrade(w http.ResponseWriter, r *http.Request, limit int64) (*websocket.Conn, bool) {

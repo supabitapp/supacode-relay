@@ -22,7 +22,7 @@ type peer struct {
 }
 
 func (s *Server) newPeer(ws *websocket.Conn, q *queue, traffic *atomic.Int64) *peer {
-	p := &peer{s: s, ws: ws, q: q, traffic: traffic, writeTimeout: s.cfg.WriteTimeout, dead: make(chan struct{}), written: make(chan struct{})}
+	p := &peer{s: s, ws: ws, q: q, traffic: traffic, writeTimeout: writeTimeout, dead: make(chan struct{}), written: make(chan struct{})}
 	if traffic != nil {
 		p.writeTimeout = s.cfg.DeliveryTimeout
 	}
@@ -62,8 +62,7 @@ func (p *peer) writeLoop() {
 	defer close(p.written)
 	defer p.q.finish(closeMsg{websocket.CloseGoingAway, "writer stopped"}, true)
 	defer p.s.forget(p.ws)
-	cfg := p.s.cfg
-	ticker := time.NewTicker(cfg.Heartbeat)
+	ticker := time.NewTicker(p.s.cfg.Heartbeat)
 	defer ticker.Stop()
 	for {
 		f, final, ok := p.q.next()
@@ -90,7 +89,7 @@ func (p *peer) writeLoop() {
 			continue
 		}
 		if final != nil {
-			_ = p.ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(final.code, final.reason), time.Now().Add(cfg.WriteTimeout))
+			_ = p.ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(final.code, final.reason), time.Now().Add(writeTimeout))
 			_ = p.ws.SetReadDeadline(time.Now().Add(closeGrace))
 			return
 		}

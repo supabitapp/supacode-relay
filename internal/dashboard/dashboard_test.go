@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-var capacityLimits = Stats{MaxHosts: 10, MaxClients: 10, MaxConnections: 10}
-
 func unlimited(next http.Handler) http.Handler {
 	return next
 }
@@ -41,15 +39,14 @@ func findRow(t *testing.T, v view, label string) row {
 }
 
 func TestPageEmbedsCurrentStats(t *testing.T) {
-	stats := capacityLimits
-	stats.ActiveHosts, stats.ControlConnections = 3, 4
+	stats := Stats{ActiveHosts: 3}
 	d := New(func() Stats { return stats }, unlimited)
 	response := serve(t, d, "/", nil)
 	body := response.Body.String()
 	if response.Code != http.StatusOK || response.Header().Get("Content-Security-Policy") != contentSecurityPolicy || response.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("page: %d %v", response.Code, response.Header())
 	}
-	for _, want := range []string{`hx-get="stats"`, `hx-trigger="every 2s"`, ">Online<", "Connected hosts", "4 <small>of 10</small>", "Traffic (1 min avg)"} {
+	for _, want := range []string{`hx-get="stats"`, `hx-trigger="every 2s"`, ">Online<", "Connected hosts", `<span class="value">3</span>`, "Traffic (1 min avg)"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("page is missing %q:\n%s", want, body)
 		}
@@ -57,8 +54,7 @@ func TestPageEmbedsCurrentStats(t *testing.T) {
 }
 
 func TestStatsFragmentReportsDraining(t *testing.T) {
-	stats := capacityLimits
-	stats.Draining = true
+	stats := Stats{Draining: true}
 	body := serve(t, New(func() Stats { return stats }, unlimited), "/stats", nil).Body.String()
 	if strings.Contains(body, "<html") || !strings.Contains(body, `class="status draining">Draining<`) {
 		t.Fatalf("incorrect stats fragment:\n%s", body)
@@ -71,7 +67,7 @@ func TestLimitAppliesToPagesNotAssets(t *testing.T) {
 			w.WriteHeader(http.StatusTooManyRequests)
 		})
 	}
-	d := New(func() Stats { return capacityLimits }, reject)
+	d := New(func() Stats { return Stats{} }, reject)
 	for path, status := range map[string]int{
 		"/":                             http.StatusTooManyRequests,
 		"/stats":                        http.StatusTooManyRequests,
@@ -94,7 +90,7 @@ func TestLimitAppliesToPagesNotAssets(t *testing.T) {
 }
 
 func TestAssetsRevalidateWithETags(t *testing.T) {
-	d := New(func() Stats { return capacityLimits }, unlimited)
+	d := New(func() Stats { return Stats{} }, unlimited)
 	first := serve(t, d, "/static/htmx-2.0.11.min.js", nil)
 	tag := first.Header().Get("ETag")
 	if first.Code != http.StatusOK || tag == "" || first.Header().Get("Cache-Control") != "no-cache" {
@@ -112,7 +108,7 @@ func TestSnapshotSamplesAtMostOncePerRefresh(t *testing.T) {
 	calls := 0
 	d := New(func() Stats {
 		calls++
-		return capacityLimits
+		return Stats{}
 	}, unlimited)
 	for _, offset := range []time.Duration{time.Second, 1500 * time.Millisecond, 1999 * time.Millisecond, 2 * time.Second} {
 		d.snapshot(d.started.Add(offset))
@@ -123,8 +119,7 @@ func TestSnapshotSamplesAtMostOncePerRefresh(t *testing.T) {
 }
 
 func TestTrafficRatesAverageTheLastMinute(t *testing.T) {
-	stats := capacityLimits
-	stats.ForwardedMessages, stats.ForwardedBytes = 1200, 1<<20
+	stats := Stats{ForwardedMessages: 1200, ForwardedBytes: 1 << 20}
 	d := New(func() Stats { return stats }, unlimited)
 	initial := d.snapshot(d.started)
 	for _, label := range []string{"Messages", "Throughput"} {
@@ -164,8 +159,7 @@ func TestTrafficRatesAverageTheLastMinute(t *testing.T) {
 func TestTrafficRatesRestartAfterGapsOrCounterResets(t *testing.T) {
 	for _, reason := range []string{"monitoring gap", "messages reset", "bytes reset"} {
 		t.Run(reason, func(t *testing.T) {
-			stats := capacityLimits
-			stats.ForwardedMessages, stats.ForwardedBytes = 1000, 1<<20
+			stats := Stats{ForwardedMessages: 1000, ForwardedBytes: 1 << 20}
 			d := New(func() Stats { return stats }, unlimited)
 			d.snapshot(d.started)
 			stats.ForwardedMessages += 20
@@ -202,7 +196,7 @@ func TestTrafficRatesRestartAfterGapsOrCounterResets(t *testing.T) {
 
 func TestBuildReportsCPUOverTheSampleWindow(t *testing.T) {
 	d := &Dashboard{started: time.Now()}
-	previous := sample{at: d.started, relay: capacityLimits, cpuOK: true, cpus: 4}
+	previous := sample{at: d.started, cpuOK: true, cpus: 4}
 	current := previous
 	current.at = previous.at.Add(2 * time.Second)
 	current.cpu = time.Second
@@ -214,7 +208,7 @@ func TestBuildReportsCPUOverTheSampleWindow(t *testing.T) {
 
 func TestBuildOmitsRatesAfterAQuietPeriod(t *testing.T) {
 	d := &Dashboard{started: time.Now()}
-	previous := sample{at: d.started, relay: capacityLimits, cpuOK: true, cpus: 1}
+	previous := sample{at: d.started, cpuOK: true, cpus: 1}
 	current := previous
 	current.at = previous.at.Add(time.Hour)
 	current.relay.ForwardedMessages = 3600
@@ -229,11 +223,10 @@ func TestBuildOmitsRatesAfterAQuietPeriod(t *testing.T) {
 	}
 }
 
-func TestBuildGaugesCapacityAndMemoryLimits(t *testing.T) {
+func TestBuildGaugesMemoryLimits(t *testing.T) {
 	d := &Dashboard{started: time.Now()}
 	current := sample{
 		at:          d.started,
-		relay:       Stats{ActiveHosts: 1, ControlConnections: 2, ClientSlots: 5, MaxHosts: 4, MaxClients: 10, MaxConnections: 10},
 		retained:    1 << 30,
 		memoryLimit: 2 << 30,
 		systemOK:    true,
@@ -242,8 +235,6 @@ func TestBuildGaugesCapacityAndMemoryLimits(t *testing.T) {
 	}
 	v := d.build(current, current)
 	for label, want := range map[string]row{
-		"Hosts":      {Label: "Hosts", Value: "2", Detail: "of 4", Level: 0.5, Meter: true},
-		"Pairs":      {Label: "Pairs", Value: "5", Detail: "of 10", Level: 0.5, Meter: true},
 		"Go runtime": {Label: "Go runtime", Value: "1.0 GiB", Detail: "of 2.0 GiB limit", Level: 0.5, Meter: true},
 		"System":     {Label: "System", Value: "3.0 GiB", Detail: "of 4.0 GiB", Level: 0.75, Meter: true},
 	} {
@@ -257,13 +248,10 @@ func TestBuildGaugesCapacityAndMemoryLimits(t *testing.T) {
 	}
 }
 
-func TestCapacityClampsMeterLevel(t *testing.T) {
-	for _, tc := range []struct {
-		n, limit int
-		level    float64
-	}{{0, 10, 0}, {5, 10, 0.5}, {12, 10, 1}} {
-		if got := capacity("hosts", tc.n, tc.limit); !got.Meter || got.Level != tc.level {
-			t.Errorf("capacity(%d, %d) = %+v, want level %v", tc.n, tc.limit, got, tc.level)
+func TestGaugeClampsMeterLevel(t *testing.T) {
+	for _, tc := range []struct{ in, level float64 }{{-0.5, 0}, {0.5, 0.5}, {1.2, 1}} {
+		if got := gauge("memory", "", "", tc.in); !got.Meter || got.Level != tc.level {
+			t.Errorf("gauge(%v) = %+v, want level %v", tc.in, got, tc.level)
 		}
 	}
 }

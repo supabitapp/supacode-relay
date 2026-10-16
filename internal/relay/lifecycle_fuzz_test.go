@@ -222,8 +222,8 @@ func waitLifecycleIdle(t *testing.T, s *Server) {
 	deadline := time.Now().Add(2 * time.Second)
 	for {
 		s.mu.Lock()
-		idle := len(s.hosts) == 0 && len(s.pairs) == 0 && len(s.conns) == 0 && s.controls == 0 && s.clientSlots == 0
-		valid := s.active >= 0 && s.pending >= 0 && s.controls >= 0 && s.clientSlots >= s.active+s.pending && len(s.pairs) == s.active+s.pending
+		idle := len(s.hosts) == 0 && len(s.pairs) == 0 && len(s.conns) == 0 && s.clientSlots == 0
+		valid := s.active >= 0 && s.pending >= 0 && s.clientSlots >= s.active+s.pending && len(s.pairs) == s.active+s.pending
 		s.mu.Unlock()
 		if !valid {
 			t.Fatal("pair counters disagree with retained state")

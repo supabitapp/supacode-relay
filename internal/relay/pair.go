@@ -39,11 +39,8 @@ type pair struct {
 }
 
 func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
-	if !s.admit(w, r, false) {
-		return
-	}
 	id := r.URL.Query().Get("endpointId")
-	clientKey := admission.ClientKey(admission.ClientIP(r, s.cfg.TrustedProxies, s.cfg.ClientIPHeader))
+	clientKey := admission.ClientKey(admission.ClientIP(r, s.cfg.TrustedProxies))
 	s.mu.Lock()
 	h := s.hosts[id]
 	if h == nil {
@@ -51,7 +48,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		s.reject(w, http.StatusNotFound, "endpoint not found")
 		return
 	}
-	if s.clientSlots >= s.cfg.MaxClients || h.clientSlots >= s.cfg.MaxClientsPerHost || h.pending >= s.cfg.MaxPendingPerHost {
+	if h.clientSlots >= s.cfg.MaxClientsPerHost {
 		s.mu.Unlock()
 		s.reject(w, http.StatusServiceUnavailable, "client capacity reached")
 		return
@@ -73,7 +70,6 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	h.pairs[p.id] = p
 	s.pairs[p.id] = p
-	h.pending++
 	h.clientSlots++
 	h.clientCounts[clientKey]++
 	s.clientSlots++
@@ -104,9 +100,6 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
-	if !s.admit(w, r, true) {
-		return
-	}
 	q := r.URL.Query()
 	s.mu.Lock()
 	p := s.pairs[q.Get("connectionId")]
@@ -145,7 +138,6 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 	p.state = active
 	p.timer.Stop()
 	p.hostPeer = hp
-	p.host.pending--
 	s.pending--
 	s.active++
 	close(p.ready)
@@ -183,7 +175,6 @@ func (p *pair) closeWhen(c closeMsg, waitingOnly bool) {
 	if prev == active {
 		s.active--
 	} else {
-		h.pending--
 		s.pending--
 	}
 	if p.announced {

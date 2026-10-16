@@ -243,7 +243,7 @@ func (r *relay) metrics() map[string]float64 {
 
 var resourceGauges = []string{
 	"activeHosts", "activePairs", "pendingPairs", "clientSlots",
-	"controlConnections", "openSockets", "openConnections", "openConnectionIPs",
+	"openSockets", "openConnections", "openConnectionIPs",
 }
 
 func (r *relay) expectReleased() {

@@ -9,11 +9,11 @@ import (
 )
 
 func FuzzClientIP(f *testing.F) {
-	f.Add("198.51.100.7, 10.1.1.1", "198.51.100.8")
-	f.Add("garbage\n198.51.100.7", "::ffff:198.51.100.8")
-	f.Add("", "")
-	f.Fuzz(func(t *testing.T, forwarded, direct string) {
-		if len(forwarded) > 1024 || len(direct) > 1024 {
+	f.Add("198.51.100.7, 10.1.1.1")
+	f.Add("garbage\n198.51.100.7")
+	f.Add("")
+	f.Fuzz(func(t *testing.T, forwarded string) {
+		if len(forwarded) > 1024 {
 			return
 		}
 		trusted := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("10.0.0.0/8")}
@@ -21,23 +21,13 @@ func FuzzClientIP(f *testing.F) {
 		for _, value := range strings.Split(forwarded, "\n") {
 			r.Header.Add("X-Forwarded-For", value)
 		}
-		r.Header.Set("X-Relay-Client-IP", direct)
-		if got := ClientIP(r, trusted, "X-Relay-Client-IP"); got != netip.MustParseAddr("203.0.113.7") {
+		if got := ClientIP(r, trusted); got != netip.MustParseAddr("203.0.113.7") {
 			t.Fatal("untrusted peer changed its identity through headers")
 		}
 		r.RemoteAddr = "127.0.0.1:80"
 		r.Header.Add("X-Forwarded-For", "198.51.100.7, 10.1.1.1")
-		if got := ClientIP(r, trusted, ""); got != netip.MustParseAddr("198.51.100.7") {
+		if got := ClientIP(r, trusted); got != netip.MustParseAddr("198.51.100.7") {
 			t.Fatal("untrusted prefix changed the first untrusted hop from the right")
-		}
-		if ip, err := netip.ParseAddr(strings.TrimSpace(direct)); err == nil {
-			if got := ClientIP(r, trusted, "X-Relay-Client-IP"); got != ip.Unmap() {
-				t.Fatal("trusted direct header did not select the normalized address")
-			}
-		}
-		r.Header.Add("X-Relay-Client-IP", direct)
-		if got := ClientIP(r, trusted, "X-Relay-Client-IP"); got != ClientIP(r, trusted, "") {
-			t.Fatal("repeated direct headers overrode the forwarded chain")
 		}
 	})
 }

@@ -48,7 +48,7 @@ func payloadSet(max int) []message {
 
 func TestForwardingPreservesMessages(t *testing.T) {
 	const max = 256 << 10
-	r := startRelay(t, fmt.Sprintf("RELAY_MAX_MESSAGE_BYTES=%d", max), "RELAY_MAX_QUEUE_BYTES=8388608", "RELAY_MAX_QUEUE_MESSAGES=1024")
+	r := startRelay(t, fmt.Sprintf("RELAY_MAX_MESSAGE_BYTES=%d", max))
 	h := register(t, r)
 	client, host, _ := pairUp(t, r, h)
 	msgs := payloadSet(max)

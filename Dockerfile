@@ -20,8 +20,8 @@ ENTRYPOINT ["/relay-probe"]
 FROM scratch AS relay
 COPY --from=build /out/relay /relay
 USER 65532:65532
-ENV RELAY_ADDR=0.0.0.0:8080 RELAY_PRIVATE_ADDR=0.0.0.0:9090
-EXPOSE 8080 9090
+ENV RELAY_ADDR=0.0.0.0:8080 RELAY_PRIVATE_ADDR=127.0.0.1:9090
+EXPOSE 8080
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=5s --timeout=3s --start-period=2s --retries=3 CMD ["/relay", "healthcheck"]
 ENTRYPOINT ["/relay"]

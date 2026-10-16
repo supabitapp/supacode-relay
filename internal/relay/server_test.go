@@ -77,7 +77,7 @@ func panicFor(addr netip.Addr) {
 }
 
 func TestCloseNowPongsCannotExtendDrain(t *testing.T) {
-	server := New(Config{Heartbeat: time.Second, WriteTimeout: time.Second})
+	server := New(Config{Heartbeat: time.Second})
 	finished := make(chan time.Duration, 1)
 	listener := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, ok := server.upgrade(w, r, 1024)
@@ -149,7 +149,7 @@ func TestPublicListenerServesDashboardAndMetrics(t *testing.T) {
 }
 
 func TestDashboardStatsMatchMetrics(t *testing.T) {
-	cfg, err := LoadConfig(env(map[string]string{"RELAY_MAX_HOSTS": "7", "RELAY_MAX_CLIENTS": "9", "RELAY_MAX_CONNS": "11"}))
+	cfg, err := LoadConfig(env(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,35 +164,11 @@ func TestDashboardStatsMatchMetrics(t *testing.T) {
 	offline.Body.Close()
 	response := httptest.NewRecorder()
 	s.handleMetrics(response, httptest.NewRequest(http.MethodGet, "/metrics", nil))
-	var metrics struct {
-		Draining                                                   bool
-		ActiveHosts, ActivePairs, PendingPairs, ControlConnections int
-		ClientSlots, OpenSockets, OpenConnections                  int
-		RejectedConnections, ForwardedMessages, ForwardedBytes     int64
-		RejectedConnectionsByReason                                map[string]int64
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &metrics); err != nil {
+	var want dashboard.Stats
+	if err := json.Unmarshal(response.Body.Bytes(), &want); err != nil {
 		t.Fatal(err)
 	}
-	want := dashboard.Stats{
-		Draining:           metrics.Draining,
-		ActiveHosts:        metrics.ActiveHosts,
-		ActivePairs:        metrics.ActivePairs,
-		PendingPairs:       metrics.PendingPairs,
-		ControlConnections: metrics.ControlConnections,
-		ClientSlots:        metrics.ClientSlots,
-		OpenSockets:        metrics.OpenSockets,
-		OpenConnections:    metrics.OpenConnections,
-		MaxHosts:           7,
-		MaxClients:         9,
-		MaxConnections:     11,
-		ForwardedMessages:  metrics.ForwardedMessages,
-		ForwardedBytes:     metrics.ForwardedBytes,
-
-		RejectedConnections:         metrics.RejectedConnections,
-		RejectedConnectionsByReason: metrics.RejectedConnectionsByReason,
-	}
-	if got := s.dashboardStats(); !reflect.DeepEqual(got, want) || got.ActiveHosts != 1 || got.ClientSlots != 1 || got.RejectedConnections != 1 {
+	if got := s.dashboardStats(); !reflect.DeepEqual(got, want) || got.ActiveHosts != 1 || got.ActivePairs != 1 || got.RejectedConnections != 1 {
 		t.Fatalf("dashboard stats = %+v, want %+v", got, want)
 	}
 }
