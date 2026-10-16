@@ -337,7 +337,7 @@ func TestLargeStreamingMessageKeepsHeapBounded(t *testing.T) {
 	const size = 32 << 20
 	r := startRelay(t, "RELAY_MAX_MESSAGE_BYTES=33554432")
 	client, host, _ := pairUp(t, r, register(t, r))
-	baseline := r.metrics()["heapAllocBytes"]
+	baseline := r.runtimeGauge(r.metrics(), "heapAllocBytes", "bufferedBytes")
 	block := bytes.Repeat([]byte{0xa5}, 64<<10)
 	written := make(chan error, 1)
 	go func() {
@@ -369,7 +369,7 @@ func TestLargeStreamingMessageKeepsHeapBounded(t *testing.T) {
 			t.Fatal("stream changed")
 		}
 	}
-	if growth := r.metrics()["heapAllocBytes"] - baseline; growth > 4<<20 {
+	if growth := r.runtimeGauge(r.metrics(), "heapAllocBytes", "bufferedBytes") - baseline; growth > 4<<20 {
 		t.Fatalf("relay heap grew %.0f bytes while streaming a %d byte message", growth, size)
 	}
 	for range (size - (8 << 20)) / len(block) {

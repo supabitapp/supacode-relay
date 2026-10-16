@@ -46,7 +46,15 @@ func TestMain(m *testing.M) {
 		}
 		return out
 	}
-	relayBin = build("relay", "../cmd/relay")
+	relayBin = os.Getenv("RELAY_E2E_BIN")
+	if relayBin == "" {
+		relayBin = build("relay", "../cmd/relay")
+	} else {
+		relayBin, err = filepath.Abs(relayBin)
+		if err != nil {
+			panic(err)
+		}
+	}
 	probeBin = build("probe", "./docker/probe")
 	code := m.Run()
 	os.RemoveAll(dir)
@@ -238,7 +246,25 @@ func (r *relay) metrics() map[string]float64 {
 			out[k] = f
 		}
 	}
+	for _, name := range resourceGauges {
+		if _, ok := out[name]; !ok {
+			r.t.Fatalf("metrics missing numeric %s", name)
+		}
+	}
 	return out
+}
+
+func (r *relay) runtimeGauge(m map[string]float64, goName, nodeName string) float64 {
+	r.t.Helper()
+	name := goName
+	if m["metricsSchemaVersion"] == 2 {
+		name = nodeName
+	}
+	v, ok := m[name]
+	if !ok {
+		r.t.Fatalf("metrics missing numeric %s", name)
+	}
+	return v
 }
 
 var resourceGauges = []string{

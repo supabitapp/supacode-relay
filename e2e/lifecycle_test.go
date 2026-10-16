@@ -231,10 +231,10 @@ func TestHostRemovalClosesStalledPairsTogether(t *testing.T) {
 		}
 		producers.Wait()
 		r.waitMetrics("stalled handlers and heartbeats exited", func(m map[string]float64) bool {
-			return m["goroutines"] <= baseline["goroutines"]+3
+			return r.runtimeGauge(m, "goroutines", "activeResources") <= r.runtimeGauge(baseline, "goroutines", "activeResources")+3
 		})
 	}
-	if growth := r.metrics()["heapAllocBytes"] - baseline["heapAllocBytes"]; growth > 8<<20 {
+	if growth := r.runtimeGauge(r.metrics(), "heapAllocBytes", "bufferedBytes") - r.runtimeGauge(baseline, "heapAllocBytes", "bufferedBytes"); growth > 8<<20 {
 		t.Fatalf("repeated stalled teardown retained %.0f bytes", growth)
 	}
 }
