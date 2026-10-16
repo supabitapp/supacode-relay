@@ -2,10 +2,8 @@ package relay
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supaterm-relay/internal/dashboard"
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 func TestCloseNowPongsCannotExtendDrain(t *testing.T) {
@@ -63,33 +60,12 @@ func TestCloseNowPongsCannotExtendDrain(t *testing.T) {
 	}
 }
 
-func TestRelayIgnoresCallerTraceHeaders(t *testing.T) {
-	const suppliedTrace = "ABCDabcd1234-_56"
-	for _, trusted := range []bool{false, true} {
-		cfg := Config{}
-		if trusted {
-			cfg.TrustedProxies = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
-		}
-		s := New(cfg)
-		request := httptest.NewRequest(http.MethodGet, "/unsupported", nil)
-		request.RemoteAddr = "127.0.0.1:1234"
-		request.Header.Set(diagnostics.Header, suppliedTrace)
-		response := httptest.NewRecorder()
-		s.http.Handler.ServeHTTP(response, request)
-		trace := response.Header().Get(diagnostics.Header)
-		if len(trace) != 16 || trace == suppliedTrace {
-			t.Fatalf("incorrect relay trace: %q", trace)
-		}
-	}
-}
-
-func TestDashboardIsServedOutsideRequestTracing(t *testing.T) {
+func TestPublicListenerServesDashboardAndMetrics(t *testing.T) {
 	cfg, err := LoadConfig(env(map[string]string{"RELAY_PRIVATE_ADDR": "127.0.0.1:0"}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := New(cfg)
-	s.events = diagnostics.Logger(io.Discard)
 	serve := func(path string) *httptest.ResponseRecorder {
 		response := httptest.NewRecorder()
 		s.http.Handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
@@ -104,10 +80,8 @@ func TestDashboardIsServedOutsideRequestTracing(t *testing.T) {
 		"/dashboard/static": http.StatusNotFound,
 		"/metrics":          http.StatusOK,
 	} {
-		response := serve(path)
-		traced := response.Header().Get(diagnostics.Header) != ""
-		if response.Code != status || traced != (path == "/metrics") {
-			t.Errorf("%s: status %d traced %v", path, response.Code, traced)
+		if response := serve(path); response.Code != status {
+			t.Errorf("%s: status %d", path, response.Code)
 		}
 	}
 }
@@ -118,7 +92,6 @@ func TestDashboardStatsMatchMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := New(cfg)
-	s.events = diagnostics.Logger(io.Discard)
 	listener := httptest.NewServer(s.http.Handler)
 	defer listener.Close()
 	openPair(t, registerHost(t, "ws"+strings.TrimPrefix(listener.URL, "http")))

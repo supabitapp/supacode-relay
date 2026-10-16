@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 	"github.com/supabitapp/supaterm-relay/internal/endpoint"
 )
 
@@ -111,7 +109,6 @@ func newClientQuotaServer(t *testing.T) (*Server, string) {
 		t.Fatal(err)
 	}
 	s := New(cfg)
-	s.events = diagnostics.Logger(io.Discard)
 	listener := httptest.NewServer(s.http.Handler)
 	t.Cleanup(listener.Close)
 	t.Cleanup(func() { closeLifecycleSockets(s) })

@@ -10,15 +10,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 	"github.com/supabitapp/supaterm-relay/internal/healthcheck"
 	"github.com/supabitapp/supaterm-relay/internal/relay"
 )
 
 func main() {
-	if code, handled := diagnostics.Command(os.Args, os.Stdout, os.Stderr); handled {
-		os.Exit(code)
-	}
 	cfg, err := relay.LoadConfig(os.Getenv)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "relay: invalid configuration:", err)

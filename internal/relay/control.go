@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 var signaturePrefixes = []string{"supaterm-relay-v1\n", "supacode-relay-v1\n"}
@@ -34,18 +32,12 @@ type host struct {
 	gone         bool
 	bytesIn      atomic.Int64
 	bytesOut     atomic.Int64
-	trace        *diagnostics.Trace
 }
 
-func (h *host) notify(v any) string {
-	if h.gone {
-		return "host_gone"
-	}
-	outcome := h.ctrl.q.enqueue(textFrame(v))
-	if outcome == "queue_full" {
+func (h *host) notify(v any) {
+	if !h.gone && h.ctrl.q.enqueue(textFrame(v)) == "queue_full" {
 		h.ctrl.q.finish(closeMsg{websocket.CloseTryAgainLater, "control queue limit exceeded"}, true)
 	}
-	return outcome
 }
 
 func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
@@ -54,15 +46,13 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	}
 	pub, ok := decodeB64(r.URL.Query().Get("publicKey"), ed25519.PublicKeySize)
 	if !ok {
-		s.reject(w, r, http.StatusBadRequest, "invalid publicKey")
+		s.reject(w, http.StatusBadRequest, "invalid publicKey")
 		return
 	}
 	s.mu.Lock()
 	if s.controls >= s.cfg.MaxHosts {
-		controls := s.controls
 		s.mu.Unlock()
-		diagnostics.From(r).Event("control.capacity.reached", "current_hosts", controls, "max_hosts", s.cfg.MaxHosts)
-		s.reject(w, r, http.StatusServiceUnavailable, "host capacity reached")
+		s.reject(w, http.StatusServiceUnavailable, "host capacity reached")
 		return
 	}
 	s.controls++
@@ -78,29 +68,22 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := endpointID(pub)
-	trace := diagnostics.From(r)
-	trace.Event("control.challenge.sending", "auth_timeout_ms", s.cfg.AuthTimeout.Milliseconds())
 	nonce := randomB64(32)
 	challenge := textFrame(map[string]string{"type": "challenge", "nonce": nonce})
 	_ = ws.SetWriteDeadline(time.Now().Add(s.cfg.WriteTimeout))
 	if err := ws.WriteMessage(challenge.typ, challenge.data); err != nil {
-		trace.Failure("control.challenge.failed", err)
 		s.forget(ws)
 		return
 	}
-	trace.Event("control.challenge.sent")
 	_ = ws.SetReadDeadline(time.Now().Add(s.cfg.AuthTimeout))
-	if accepted, reason := verifyAuth(ws, pub, id+"\n"+nonce); !accepted {
+	if !verifyAuth(ws, pub, id+"\n"+nonce) {
 		s.countRejection("authentication failed")
-		trace.Event("control.auth.failed", "reason", reason)
 		s.closeNow(ws, closeMsg{websocket.ClosePolicyViolation, "authentication failed"})
 		return
 	}
-	trace.Event("control.auth.accepted")
 
 	ctrl := s.newPeer(ws, newQueue(s.cfg.MaxQueueBytes, s.cfg.MaxQueueMessages), nil)
-	ctrl.trace = trace.With("peer", "control")
-	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}, clientCounts: map[netip.Addr]int{}, trace: trace}
+	h := &host{id: id, ctrl: ctrl, pairs: map[string]*pair{}, clientCounts: map[netip.Addr]int{}}
 	ctrl.q.push(textFrame(map[string]string{"type": "registered", "endpointId": id}))
 	s.mu.Lock()
 	if s.draining.Load() {
@@ -111,9 +94,7 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	old := s.hosts[id]
 	s.hosts[id] = h
 	s.mu.Unlock()
-	trace.Event("host.registered", "superseded_previous", old != nil)
 	if old != nil {
-		old.trace.Event("host.superseded", "replacement_trace_id", trace.ID())
 		s.superseded.Add(1)
 		old.ctrl.q.finish(closeMsg{closeSuperseded, "registration superseded"}, true)
 	}
@@ -124,34 +105,28 @@ func (s *Server) handleControl(w http.ResponseWriter, r *http.Request) {
 	s.removeHost(h)
 }
 
-func verifyAuth(ws *websocket.Conn, pub ed25519.PublicKey, challenge string) (bool, string) {
+func verifyAuth(ws *websocket.Conn, pub ed25519.PublicKey, challenge string) bool {
 	typ, data, err := ws.ReadMessage()
-	if err != nil {
-		return false, diagnostics.ErrorKind(err)
-	}
-	if typ != websocket.TextMessage {
-		return false, "invalid_frame_type"
+	if err != nil || typ != websocket.TextMessage {
+		return false
 	}
 	var auth struct {
 		Type      string `json:"type"`
 		Signature string `json:"signature"`
 	}
-	if json.Unmarshal(data, &auth) != nil {
-		return false, "invalid_auth_json"
-	}
-	if auth.Type != "authenticate" {
-		return false, "invalid_auth_type"
+	if json.Unmarshal(data, &auth) != nil || auth.Type != "authenticate" {
+		return false
 	}
 	sig, ok := decodeB64(auth.Signature, ed25519.SignatureSize)
 	if !ok {
-		return false, "invalid_signature_encoding"
+		return false
 	}
 	for _, prefix := range signaturePrefixes {
 		if ed25519.Verify(pub, []byte(prefix+challenge), sig) {
-			return true, ""
+			return true
 		}
 	}
-	return false, "signature_mismatch"
+	return false
 }
 
 func (s *Server) removeHost(h *host) {
@@ -165,7 +140,6 @@ func (s *Server) removeHost(h *host) {
 		pairs = append(pairs, p)
 	}
 	s.mu.Unlock()
-	h.trace.Event("host.removed", "pairs_closing", len(pairs), "bytes_to_host", h.bytesIn.Load(), "bytes_from_host", h.bytesOut.Load())
 	var cleanup sync.WaitGroup
 	for _, p := range pairs {
 		cleanup.Add(1)

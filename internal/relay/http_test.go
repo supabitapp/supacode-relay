@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 func TestHTTPTimeoutsReleaseConnections(t *testing.T) {
@@ -29,7 +27,6 @@ func TestHTTPTimeoutsReleaseConnections(t *testing.T) {
 					t.Fatal(err)
 				}
 				relay := New(cfg)
-				relay.events = diagnostics.Logger(io.Discard)
 				server := relay.http
 				if listener == "private" {
 					server = relay.private
@@ -77,7 +74,6 @@ func TestHTTPTimeoutsDoNotExpireWebSockets(t *testing.T) {
 		t.Fatal(err)
 	}
 	relay := New(cfg)
-	relay.events = diagnostics.Logger(io.Discard)
 	address := serveHTTPWithShortTimeouts(t, relay.http)
 	host := registerHost(t, "ws://"+address)
 	client, peer := openPair(t, host)

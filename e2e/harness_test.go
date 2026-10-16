@@ -53,22 +53,14 @@ func TestMain(m *testing.M) {
 }
 
 type lockedBuffer struct {
-	mu      sync.Mutex
-	buf     bytes.Buffer
-	changed chan struct{}
+	mu  sync.Mutex
+	buf bytes.Buffer
 }
 
 func (b *lockedBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	n, err := b.buf.Write(p)
-	if b.changed != nil {
-		select {
-		case b.changed <- struct{}{}:
-		default:
-		}
-	}
-	return n, err
+	return b.buf.Write(p)
 }
 
 func (b *lockedBuffer) String() string {

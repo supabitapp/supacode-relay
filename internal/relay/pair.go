@@ -10,7 +10,6 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/supabitapp/supaterm-relay/internal/admission"
-	"github.com/supabitapp/supaterm-relay/internal/diagnostics"
 )
 
 type pairState int
@@ -22,27 +21,21 @@ const (
 	closed
 )
 
-func (state pairState) String() string {
-	return [...]string{"pending", "accepting", "active", "closed"}[state]
-}
-
 type pair struct {
-	s          *Server
-	id         string
-	token      string
-	host       *host
-	state      pairState
-	closedFrom pairState
-	cause      closeMsg
-	announced  bool
-	timer      *time.Timer
-	ready      chan struct{}
-	done       chan struct{}
-	client     *peer
-	clientKey  netip.Addr
-	hostPeer   *peer
-	refs       int
-	trace      *diagnostics.Trace
+	s         *Server
+	id        string
+	token     string
+	host      *host
+	state     pairState
+	cause     closeMsg
+	announced bool
+	timer     *time.Timer
+	ready     chan struct{}
+	done      chan struct{}
+	client    *peer
+	clientKey netip.Addr
+	hostPeer  *peer
+	refs      int
 }
 
 func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
@@ -55,22 +48,17 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	h := s.hosts[id]
 	if h == nil {
 		s.mu.Unlock()
-		s.reject(w, r, http.StatusNotFound, "endpoint not found")
+		s.reject(w, http.StatusNotFound, "endpoint not found")
 		return
 	}
 	if s.clientSlots >= s.cfg.MaxClients || h.clientSlots >= s.cfg.MaxClientsPerHost || h.pending >= s.cfg.MaxPendingPerHost {
-		total, hostSlots, hostPending := s.clientSlots, h.clientSlots, h.pending
 		s.mu.Unlock()
-		diagnostics.From(r).Event("pair.capacity.reached",
-			"current_clients", total, "max_clients", s.cfg.MaxClients,
-			"current_host_clients", hostSlots, "max_host_clients", s.cfg.MaxClientsPerHost,
-			"current_host_pending", hostPending, "max_host_pending", s.cfg.MaxPendingPerHost)
-		s.reject(w, r, http.StatusServiceUnavailable, "client capacity reached")
+		s.reject(w, http.StatusServiceUnavailable, "client capacity reached")
 		return
 	}
 	if h.clientCounts[clientKey] >= s.cfg.MaxClientsPerHostPerIP {
 		s.mu.Unlock()
-		s.reject(w, r, http.StatusTooManyRequests, "client capacity for host reached")
+		s.reject(w, http.StatusTooManyRequests, "client capacity for host reached")
 		return
 	}
 	p := &pair{
@@ -83,7 +71,6 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		ready:     make(chan struct{}),
 		done:      make(chan struct{}),
 	}
-	p.trace = diagnostics.From(r).With("pair_tag", diagnostics.Tag(p.id))
 	h.pairs[p.id] = p
 	s.pairs[p.id] = p
 	h.pending++
@@ -93,7 +80,6 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	s.pending++
 	p.timer = time.AfterFunc(s.cfg.PairTimeout, p.expire)
 	s.mu.Unlock()
-	p.trace.Event("pair.created", "pair_timeout_ms", s.cfg.PairTimeout.Milliseconds(), "control_trace_id", h.trace.ID())
 	defer p.releaseSlot()
 
 	ws, ok := s.upgrade(w, r, int64(s.cfg.MaxMessageBytes))
@@ -102,7 +88,6 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cp := s.newPeer(ws, nil, &h.bytesOut)
-	cp.trace = p.trace.With("peer", "client")
 	s.mu.Lock()
 	if p.state == closed {
 		cause := p.cause
@@ -112,9 +97,8 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	p.client = cp
 	p.announced = true
-	outcome := h.notify(map[string]string{"type": "incoming", "connectionId": p.id, "token": p.token})
+	h.notify(map[string]string{"type": "incoming", "connectionId": p.id, "token": p.token})
 	s.mu.Unlock()
-	p.trace.Event("pair.host.notification", "outcome", outcome)
 
 	cp.readData(p)
 }
@@ -131,23 +115,18 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 	}
 	if p == nil {
 		s.mu.Unlock()
-		s.reject(w, r, http.StatusNotFound, "connection not found")
+		s.reject(w, http.StatusNotFound, "connection not found")
 		return
 	}
 	token := q.Get("token")
 	if token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(p.token)) != 1 || p.state != pending || p.client == nil {
-		tag, clientTrace, phase := diagnostics.Tag(p.id), p.trace.ID(), p.state
 		s.mu.Unlock()
-		diagnostics.From(r).Event("pair.accept.rejected", "pair_tag", tag, "client_trace_id", clientTrace,
-			"phase", phase.String())
-		s.reject(w, r, http.StatusForbidden, "invalid token")
+		s.reject(w, http.StatusForbidden, "invalid token")
 		return
 	}
 	p.state = accepting
 	p.refs++
 	s.mu.Unlock()
-	trace := diagnostics.From(r).With("pair_tag", diagnostics.Tag(p.id), "client_trace_id", p.trace.ID())
-	trace.Event("pair.accept.authorized")
 	defer p.releaseSlot()
 
 	ws, ok := s.upgrade(w, r, int64(s.cfg.MaxMessageBytes))
@@ -156,7 +135,6 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hp := s.newPeer(ws, nil, &p.host.bytesIn)
-	hp.trace = trace.With("peer", "host")
 	s.mu.Lock()
 	if p.state != accepting {
 		cause := p.cause
@@ -172,7 +150,6 @@ func (s *Server) handleAccept(w http.ResponseWriter, r *http.Request) {
 	s.active++
 	close(p.ready)
 	s.mu.Unlock()
-	p.trace.Event("pair.active", "accept_trace_id", trace.ID())
 
 	hp.readData(p)
 }
@@ -199,7 +176,6 @@ func (p *pair) closeWhen(c closeMsg, waitingOnly bool) {
 		return
 	}
 	p.state = closed
-	p.closedFrom = prev
 	p.cause = c
 	h := p.host
 	delete(h.pairs, p.id)
@@ -215,7 +191,6 @@ func (p *pair) closeWhen(c closeMsg, waitingOnly bool) {
 	}
 	client, hostPeer := p.client, p.hostPeer
 	s.mu.Unlock()
-	p.trace.Event("pair.closing", "phase", prev.String(), "close_code", c.code, "reason", diagnostics.CloseReason(c.reason))
 	p.timer.Stop()
 	// Close controls may run alongside a data writer. One shared deadline
 	// bounds teardown even when either destination has stopped reading.
@@ -236,35 +211,18 @@ func (p *pair) closeWhen(c closeMsg, waitingOnly bool) {
 	close(p.done)
 }
 
-func (p *pair) logClosed() {
-	var clientBytes, hostBytes, clientMessages, hostMessages int64
-	if p.client != nil {
-		clientBytes, clientMessages = p.client.bytes.Load(), p.client.messages.Load()
-	}
-	if p.hostPeer != nil {
-		hostBytes, hostMessages = p.hostPeer.bytes.Load(), p.hostPeer.messages.Load()
-	}
-	p.trace.Event("pair.closed", "phase", p.closedFrom.String(),
-		"close_code", p.cause.code, "reason", diagnostics.CloseReason(p.cause.reason),
-		"bytes_to_host", clientBytes, "bytes_to_client", hostBytes,
-		"messages_to_host", clientMessages, "messages_to_client", hostMessages)
-}
-
 // Keep admission ownership until every accepted socket and writer has exited.
 func (p *pair) releaseSlot() {
 	p.s.mu.Lock()
+	defer p.s.mu.Unlock()
 	p.refs--
-	last := p.refs == 0
-	if last {
-		p.s.clientSlots--
-		p.host.clientSlots--
-		p.host.clientCounts[p.clientKey]--
-		if p.host.clientCounts[p.clientKey] == 0 {
-			delete(p.host.clientCounts, p.clientKey)
-		}
+	if p.refs > 0 {
+		return
 	}
-	p.s.mu.Unlock()
-	if last {
-		p.logClosed()
+	p.s.clientSlots--
+	p.host.clientSlots--
+	p.host.clientCounts[p.clientKey]--
+	if p.host.clientCounts[p.clientKey] == 0 {
+		delete(p.host.clientCounts, p.clientKey)
 	}
 }
